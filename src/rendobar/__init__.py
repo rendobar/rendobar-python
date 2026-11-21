@@ -18,6 +18,7 @@ from ._errors import (
     JobFailedError,
     NotFoundError,
     PermissionDeniedError,
+    Problem,
     RateLimitError,
     RendobarError,
     ResponseValidationError,
@@ -49,7 +50,7 @@ from ._version import __version__
 __all__ = [
     "Rendobar", "AsyncRendobar", "Jobs", "AsyncJobs", "Account", "AsyncAccount", "Page", "UnknownJob", "DeprecationNotice", "RendobarDeprecationWarning", "generate_idempotency_key",
     "RendobarError", "BadRequestError", "AuthenticationError", "InsufficientCreditsError",
-    "PermissionDeniedError", "NotFoundError", "ConflictError", "RateLimitError", "InternalServerError",
+    "PermissionDeniedError", "Problem", "NotFoundError", "ConflictError", "RateLimitError", "InternalServerError",
     "APIConnectionError", "APITimeoutError", "ResponseValidationError", "InvalidArgumentError",
     "JobFailedError", "WaitTimeoutError", "__version__",
     "Job", "JobWaiting", "JobDispatched", "JobRunning", "JobComplete", "JobFailed", "JobCancelled", "JobError", "JobStatus",

@@ -8,7 +8,7 @@ needed fails the check too, so a typo'd attribute can never type-check again.
 # pyright: reportUnnecessaryTypeIgnoreComment=true
 from __future__ import annotations
 
-from typing import AsyncIterator, Iterator, List, Union
+from typing import AsyncIterator, Iterator, List, Optional, Union
 
 from typing_extensions import assert_type
 
@@ -26,8 +26,11 @@ from rendobar import (
     JobType,
     JobTypeSchema,
     PageMeta,
+    Problem,
     Rendobar,
+    RendobarError,
     UnknownJob,
+    WaitTimeoutError,
 )
 
 Finished = Union[JobComplete, JobFailed, JobCancelled]
@@ -75,6 +78,12 @@ def sync_client(rb: Rendobar) -> None:
         rb.jobs.run("ffprobe")
     except JobFailedError as err:
         assert_type(err.job, Union[JobFailed, JobCancelled])
+        assert_type(err.code, str)
+    except WaitTimeoutError as err:
+        assert_type(err.job, Union[Job, UnknownJob])
+    except RendobarError as err:
+        assert_type(err.problems, List[Problem])
+        assert_type(err.idempotency_key, Optional[str])
 
 
 async def async_client(rb: AsyncRendobar) -> None:

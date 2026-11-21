@@ -40,8 +40,10 @@ import httpx
 import pydantic
 
 from ._errors import (
+    APIConnectionError,
     InvalidArgumentError,
     JobFailedError,
+    RendobarError,
     ResponseValidationError,
     WaitTimeoutError,
     api_key_error,
@@ -57,6 +59,9 @@ from ._generated.types.job import Job as _Job
 from ._generated.types.submit_any_job import SubmitAnyJob
 from ._models import (
     AccountCapabilities,
+    FinishedJob,
+    SomeJob,
+    UnknownJob,
     Job,
     JobCancellation,
     JobCancelled,
@@ -78,7 +83,8 @@ _WAIT_GRACE = 120.0  # headroom past the job's budget for upload and callback
 _APP_NAME = re.compile(r"^[A-Za-z0-9._+-]{1,32}$")
 _BACKOFF_BASE = 0.5  # seconds before the first retry with no Retry-After
 _BACKOFF_CAP = 8.0
-_MAX_RETRY_AFTER = 60.0  # a longer Retry-After is raised as a RateLimitError for the caller to schedule
+_MAX_RETRY_AFTER = 60.0  # a longer Retry-After is raised, with `retry_after` set, for the caller to schedule
+RETRIED_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 # What a call through the core can fail with. Everything else is a bug and propagates as is.
 _CORE_FAILURES: Tuple[Type[BaseException], ...] = (_GeneratedApiError, _GeneratedParsingError, httpx.TransportError)
@@ -104,25 +110,6 @@ class DeprecationNotice:
         return f"DeprecationNotice({self.method} {self.path}, since {self.deprecated_at.date()})"
 
 
-class UnknownJob:
-    """A job whose status this SDK version does not know yet.
-
-    Returned instead of raising, so code written today keeps working when the
-    API adds a status. `raw` holds the job as the API sent it.
-    """
-
-    def __init__(self, raw: Mapping[str, Any]) -> None:
-        self.raw = dict(raw)
-        self.id: str = str(raw.get("id", ""))
-        self.status: str = str(raw.get("status", ""))
-        self.type: Optional[str] = raw.get("type")
-
-    def __repr__(self) -> str:
-        return f"UnknownJob(id={self.id!r}, status={self.status!r})"
-
-
-SomeJob = Union[Job, UnknownJob]  # what a call that reads jobs returns
-FinishedJob = Union[JobComplete, JobFailed, JobCancelled]  # what jobs.wait() returns
 
 
 class Page:
@@ -205,15 +192,15 @@ def build_submit(
     params: Optional[Mapping[str, Any]],
     inputs: Optional[Mapping[str, Any]],
     *,
-    idempotency_key: Optional[str],
+    idempotency_key: str,
     label: Optional[str],
     destinations: Optional[Sequence[str]],
     callback: Optional[Mapping[str, Any]],
     force_async: Optional[bool],
 ) -> SubmitAnyJob:
-    """The submit body, with a generated idempotency key when the caller gave none."""
+    """The submit body. `idempotency_key` is the caller's, or one `generate_idempotency_key()` made for this call."""
     body: Dict[str, Any] = {"type": type, "params": dict(params or {}), "inputs": dict(inputs or {})}
-    body["idempotencyKey"] = idempotency_key if idempotency_key is not None else generate_idempotency_key()
+    body["idempotencyKey"] = idempotency_key
     if label is not None:
         body["label"] = label
     if destinations is not None:
@@ -270,29 +257,50 @@ def job_page(err: ResponseValidationError) -> "Page":
     return Page([job_from(item, err) for item in data], meta)
 
 
-def retry_delay(err: BaseException, attempt: int, max_retries: int, *, rand: Callable[[], float] = random.random) -> Optional[float]:
+def retry_delay(err: BaseException, attempt: int, max_retries: int, *, deadline: Optional[float] = None,
+                clock: Callable[[], float] = time.monotonic, rand: Callable[[], float] = random.random) -> Optional[float]:
     """Seconds to wait before retry number `attempt + 1`, or None to raise now.
 
-    Retried: 429 and 5xx (after `Retry-After` when sent, else exponential backoff
-    with jitter) and connection failures where the request never reached the API.
-    Never retried: any other status (a 409 conflict, a 408), a read timeout (the
-    API may still be working on it), and a response this SDK cannot read.
+    `deadline` (on `clock`, monotonic seconds) is the caller's: a retry that
+    would sleep past it is not made, and the error raises at once.
+
+    Retried: 429, 500, 502, 503 and 504 (after `Retry-After` when sent, else
+    exponential backoff with jitter) and connection failures where the request
+    never reached the API. Never retried: any other status (a 409 conflict, a
+    501, a 408), a read timeout (the API may still be working on it), and a
+    response this SDK cannot read.
     """
     if attempt >= max_retries:
         return None
     err = normalize(err)
     if isinstance(err, _GeneratedApiError):
-        status = err.status_code or 0
-        if status != 429 and status < 500:
+        if err.status_code not in RETRIED_STATUSES:
             return None
         headers = {k.lower(): v for k, v in (err.headers or {}).items()}
         after = parse_retry_after(headers.get("retry-after"))
         if after is not None:
-            return after if after <= _MAX_RETRY_AFTER else None
+            return _within(after if after <= _MAX_RETRY_AFTER else None, deadline, clock)
     elif not isinstance(err, (httpx.ConnectError, httpx.ConnectTimeout)):
         return None
     backoff = min(_BACKOFF_BASE * (2 ** attempt), _BACKOFF_CAP)
-    return backoff * (0.75 + 0.5 * rand())
+    return _within(backoff * (0.75 + 0.5 * rand()), deadline, clock)
+
+
+def _within(delay: Optional[float], deadline: Optional[float], clock: Callable[[], float]) -> Optional[float]:
+    return None if delay is None or (deadline is not None and clock() + delay > deadline) else delay
+
+
+_MAY_HAVE_CREATED = frozenset({429}) | frozenset(range(500, 600))
+
+
+def mark_cut_off(err: RendobarError, idempotency_key: str) -> None:
+    """Gives a failed submit the key it sent when the job may exist anyway, so resubmitting with it returns that job.
+
+    That is any failure with no answer (connection, timeout), a 429 or 5xx after
+    the last retry, and a success response this SDK could not read.
+    """
+    if isinstance(err, (APIConnectionError, ResponseValidationError)) or err.status_code in _MAY_HAVE_CREATED:
+        err.idempotency_key = idempotency_key
 
 
 class WaitClock:
@@ -355,7 +363,7 @@ class WaitPoll:
         self.clock.observe(job)
         remaining = self.clock.remaining()
         if remaining <= 0:
-            raise WaitTimeoutError(self.job_id, job.status, self.clock.total())
+            raise WaitTimeoutError(self.job_id, job.status, self.clock.total(), job)
         pause = min(self._delay, remaining)
         self._delay = min(self._delay * 1.5, self._max_interval)
         return pause
@@ -497,10 +505,11 @@ class Rendobar:
     def _note(self, response: Response[object], method: str, path: str) -> None:
         self._deprecations.note(response, method, path)
 
-    def _call(self, method: str, path: str, fn: Callable[[], Response[T]], *, public: bool = False) -> T:
+    def _call(self, method: str, path: str, fn: Callable[[], Response[T]], *, public: bool = False, deadline: Optional[float] = None) -> T:
         """One API call: retried per `retry_delay`, failures raised as RendobarError, deprecation noted.
 
         A call that needs a key (every one but `public`) raises at once when the client has none.
+        No retry sleeps past `deadline` (time.monotonic seconds).
         """
         if not public:
             require_key(self._api_key)
@@ -509,7 +518,7 @@ class Rendobar:
             try:
                 response = fn()
             except _CORE_FAILURES as err:
-                delay = retry_delay(err, attempt, self._max_retries)
+                delay = retry_delay(err, attempt, self._max_retries, deadline=deadline)
                 if delay is None:
                     raise to_public(err) from err
                 attempt += 1
@@ -534,9 +543,9 @@ class Jobs:
         """One job type's params: `fields`, `inputs` and the full `json_schema`. Public: needs no API key."""
         return self._client._call("GET", f"/jobs/types/{type}/schema", lambda: self._raw.get_job_type_schema(path_segment("type", type)), public=True).data
 
-    def _job(self, method: str, path: str, fn: Callable[[], Response[Envelope[T]]]) -> Union[T, UnknownJob]:
+    def _job(self, method: str, path: str, fn: Callable[[], Response[Envelope[T]]], deadline: Optional[float] = None) -> Union[T, UnknownJob]:
         try:
-            return self._client._call(method, path, fn).data
+            return self._client._call(method, path, fn, deadline=deadline).data
         except ResponseValidationError as err:
             return one_job(err)
 
@@ -571,9 +580,14 @@ class Jobs:
                 `{"url": ..., "headers": {...}, "verify": True, "events": ["job.started"]}`.
             force_async: Queue the job even when its type can finish during the request.
         """
-        request = build_submit(type, params, inputs, idempotency_key=idempotency_key, label=label,
+        key = idempotency_key if idempotency_key is not None else generate_idempotency_key()
+        request = build_submit(type, params, inputs, idempotency_key=key, label=label,
                                destinations=destinations, callback=callback, force_async=force_async)
-        return self._job("POST", "/jobs", lambda: self._raw.submit_job(request=request))
+        try:
+            return self._job("POST", "/jobs", lambda: self._raw.submit_job(request=request))
+        except RendobarError as err:
+            mark_cut_off(err, key)
+            raise
 
     def get(self, job_id: str) -> SomeJob:
         """The job now. A status newer than this SDK comes back as `UnknownJob`.
@@ -581,7 +595,10 @@ class Jobs:
         Narrow with isinstance to read what only one status has, such as
         `output` on `JobComplete` and `error` on `JobFailed`.
         """
-        return self._job("GET", f"/jobs/{job_id}", lambda: self._raw.get_job(path_segment("job_id", job_id)))
+        return self._get(job_id, None)
+
+    def _get(self, job_id: str, deadline: Optional[float]) -> SomeJob:
+        return self._job("GET", f"/jobs/{job_id}", lambda: self._raw.get_job(path_segment("job_id", job_id)), deadline)
 
     def list(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
         """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page.
@@ -655,7 +672,7 @@ class Jobs:
         """
         poll = WaitPoll(job_id, timeout=timeout, interval=interval, max_interval=max_interval, throw_on_failure=throw_on_failure)
         while True:
-            job = self.get(job_id)
+            job = self._get(job_id, poll.clock.deadline)
             if on_progress is not None:
                 on_progress(job)
             done = poll.finished(job)

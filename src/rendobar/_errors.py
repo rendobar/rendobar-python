@@ -20,15 +20,47 @@ from __future__ import annotations
 
 import email.utils
 import time
-from typing import Any, Dict, Mapping, Optional, Type, Union
+from dataclasses import dataclass
+from typing import Any, Dict, List, Mapping, Optional, Tuple, Type, Union
 
 import httpx
 
 from ._generated.core.api_error import ApiError as _GeneratedApiError
 from ._generated.core.parse_error import ParsingError as _GeneratedParsingError
-from ._models import JobCancelled, JobFailed
+from ._models import JobCancelled, JobFailed, SomeJob
 
 REQUEST_ID_HEADER = "x-request-id"
+
+
+@dataclass(frozen=True)
+class Problem:
+    """One problem in a refused request: where it is (`path`), what is wrong, and the plan that allows it.
+
+    `upgrade_to` is set on a plan refusal: the cheapest plan that runs the
+    request ("pro", "studio"), or None when there is none to name.
+    """
+
+    path: Tuple[Union[str, int], ...]
+    message: str
+    upgrade_to: Optional[str] = None
+
+
+def parse_problems(details: Any) -> List[Problem]:
+    """`error.details` as Problems when it is a list of them. Items that are not problem-shaped are skipped, never raised on."""
+    if not isinstance(details, list):
+        return []
+    out: List[Problem] = []
+    for item in details:
+        if not isinstance(item, Mapping):
+            continue
+        path, message, upgrade = item.get("path"), item.get("message"), item.get("upgradeTo")
+        if isinstance(path, str):
+            path = [path]
+        if not isinstance(path, list) or not isinstance(message, str):
+            continue
+        steps = tuple(p for p in path if isinstance(p, (str, int)) and not isinstance(p, bool))
+        out.append(Problem(steps, message, upgrade if isinstance(upgrade, str) else None))
+    return out
 
 
 class RendobarError(Exception):
@@ -51,6 +83,10 @@ class RendobarError(Exception):
         self.request_id = request_id
         self.details = details
         self.retry_after = retry_after
+        # Each problem the API listed in `details` (VALIDATION_ERROR, PLAN_LIMIT, FEATURE_NOT_ENABLED), typed.
+        self.problems: List[Problem] = parse_problems(details)
+        # Set on a submit that failed after the job may exist: submit again with it to get that job, not a second one.
+        self.idempotency_key: Optional[str] = None
 
     def __str__(self) -> str:
         rid = f" (request {self.request_id})" if self.request_id else ""
@@ -177,9 +213,12 @@ class JobFailedError(RendobarError):
 
 
 class WaitTimeoutError(RendobarError):
-    """Raised by `jobs.wait()` when the deadline passes before the job ends. The job may still finish."""
+    """Raised by `jobs.wait()` when the deadline passes before the job ends. The job may still finish.
 
-    def __init__(self, job_id: str, last_status: str, timeout: float) -> None:
+    `job` is the last job the wait read, `last_status` its status.
+    """
+
+    def __init__(self, job_id: str, last_status: str, timeout: float, job: SomeJob) -> None:
         super().__init__(
             f"Job {job_id} did not finish within {format_seconds(timeout)} (last status: {last_status}). It may still complete.",
             code="WAIT_TIMEOUT",
@@ -187,6 +226,7 @@ class WaitTimeoutError(RendobarError):
         self.job_id = job_id
         self.last_status = last_status
         self.timeout = timeout
+        self.job = job
 
     def __str__(self) -> str:
         return self.message

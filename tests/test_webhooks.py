@@ -43,3 +43,15 @@ def test_a_non_ascii_previous_signature_is_false_not_an_error() -> None:
         "x-rendobar-timestamp": str(VECTORS["timestamp"]),
     }
     assert verify(VECTORS["body"], headers, VECTORS["secret"], now=VECTORS["timestamp"]) is False
+
+
+def test_a_bare_hex_signature_is_refused() -> None:
+    signature = VECTORS["cases"][0]["headers"]["x-rendobar-signature"]
+    headers = {"x-rendobar-signature": signature.removeprefix("sha256="), "x-rendobar-timestamp": str(VECTORS["timestamp"])}
+    assert verify(VECTORS["body"], headers, VECTORS["secret"], now=VECTORS["timestamp"]) is False
+
+
+def test_the_tolerance_is_300_seconds_inclusive() -> None:
+    case = VECTORS["cases"][0]
+    assert verify(VECTORS["body"], case["headers"], VECTORS["secret"], now=VECTORS["timestamp"] + 300) is True
+    assert verify(VECTORS["body"], case["headers"], VECTORS["secret"], now=VECTORS["timestamp"] + 301) is False

@@ -80,7 +80,7 @@ def summarize(job: SomeJob) -> Dict[str, Any]:
     out: Dict[str, Any] = {"id": job.id, "type": job.type, "status": job.status}
     if isinstance(job, JobComplete):
         output = job.output
-        out["url"] = output.file.url if output.file is not None else (output.files[0].url if output.files else None)
+        out["url"] = output.file.url if output.file is not None else None  # the headline file only, never a guess from `files`
         out["files"] = [{"url": f.url, "type": str(f.type), "path": f.path, "size": f.size} for f in output.files]
         if output.data is not None:
             out["data"] = _plain(output.data)

@@ -39,7 +39,9 @@ def _header(headers: Mapping[str, object], name: str) -> Optional[str]:
 
 
 def _matches(signed: bytes, signature: str, secret: str) -> bool:
-    expected = signature[7:] if signature.startswith("sha256=") else signature
+    if not signature.startswith("sha256="):  # the prefix is part of the format: a bare hex digest is refused
+        return False
+    expected = signature[7:]
     computed = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
     # Compare bytes: compare_digest refuses a str with non-ASCII characters, and a
     # header is attacker-controlled, so a garbage signature must be False, not a crash.
@@ -57,8 +59,8 @@ def verify(
     """True when the delivery is signed with `secret` (or the previous secret) and is fresh.
 
     An empty or blank `secret` always returns False: anyone can sign with an empty
-    key, so accepting one would accept forged deliveries. Never raises on a
-    malformed header.
+    key, so accepting one would accept forged deliveries. So does a signature
+    without its `sha256=` prefix. Never raises on a malformed header.
     """
     if not isinstance(secret, str) or not secret.strip():
         return False

@@ -15,7 +15,7 @@ import here, in CI, instead of shipping a silent change.
 from __future__ import annotations
 
 import sys
-from typing import Dict, Type, Union
+from typing import Any, Dict, Mapping, Optional, Type, Union
 
 from ._generated.account.types.get_account_capabilities_response_data import GetAccountCapabilitiesResponseData
 from ._generated.account.types.get_account_capabilities_response_data_features import GetAccountCapabilitiesResponseDataFeatures
@@ -41,6 +41,27 @@ JobFailed = Job_Failed
 JobCancelled = Job_Cancelled
 Job = Union[JobWaiting, JobDispatched, JobRunning, JobComplete, JobFailed, JobCancelled]
 JobError = _GeneratedJobError  # `JobFailed.error`: code, message, retryable, failed_phase
+
+
+class UnknownJob:
+    """A job whose status this SDK version does not know yet.
+
+    Returned instead of raising, so code written today keeps working when the
+    API adds a status. `raw` holds the job as the API sent it.
+    """
+
+    def __init__(self, raw: Mapping[str, Any]) -> None:
+        self.raw = dict(raw)
+        self.id: str = str(raw.get("id", ""))
+        self.status: str = str(raw.get("status", ""))
+        self.type: Optional[str] = raw.get("type")
+
+    def __repr__(self) -> str:
+        return f"UnknownJob(id={self.id!r}, status={self.status!r})"
+
+
+SomeJob = Union[Job, UnknownJob]  # what a call that reads jobs returns
+FinishedJob = Union[JobComplete, JobFailed, JobCancelled]  # what jobs.wait() returns
 
 # What jobs.create() returns: the job it created (`status` "waiting", or "complete"
 # for a job that finished during the request), or a replay of the job an earlier

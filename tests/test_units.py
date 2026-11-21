@@ -19,6 +19,7 @@ from rendobar import (
     AsyncRendobar,
     AuthenticationError,
     ConflictError,
+    InternalServerError,
     InvalidArgumentError,
     JobCancelled,
     JobComplete,
@@ -167,7 +168,7 @@ def test_an_unknown_status_is_not_terminal() -> None:
 
 @pytest.mark.parametrize("seconds, shown", [(0.5, "0.5s"), (0.25, "0.25s"), (2.0, "2s"), (9.5, "9.5s"), (300.0, "300s"), (420.4, "420s")])
 def test_the_wait_timeout_message_shows_sub_second_bounds(seconds: float, shown: str) -> None:
-    err = WaitTimeoutError("job_1", "running", seconds)
+    err = WaitTimeoutError("job_1", "running", seconds, model("running"))
     assert f"within {shown} " in str(err) and err.timeout == seconds
 
 
@@ -496,3 +497,133 @@ def test_other_client_side_problems_are_invalid_arguments_too() -> None:
 def test_a_page_prints_its_size_and_window() -> None:
     page = sync_client(routes(PAGES)).jobs.list()
     assert repr(page) == "Page(3 jobs, total=3, page=1, limit=50)"
+
+
+# ── the cross-SDK behaviour standard ──────────────────────────────────
+
+@pytest.mark.parametrize("status", [501, 505, 507, 599])
+def test_only_429_500_502_503_504_are_retried(status: int) -> None:
+    assert retry_delay(api_error(status), 0, 5) is None
+
+
+def test_a_retry_after_on_a_503_is_honoured_and_a_long_one_is_raised_with_it() -> None:
+    assert retry_delay(api_error(503, {"Retry-After": "1"}), 0, 2) == 1.0
+    assert retry_delay(api_error(503, {"Retry-After": "3600"}), 0, 2) is None
+
+    def long_wait(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"error": {"code": "RATE_LIMITED", "message": "x"}}, headers={"Retry-After": "3600"})
+
+    with pytest.raises(RendobarError) as info:
+        sync_client(long_wait).jobs.get("job_1")
+    assert info.value.retry_after == 3600
+
+
+def test_no_retry_sleeps_past_the_callers_deadline() -> None:
+    clock = FakeClock()
+    assert retry_delay(api_error(503, {"Retry-After": "5"}), 0, 2, deadline=clock.now + 4, clock=clock) is None
+    assert retry_delay(api_error(503, {"Retry-After": "5"}), 0, 2, deadline=clock.now + 6, clock=clock) == 5.0
+    assert retry_delay(api_error(503), 0, 2, deadline=clock.now + 0.1, clock=clock, rand=lambda: 0.0) is None
+
+
+def test_wait_does_not_retry_past_its_own_timeout() -> None:
+    seen: List[float] = []
+
+    def busy(request: httpx.Request) -> httpx.Response:
+        seen.append(1)
+        return httpx.Response(503, json={"error": {"code": "BUSY", "message": "x"}}, headers={"Retry-After": "30"})
+
+    with pytest.raises(InternalServerError):
+        sync_client(busy).jobs.wait("job_1", timeout=2)
+    assert len(seen) == 1  # a 30 s Retry-After would outlive the 2 s wait: raised, not slept
+
+
+def _down(request: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("refused", request=request)
+
+
+def _answer(status: int) -> Handler:
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, json={"error": {"code": "X", "message": "x"}}, headers={"Retry-After": "0"})
+    return handle
+
+
+@pytest.mark.parametrize("handler", [_down, _answer(503), _answer(429)], ids=["connection", "503", "429"])
+def test_a_cut_off_submit_carries_the_key_it_sent(handler: Handler) -> None:
+    with pytest.raises(RendobarError) as info:
+        sync_client(handler, max_retries=1).jobs.create("ffprobe", {"command": "x"})
+    assert (info.value.idempotency_key or "").startswith("sdk_")
+    with pytest.raises(RendobarError) as mine:
+        asyncio.run(async_client(handler, max_retries=0).jobs.create("ffprobe", idempotency_key="order-7"))
+    assert mine.value.idempotency_key == "order-7"
+
+
+def test_a_refused_submit_carries_no_key() -> None:
+    with pytest.raises(RendobarError) as info:
+        sync_client(_answer(400)).jobs.create("ffprobe")
+    assert info.value.idempotency_key is None
+
+
+def test_the_key_generator_is_exported() -> None:
+    from rendobar import generate_idempotency_key
+
+    assert generate_idempotency_key() != generate_idempotency_key()
+
+
+def test_problems_are_parsed_from_details_and_never_raise() -> None:
+    details = [
+        {"path": ["params", "command"], "message": "Required"},
+        {"path": ["params", "width"], "message": "Above your plan", "upgradeTo": "studio"},
+        {"path": "params.fps", "message": "Too high"},
+        {"path": [0, True, "x"], "message": "odd path"},
+        {"message": "no path"}, {"path": ["x"]}, "not a dict", None,
+    ]
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": {"code": "VALIDATION_ERROR", "message": "x", "details": details}})
+
+    with pytest.raises(RendobarError) as info:
+        sync_client(refuse).jobs.create("ffprobe")
+    problems = info.value.problems
+    assert [(p.path, p.message, p.upgrade_to) for p in problems] == [
+        (("params", "command"), "Required", None),
+        (("params", "width"), "Above your plan", "studio"),
+        (("params.fps",), "Too high", None),
+        ((0, "x"), "odd path", None),
+    ]
+    assert info.value.details == details  # passed through unchanged
+    assert RendobarError("x", code="X", details={"not": "a list"}).problems == []
+
+
+def test_a_wait_timeout_carries_the_last_job_read() -> None:
+    running = job("job_1", "running")
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": running})
+
+    with pytest.raises(WaitTimeoutError) as info:
+        sync_client(handle).jobs.wait("job_1", timeout=0.2, interval=0.05)
+    assert info.value.job_id == "job_1" and info.value.last_status == "running"
+    assert isinstance(info.value.job, JobRunning) and info.value.job.id == "job_1"
+
+
+def test_a_trailing_slash_on_base_url_never_doubles_the_path() -> None:
+    paths: List[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.raw_path.decode())
+        return httpx.Response(200, json={"data": job("job_1", "running")})
+
+    rb = Rendobar("rb_k", base_url="https://api.test/")
+    _install(rb._core._client_wrapper.httpx_client.httpx_client, handle)  # noqa: SLF001
+    rb.jobs.get("job_1")
+    assert paths == ["/jobs/job_1"]
+
+
+def test_the_agent_headline_url_is_output_file_only() -> None:
+    from rendobar.agents import summarize
+
+    files = [{"url": "https://cdn.test/a.png", "type": "image", "path": "a.png", "size": 1}]
+    many = job("job_1", "complete", output={"file": None, "files": files})
+    rb = sync_client(routes({"GET /jobs/job_1": (200, {"data": many})}))
+    summary = summarize(rb.jobs.get("job_1"))
+    assert summary["url"] is None and summary["files"][0]["url"] == "https://cdn.test/a.png"

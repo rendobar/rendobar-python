@@ -27,6 +27,8 @@ from ._client import (
     _Fetched,
     build_submit,
     core_options,
+    generate_idempotency_key,
+    mark_cut_off,
     job_page,
     one_job,
     JobStatus,
@@ -36,7 +38,7 @@ from ._client import (
     resolve_api_key,
     retry_delay,
 )
-from ._errors import ResponseValidationError, to_public
+from ._errors import RendobarError, ResponseValidationError, to_public
 from ._generated.client import AsyncGeneratedClient
 from ._models import AccountCapabilities, JobCancellation, JobComplete, JobCreated, JobReplayed, JobType, JobTypeSchema
 
@@ -82,7 +84,7 @@ class AsyncRendobar:
     def _note(self, response: Response[object], method: str, path: str) -> None:
         self._deprecations.note(response, method, path)
 
-    async def _call(self, method: str, path: str, fn: Callable[[], Awaitable[Response[T]]], *, public: bool = False) -> T:
+    async def _call(self, method: str, path: str, fn: Callable[[], Awaitable[Response[T]]], *, public: bool = False, deadline: Optional[float] = None) -> T:
         """One API call, with the same retries and errors as `Rendobar._call`."""
         if not public:
             require_key(self._api_key)
@@ -91,7 +93,7 @@ class AsyncRendobar:
             try:
                 response = await fn()
             except _CORE_FAILURES as err:
-                delay = retry_delay(err, attempt, self._max_retries)
+                delay = retry_delay(err, attempt, self._max_retries, deadline=deadline)
                 if delay is None:
                     raise to_public(err) from err
                 attempt += 1
@@ -116,9 +118,9 @@ class AsyncJobs:
         """One job type's params: `fields`, `inputs` and the full `json_schema`. Public: needs no API key."""
         return (await self._client._call("GET", f"/jobs/types/{type}/schema", lambda: self._raw.get_job_type_schema(path_segment("type", type)), public=True)).data
 
-    async def _job(self, method: str, path: str, fn: Callable[[], Awaitable[Response[Envelope[T]]]]) -> Union[T, UnknownJob]:
+    async def _job(self, method: str, path: str, fn: Callable[[], Awaitable[Response[Envelope[T]]]], deadline: Optional[float] = None) -> Union[T, UnknownJob]:
         try:
-            return (await self._client._call(method, path, fn)).data
+            return (await self._client._call(method, path, fn, deadline=deadline)).data
         except ResponseValidationError as err:
             return one_job(err)
 
@@ -153,13 +155,21 @@ class AsyncJobs:
                 `{"url": ..., "headers": {...}, "verify": True, "events": ["job.started"]}`.
             force_async: Queue the job even when its type can finish during the request.
         """
-        request = build_submit(type, params, inputs, idempotency_key=idempotency_key, label=label,
+        key = idempotency_key if idempotency_key is not None else generate_idempotency_key()
+        request = build_submit(type, params, inputs, idempotency_key=key, label=label,
                                destinations=destinations, callback=callback, force_async=force_async)
-        return await self._job("POST", "/jobs", lambda: self._raw.submit_job(request=request))
+        try:
+            return await self._job("POST", "/jobs", lambda: self._raw.submit_job(request=request))
+        except RendobarError as err:
+            mark_cut_off(err, key)
+            raise
 
     async def get(self, job_id: str) -> SomeJob:
         """The job now. A status newer than this SDK comes back as `UnknownJob`."""
-        return await self._job("GET", f"/jobs/{job_id}", lambda: self._raw.get_job(path_segment("job_id", job_id)))
+        return await self._get(job_id, None)
+
+    async def _get(self, job_id: str, deadline: Optional[float]) -> SomeJob:
+        return await self._job("GET", f"/jobs/{job_id}", lambda: self._raw.get_job(path_segment("job_id", job_id)), deadline)
 
     async def list(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
         """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page.
@@ -235,7 +245,7 @@ class AsyncJobs:
         poll = WaitPoll(job_id, timeout=timeout, interval=interval, max_interval=max_interval,
                         throw_on_failure=throw_on_failure, clock=time.monotonic)
         while True:
-            job = await self.get(job_id)
+            job = await self._get(job_id, poll.clock.deadline)
             if on_progress is not None:
                 on_progress(job)
             done = poll.finished(job)
