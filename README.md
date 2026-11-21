@@ -42,14 +42,16 @@ Python 3.10 or newer.
 from rendobar import Rendobar
 
 with Rendobar() as rb:  # reads RENDOBAR_API_KEY, or pass Rendobar("rb_...")
-    job = rb.jobs.run(
-        type="ffmpeg",
-        params={"command": "ffmpeg -i https://cdn.rendobar.com/assets/examples/sample.mp4 -vf scale=1280:-2 out.mp4"},
-    )
+    job = rb.jobs.run({
+        "type": "ffmpeg",
+        "params": {"command": "ffmpeg -i https://cdn.rendobar.com/assets/examples/sample.mp4 -vf scale=1280:-2 out.mp4"},
+    })
 print(job.output.files[0].url)
 ```
 
 `jobs.run()` submits the job and waits for it. Use `jobs.create()` and `jobs.wait()` to do the two steps yourself, and `rb.jobs.types()` to list every live job type.
+
+The job is a dict typed per job type. Pyright, mypy and your editor know each type's params, so a misspelt or missing param, a wrong value type or an unknown job type fails the type check before anything runs.
 
 The `with` block closes the client's connections when it ends. A long-lived client (one per app) can skip it and call `rb.close()` at shutdown.
 
@@ -63,14 +65,14 @@ from rendobar import AsyncRendobar
 
 async def main() -> None:
     async with AsyncRendobar() as rb:
-        job = await rb.jobs.run(type="ffprobe", params={"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"})
+        job = await rb.jobs.run({"type": "ffprobe", "params": {"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"}})
         print(job.output.data)
 
 
 asyncio.run(main())
 ```
 
-`AsyncRendobar` takes the same arguments and has the same methods as `Rendobar`, awaited. `await rb.aclose()` does the same as the `async with` block for a client you keep open.
+`AsyncRendobar` takes the same arguments and has the same methods as `Rendobar`, awaited. `await rb.aclose()` does the same as the `async with` block for a client you keep open. A call on a closed client raises `RendobarError` with code `CLIENT_CLOSED`.
 
 ## Client options
 
@@ -91,18 +93,33 @@ rb = Rendobar(
 
 With no key passed and no `RENDOBAR_API_KEY` set (or an empty one), the client still works for `jobs.types()` and `jobs.schema()`, which need no key. Every other call raises `AuthenticationError` with code `MISSING_API_KEY` before it sends anything. A key that does not start with `rb_` gets code `INVALID_API_KEY` the same way, and the client never sends it.
 
+## Submitting a job
+
+The first argument of `jobs.create()` and `jobs.run()` says what to run: `type`, `params` and, for job types that read files, `inputs`. Everything about how to run it is a keyword argument, listed under [Job options](#job-options). A submit option inside the job dict is a type error.
+
+```python
+from rendobar import Rendobar, UntypedJob
+
+rb = Rendobar()
+rb.jobs.create({"type": "ffprobe", "params": {"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"}}, label="probe")
+
+# A job type newer than your installed SDK: UntypedJob is the one way to submit it.
+# It skips the type check, so the API is the first to see a mistake.
+rb.jobs.create(UntypedJob("captions.translate", {"language": "de"}))
+```
+
+`rb.jobs.schema(type)` describes a job type's params at run time. The typed dicts come from the API spec, so a new job type gets its own type in the next release of this SDK.
+
 ## Job options
 
-`jobs.run()` takes every option of `jobs.create()` and `jobs.wait()`. All of them are keyword arguments except `type`, `params` and `inputs`.
+`jobs.run()` takes every option of `jobs.create()` and `jobs.wait()`. All of them are keyword arguments except `job`.
 
 | Option | Method | What it does |
 |---|---|---|
-| `type` | create, run | The job type, such as `"ffmpeg"`. `rb.jobs.types()` lists every live one. |
-| `params` | create, run | The job type's params. `rb.jobs.schema(type)` describes them. |
-| `inputs` | create, run | Named input files, as URLs, for job types that take them. |
+| `job` | create, run | What to run: a job dict typed per job type, or an `UntypedJob`. See [Submitting a job](#submitting-a-job). |
 | `idempotency_key` | create, run | Makes the submit safe to repeat. See [Retries and idempotency](#retries-and-idempotency). |
 | `label` | create, run | A short name for the job, shown in the dashboard and returned as `job.label`. |
-| `destinations` | create, run | Where to deliver the output, as `storage://<id>[/<folder or path>]`. |
+| `destinations` | create, run | Where to deliver the output, as a list of `storage://<id>[/<folder or path>]`. |
 | `callback` | create, run | A URL Rendobar POSTs the job to when it ends: `{"url": ..., "headers": {...}, "verify": True}`. |
 | `force_async` | create, run | Queue the job even when its type can finish during the request. |
 | `timeout` | wait, run | Seconds to wait before `WaitTimeoutError`. Default described below. |
@@ -144,9 +161,20 @@ These names are aliases of the models generated from the API spec. `isinstance()
 
 `jobs.list()` takes `status` as one of the six job statuses (`JobStatus`), `limit` (1 or more) and `offset` (0 or more).
 
-`job.cost.amount` is in nanodollars (1 USD = 1,000,000,000). `job.cost.formatted` has the same amount as dollars, such as `"$0.0021"`.
+`job.cost` is `None` until billing settles, which can be a moment after the job completes. Its `amount` is in nanodollars (1 USD = 1,000,000,000), and `formatted` has the same amount as dollars, such as `"$0.0021"`:
 
-A job whose status is newer than your installed SDK comes back as `UnknownJob` with `id`, `status` and `raw`, rather than raising. That holds for every call that returns jobs (`get`, `list`, `list_all`, `create`, `cancel`, `wait`): in a list, only the job with the new status is an `UnknownJob`, the rest of the page is typed as usual.
+```python
+from rendobar import JobComplete, Rendobar
+
+rb = Rendobar()
+job = rb.jobs.get("job_abc123")
+if isinstance(job, JobComplete) and job.cost is not None:
+    print(job.cost.formatted)
+```
+
+`jobs.download(job_id, to)` streams a completed job's output file to a path or to a binary file you opened, and returns the bytes written. It never holds the file in memory. A connection that breaks mid-file raises at once rather than retrying, and a file the call created is removed.
+
+A job whose status is newer than your installed SDK comes back as `UnknownJob` with `id`, `status` and `raw`, rather than raising. That holds for every call that returns jobs (`get`, `list`, `list_all`, `create`, `cancel`, `wait`): in a list, only the job with the new status is an `UnknownJob`, the rest of the page is typed as usual. `jobs.wait()` treats a status it does not know as not finished, so a wait on one ends at its timeout with a `WaitTimeoutError` that carries the job.
 
 ## Errors
 
@@ -171,18 +199,22 @@ Everything the SDK raises is a `RendobarError` with a `code`:
 | `InvalidArgumentError` (also a `ValueError`) | an argument the SDK refuses before any request: a job id that is not one path segment (`"../x"`), `limit` below 1, a negative `offset`, an invalid `app` name |
 | `APIConnectionError` | no response: the connection failed or dropped |
 | `APITimeoutError` (an `APIConnectionError`) | the request took longer than the client's `timeout` |
-| `ResponseValidationError` | a response this SDK version cannot read (`body` holds it) |
+| `ResponseValidationError` | a response this SDK version cannot read, such as a success body that is not JSON (`body` holds it) |
+| `RendobarError` with code `CLIENT_CLOSED` | a call on a client after `close()` or `aclose()` |
 | `JobFailedError` | `jobs.run()`, or `jobs.wait(throw_on_failure=True)`, saw the job fail or be cancelled. `code` is the job's own error code and `job` the job |
 | `WaitTimeoutError` | `jobs.wait()` gave up. The job may still finish. `job_id`, `last_status` and `job` (the last job read) are set |
+| `WebhookSignatureError` | `rendobar.webhooks.parse()` got a delivery that is not signed with your secret, or is stale |
 
-A 400, 402 or 403 that lists what is wrong also has `problems`: each one's `path` (such as `("params", "command")`), `message` and, on a plan refusal, `upgrade_to` (the plan that allows it).
+`code` is one of the codes in `ErrorCode` or, from a newer API, any other string, so compare it with strings rather than matching every case.
+
+A refusal that lists what is wrong has `problems`: each one's `path` (such as `("params", "command")`), `message` and, on a plan refusal, `upgrade_to` (the plan that allows it). `details` holds the same list, or a mapping of other facts such as the `jobId` of a conflict.
 
 ```python
 from rendobar import BadRequestError, Rendobar
 
 rb = Rendobar()
 try:
-    rb.jobs.create("ffmpeg", {})
+    rb.jobs.create({"type": "ffmpeg", "params": {"command": "ffmpeg -i https://example.com/missing.mp4 out.mp4"}})
 except BadRequestError as err:
     for problem in err.problems:
         print(".".join(map(str, problem.path)), problem.message)
@@ -200,16 +232,27 @@ When a submit fails in a way that may still have created the job (no answer, a t
 
 ```python
 import os
-from rendobar.webhooks import verify
+from typing import Mapping
 
-def handle_rendobar_webhook(raw_body: bytes, headers: dict) -> int:
-    if not verify(raw_body, headers, os.environ["RENDOBAR_WEBHOOK_SECRET"]):
+from rendobar import WebhookSignatureError
+from rendobar.webhooks import JobCompletedEvent, JobFailedEvent, parse
+
+
+def handle_rendobar_webhook(raw_body: bytes, headers: Mapping[str, str]) -> int:
+    try:
+        event = parse(raw_body, headers, os.environ["RENDOBAR_WEBHOOK_SECRET"])
+    except WebhookSignatureError:
         return 401
-    # The body is genuine: parse it and act on the event.
-    return 200
+    if isinstance(event, JobCompletedEvent):
+        print(event.data.job_id, [file.url for file in event.data.output.files])
+    elif isinstance(event, JobFailedEvent):
+        print(event.data.job_id, event.data.error.code)
+    return 200  # acknowledge every genuine delivery, including events you do not handle
 ```
 
-Pass the raw body exactly as received. Parsing and re-serialising the JSON first changes the bytes, and the signature no longer matches. An empty secret never verifies, so read it with `os.environ["RENDOBAR_WEBHOOK_SECRET"]` and let a missing one fail at startup. The job id is at `data.jobId` in the parsed body.
+`parse()` checks the signature, then returns the event typed by its name: `JobCreatedEvent`, `JobStartedEvent`, `JobCompletedEvent`, `JobFailedEvent`, `JobCancelledEvent`, `JobDeliverySucceededEvent`, `JobDeliveryFailedEvent`, `JobDeliveriesSettledEvent`, `BalanceLowEvent`, `BalanceDepletedEvent` or `TestEvent`. An event, or an envelope version, that your SDK does not know comes back as `UnknownWebhookEvent` with the body in `raw`, never as an exception, so a new event cannot break your handler. `verify()` is the signature check alone, as a bool, if you read the body yourself.
+
+Pass the raw body exactly as received. Parsing and re-serialising the JSON first changes the bytes, and the signature no longer matches. An empty secret never verifies, so read it with `os.environ["RENDOBAR_WEBHOOK_SECRET"]` and let a missing one fail at startup.
 
 Rendobar signs each delivery with these headers:
 
