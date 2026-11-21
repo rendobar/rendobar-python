@@ -1,0 +1,10 @@
+{
+  "cliVersion": "5.224.0",
+  "generatorName": "fernapi/fern-python-sdk",
+  "generatorVersion": "5.42.4",
+  "generatorConfig": {
+    "client_class_name": "GeneratedClient",
+    "package_name": "rendobar"
+  },
+  "invokedBy": "manual"
+}

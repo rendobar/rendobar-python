@@ -1,0 +1,47 @@
+name: regenerate
+# Pulls the published spec from production every hour. Nothing happens unless it
+# changed. The SDK only ever sees a spec that is already live, so it can never
+# ship a method the API does not serve yet.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: regenerate
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the live spec
+        id: spec
+        run: |
+          curl -sf https://api.rendobar.com/openapi.json -o /tmp/live.json
+          # Until production serves the typed spec (SubmitAnyJob marks it), do nothing:
+          # regenerating from an older document would undo the typed core.
+          if ! python3 -c "import json,sys;sys.exit(0 if 'SubmitAnyJob' in json.load(open('/tmp/live.json')).get('components',{}).get('schemas',{}) else 1)"; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "Production spec is not the typed one yet. Skipping."; exit 0; fi
+          python3 -c "import json;json.dump(json.load(open('/tmp/live.json')),open('/tmp/live.norm.json','w'),indent=2,sort_keys=True)"
+          python3 -c "import json;json.dump(json.load(open('fern/openapi.json')),open('/tmp/ours.norm.json','w'),indent=2,sort_keys=True)"
+          if cmp -s /tmp/live.norm.json /tmp/ours.norm.json; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Regenerate the core
+        if: steps.spec.outputs.changed == 'true'
+        run: |
+          cp /tmp/live.json fern/openapi.json
+          cd fern && npx -y fern-api@5.224.0 generate --local --group python --force
+      - name: Open the regeneration PR
+        if: steps.spec.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.REGEN_TOKEN }}  # a token that triggers CI on the PR (GITHUB_TOKEN would not)
+          branch: regenerate/spec
+          commit-message: "feat: regenerate from the published spec"
+          title: "feat: regenerate from the published spec"
+          body: "The published OpenAPI document changed. CI runs the conformance scenarios; the PR merges itself when they pass."
+      - name: Merge when green
+        if: steps.spec.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.REGEN_TOKEN }}
+        run: gh pr merge regenerate/spec --auto --squash || true

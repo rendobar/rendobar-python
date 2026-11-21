@@ -1,0 +1,17 @@
+# The generated core lives in src/rendobar/_generated and is never edited by hand.
+# Regenerate: fern generate --local --group python --force (CI does this on every spec change).
+# Generator image pinned by version here and by digest in CI (it is closed source since 2026-11-04).
+api:
+  specs:
+    - openapi: ./openapi.json
+groups:
+  python:
+    generators:
+      - name: fernapi/fern-python-sdk
+        version: 5.42.4
+        output:
+          location: local-file-system
+          path: ../src/rendobar/_generated
+        config:
+          client_class_name: GeneratedClient
+          package_name: rendobar

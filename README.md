@@ -1,0 +1,114 @@
+<p align="center">
+  <a href="https://rendobar.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://cdn.rendobar.com/assets/brand/logo-mark.svg">
+      <img alt="Rendobar" src="https://cdn.rendobar.com/assets/brand/logo-mark-black.svg" width="80">
+    </picture>
+  </a>
+</p>
+
+<h1 align="center">Rendobar Python SDK</h1>
+
+<p align="center">
+  <strong>Media processing and AI generation API for Python.</strong>
+</p>
+
+<p align="center">
+  <a href="https://rendobar.com/integrations/python-sdk/">Guide</a> &nbsp;·&nbsp;
+  <a href="https://rendobar.com/docs/quickstart">Quickstart</a> &nbsp;·&nbsp;
+  <a href="https://pypi.org/project/rendobar/">PyPI</a> &nbsp;·&nbsp;
+  <a href="https://discord.gg/kAGqjBzx8N">Discord</a>
+</p>
+
+<p align="center">
+  <a href="https://pypi.org/project/rendobar/"><img src="https://img.shields.io/pypi/v/rendobar?style=flat-square&color=059669" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/rendobar/"><img src="https://img.shields.io/pypi/pyversions/rendobar?style=flat-square&color=059669" alt="Python versions"></a>
+  <a href="https://github.com/rendobar/rendobar-python/actions"><img src="https://img.shields.io/github/actions/workflow/status/rendobar/rendobar-python/ci.yml?style=flat-square" alt="CI"></a>
+</p>
+
+`rendobar` is the official Python client for [Rendobar](https://rendobar.com), a serverless media processing API. Submit a job, wait for it, and get back a hosted file. It has sync and asyncio clients with full types, retries 429 and 5xx on its own, and never turns a retried submit into a second job.
+
+## Install
+
+```bash
+pip install rendobar
+```
+
+Python 3.10 or newer.
+
+## Quickstart
+
+```python
+from rendobar import Rendobar
+
+rb = Rendobar()  # reads RENDOBAR_API_KEY, or pass Rendobar("rb_...")
+
+job = rb.jobs.run(
+    type="ffmpeg",
+    params={"command": "ffmpeg -i https://cdn.rendobar.com/assets/examples/sample.mp4 -vf scale=1280:-2 out.mp4"},
+)
+print(job.output.file.url)
+```
+
+`jobs.run()` submits the job and waits for it. Use `jobs.create()` and `jobs.wait()` to do the two steps yourself, and `rb.jobs.types()` to list every live job type.
+
+### asyncio
+
+```python
+from rendobar import AsyncRendobar
+
+rb = AsyncRendobar()
+job = await rb.jobs.run(type="ffprobe", params={"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"})
+```
+
+## Errors
+
+```python
+from rendobar import NotFoundError, RendobarError
+
+try:
+    rb.jobs.get("job_missing")
+except NotFoundError as err:
+    print(err.code)        # "NOT_FOUND"
+except RendobarError as err:
+    print(err.status_code, err.code, err.request_id)  # quote request_id to support
+```
+
+Every error is a `RendobarError`: `BadRequestError`, `AuthenticationError`, `InsufficientCreditsError`, `PermissionDeniedError`, `NotFoundError`, `ConflictError`, `RateLimitError` or `InternalServerError`. 429 and 5xx retry twice with backoff, honouring `Retry-After`, before they raise.
+
+Retrying a submit never creates a second job. With no `idempotency_key`, `jobs.create()` generates one for that call and sends it on every retry, so the API returns the job the first attempt created. Pass your own key, such as an order id, to make separate calls safe to repeat. Keys never expire.
+
+A job whose status is newer than your installed SDK comes back as `UnknownJob` with `status` and `raw`, rather than raising.
+
+## Webhooks
+
+```python
+import os
+from rendobar.webhooks import verify
+
+def handle_rendobar_webhook(raw_body: bytes, headers: dict) -> int:
+    if not verify(raw_body, headers, os.environ["RENDOBAR_WEBHOOK_SECRET"]):
+        return 401
+    # The body is genuine: parse it and act on the event.
+    return 200
+```
+
+Pass the raw body exactly as received. It checks the signature, rejects deliveries older than 5 minutes, and accepts the previous secret during a rotation.
+
+## Let your AI assistant do it
+
+Paste this one line into Claude, ChatGPT, or Cursor and the assistant reads the integration playbook and wires Rendobar into your codebase. Your API key stays in your env file, never in the chat.
+
+```text
+Add Rendobar to my app: read and follow https://rendobar.com/prompts/integrate.md
+```
+
+## Support policy
+
+- Python 3.10 to 3.13, tested on each. A Python version is dropped only after its end of life.
+- Semantic versioning. A breaking change ships only in a major release, after at least 12 months of deprecation notices.
+- A deprecated endpoint is reported once per endpoint through `on_deprecation` or a `DeprecationWarning`, with the day it was deprecated.
+
+## License
+
+MIT. Rendobar is a product of Craftobar LLC.

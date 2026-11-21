@@ -1,0 +1,7 @@
+{
+  "include": ["src/rendobar", "tests"],
+  "exclude": ["src/rendobar/_generated"],
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "standard",
+  "reportPrivateUsage": "none"
+}

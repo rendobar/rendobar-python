@@ -1,0 +1,41 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: rendobar/openapi
+          path: .openapi
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Start the conformance mock
+        run: |
+          python3 -I .openapi/conformance/mock_server.py .openapi/openapi.json 4100 requests.jsonl &
+          for i in $(seq 1 20); do curl -sf -X POST http://127.0.0.1:4100/__reset && break; sleep 0.5; done
+      - name: Tests (conformance scenarios, webhook vectors, README)
+        run: uv run --with-editable . --with pytest python -m pytest -q
+      - name: Types
+        if: matrix.python == '3.13'
+        run: uv run --with-editable . --with pyright pyright
+      - name: Public-surface deny-list
+        if: matrix.python == '3.13'
+        run: python3 scripts/deny_list.py
+      - name: Build
+        if: matrix.python == '3.13'
+        run: uv build

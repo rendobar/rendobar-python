@@ -1,0 +1,68 @@
+{
+  "description": "HMAC-SHA256 over `${timestamp}.${body}`, hex, prefixed sha256=. Every SDK's verifier must agree with every case at now = timestamp.",
+  "secret": "whsec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "timestamp": 1700000000,
+  "body": "{\"version\":\"1\",\"event\":\"job.completed\",\"data\":{\"jobId\":\"job_1\"}}",
+  "cases": [
+    {
+      "name": "valid",
+      "headers": {
+        "x-rendobar-signature": "sha256=05a0d9f3e63f3fc5b68eb4ebd979740f48f5691163cab276e801c69dbf141cf1",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": true
+    },
+    {
+      "name": "mixed-case header names",
+      "headers": {
+        "X-Rendobar-Signature": "sha256=05a0d9f3e63f3fc5b68eb4ebd979740f48f5691163cab276e801c69dbf141cf1",
+        "X-Rendobar-Timestamp": "1700000000"
+      },
+      "expect": true
+    },
+    {
+      "name": "tampered body",
+      "body": "{\"version\":\"1\",\"event\":\"job.completed\",\"data\":{\"jobId\":\"job_1\"}} ",
+      "headers": {
+        "x-rendobar-signature": "sha256=05a0d9f3e63f3fc5b68eb4ebd979740f48f5691163cab276e801c69dbf141cf1",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": false
+    },
+    {
+      "name": "wrong secret",
+      "secret": "whsec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "headers": {
+        "x-rendobar-signature": "sha256=05a0d9f3e63f3fc5b68eb4ebd979740f48f5691163cab276e801c69dbf141cf1",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": false
+    },
+    {
+      "name": "signed by the previous secret during rotation",
+      "secret": "whsec_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "headers": {
+        "x-rendobar-signature": "sha256=0000000000000000000000000000000000000000000000000000000000000000",
+        "x-rendobar-signature-previous": "sha256=7575704510176d82a0b8d773b2cec196c83de6c14d03c974097cc08d601aef79",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": true
+    },
+    {
+      "name": "stale timestamp",
+      "now": 1700000301,
+      "headers": {
+        "x-rendobar-signature": "sha256=05a0d9f3e63f3fc5b68eb4ebd979740f48f5691163cab276e801c69dbf141cf1",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": false
+    },
+    {
+      "name": "missing signature",
+      "headers": {
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": false
+    }
+  ]
+}
