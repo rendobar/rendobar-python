@@ -17,6 +17,8 @@ from rendobar import Rendobar
 from rendobar.webhooks import verify
 
 rb = Rendobar(base_url=os.environ.get("RENDOBAR_API_URL", "https://api.rendobar.com"))  # reads RENDOBAR_API_KEY
+# Required: a missing secret stops Django at startup (KeyError), never verifies against "".
+WEBHOOK_SECRET = os.environ["RENDOBAR_WEBHOOK_SECRET"]
 
 
 @csrf_exempt
@@ -30,8 +32,8 @@ def submit(request: HttpRequest) -> JsonResponse:
 @csrf_exempt  # Rendobar signs its webhooks, it cannot send your CSRF token
 @require_POST
 def webhook(request: HttpRequest) -> HttpResponse:
-    if not verify(request.body, dict(request.headers), os.environ.get("RENDOBAR_WEBHOOK_SECRET", "")):
+    if not verify(request.body, dict(request.headers), WEBHOOK_SECRET):
         return HttpResponse(status=401)
     event = json.loads(request.body)
-    print(event["event"], event["data"]["id"])
+    print(event["event"], event["data"]["jobId"])
     return HttpResponse(status=204)

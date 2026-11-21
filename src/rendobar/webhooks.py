@@ -41,7 +41,9 @@ def _header(headers: Mapping[str, object], name: str) -> Optional[str]:
 def _matches(signed: bytes, signature: str, secret: str) -> bool:
     expected = signature[7:] if signature.startswith("sha256=") else signature
     computed = hmac.new(secret.encode(), signed, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, computed)  # constant time
+    # Compare bytes: compare_digest refuses a str with non-ASCII characters, and a
+    # header is attacker-controlled, so a garbage signature must be False, not a crash.
+    return hmac.compare_digest(expected.encode("utf-8", "surrogatepass"), computed.encode())  # constant time
 
 
 def verify(
@@ -52,7 +54,14 @@ def verify(
     tolerance_seconds: float = DEFAULT_TOLERANCE_SECONDS,
     now: Optional[float] = None,
 ) -> bool:
-    """True when the delivery is signed with `secret` (or the previous secret) and is fresh."""
+    """True when the delivery is signed with `secret` (or the previous secret) and is fresh.
+
+    An empty or blank `secret` always returns False: anyone can sign with an empty
+    key, so accepting one would accept forged deliveries. Never raises on a
+    malformed header.
+    """
+    if not isinstance(secret, str) or not secret.strip():
+        return False
     signature = _header(headers, _SIGNATURE)
     timestamp = _header(headers, _TIMESTAMP)
     if not signature or not timestamp:

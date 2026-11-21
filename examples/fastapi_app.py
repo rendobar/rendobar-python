@@ -22,7 +22,8 @@ class VideoIn(BaseModel):
 
 def create_app(rb: Optional[AsyncRendobar] = None, webhook_secret: Optional[str] = None) -> FastAPI:
     client = rb if rb is not None else AsyncRendobar()  # reads RENDOBAR_API_KEY
-    secret = webhook_secret if webhook_secret is not None else os.environ.get("RENDOBAR_WEBHOOK_SECRET", "")
+    # Required: a missing secret stops the app at startup (KeyError), never verifies against "".
+    secret = webhook_secret if webhook_secret is not None else os.environ["RENDOBAR_WEBHOOK_SECRET"]
     app = FastAPI()
 
     @app.post("/videos", status_code=202)
@@ -37,7 +38,7 @@ def create_app(rb: Optional[AsyncRendobar] = None, webhook_secret: Optional[str]
         if not verify(body, dict(request.headers), secret):
             raise HTTPException(status_code=401)
         event = json.loads(body)
-        print(event["event"], event["data"]["id"])
+        print(event["event"], event["data"]["jobId"])
 
     return app
 

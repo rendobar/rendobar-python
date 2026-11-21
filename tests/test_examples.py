@@ -20,7 +20,8 @@ import pytest
 
 MOCK = os.environ.get("RENDOBAR_MOCK", "http://127.0.0.1:4100")
 SECRET = "whsec_examples"
-EVENT = json.dumps({"event": "job.completed", "data": {"id": "job_1"}}).encode()
+# The shared vectors' body: a real delivery envelope, which carries data.jobId.
+EVENT = json.loads((Path(__file__).parent / "fixtures" / "webhook-vectors.json").read_text())["body"].encode()
 sys.path.insert(0, str(Path(__file__).parent.parent / "examples"))
 
 
@@ -47,6 +48,16 @@ def test_fastapi_example() -> None:
     assert created.status_code == 202 and created.json()["job_id"].startswith("job_")
     assert client.post("/rendobar-webhook", content=EVENT).status_code == 401
     assert client.post("/rendobar-webhook", content=EVENT, headers=signed()).status_code == 204
+
+
+def test_fastapi_example_refuses_to_start_without_a_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("fastapi")
+    from rendobar import AsyncRendobar
+
+    monkeypatch.delenv("RENDOBAR_WEBHOOK_SECRET", raising=False)
+    fastapi_app = importlib.import_module("fastapi_app")
+    with pytest.raises(KeyError, match="RENDOBAR_WEBHOOK_SECRET"):
+        fastapi_app.create_app(AsyncRendobar("rb_test", base_url=MOCK))
 
 
 def test_django_example(monkeypatch: pytest.MonkeyPatch) -> None:

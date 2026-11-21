@@ -63,6 +63,24 @@
         "x-rendobar-timestamp": "1700000000"
       },
       "expect": false
+    },
+    {
+      "name": "empty secret",
+      "headers": {
+        "x-rendobar-signature": "sha256=08223394dbf6268d4f28cbef254279c37775578f9918ced8d97626104cf25c41",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "secret": "",
+      "expect": false,
+      "note": "Signed with an empty key, so a verifier that accepts an empty secret returns true. Every SDK must return false."
+    },
+    {
+      "name": "signature that is not hex",
+      "headers": {
+        "x-rendobar-signature": "sha256=éé",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": false
     }
   ]
 }
