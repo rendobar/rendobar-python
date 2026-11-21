@@ -22,9 +22,10 @@ that reads the body itself.
 Pass the RAW body bytes or text exactly as received. Parsing and re-serialising
 the JSON first changes the bytes and the signature will not match.
 
-The event models are written from the documented envelope (`version`, `event`,
-`deliveryId`, `timestamp` in Unix milliseconds, `orgId`, `data`). They will be
-generated from the spec's `webhooks` section once it has one, under the same names.
+The event models are generated from the spec's `webhooks` section: one
+`<Event>WebhookEvent` envelope (`version`, `event`, `delivery_id`, `timestamp`
+in Unix milliseconds, `org_id`, `data`) per event, with its `<Event>Data`. A new
+event reaches this module with the next regeneration.
 """
 # pyright: strict
 from __future__ import annotations
@@ -34,23 +35,50 @@ import hmac
 import json
 import math
 import time
-from typing import Dict, List, Literal, Mapping, Optional, Sequence, Union, cast
+from typing import Dict, Mapping, Optional, Sequence, Union, cast
 
 import pydantic
-from pydantic.alias_generators import to_camel
 
 from ._errors import RendobarError, WebhookSignatureError, as_mapping, is_text
-from ._models import JobError, JobOutput
+from ._generated.types.balance_depleted_data import BalanceDepletedData
+from ._generated.types.balance_low_data import BalanceLowData
+from ._generated.types.job_cancelled_data import JobCancelledData
+from ._generated.types.job_completed_data import JobCompletedData
+from ._generated.types.job_created_data import JobCreatedData
+from ._generated.types.job_deliveries_settled_data import JobDeliveriesSettledData
+from ._generated.types.job_delivery_failed_data import JobDeliveryFailedData
+from ._generated.types.job_delivery_succeeded_data import JobDeliverySucceededData
+from ._generated.types.job_failed_data import JobFailedData
+from ._generated.types.job_started_data import JobStartedData
+from ._generated.types.settled_delivery import SettledDelivery
+from ._generated.types.test_event_data import TestEventData
+from ._generated.types.webhook_job_cost import WebhookJobCost
+from ._generated.types.webhook_job_step import WebhookJobStep
+from ._generated.types.webhook_payload import (
+    WebhookPayload,
+    WebhookPayload_BalanceDepleted,
+    WebhookPayload_BalanceLow,
+    WebhookPayload_JobCancelled,
+    WebhookPayload_JobCompleted,
+    WebhookPayload_JobCreated,
+    WebhookPayload_JobDeliveriesSettled,
+    WebhookPayload_JobDeliveryFailed,
+    WebhookPayload_JobDeliverySucceeded,
+    WebhookPayload_JobFailed,
+    WebhookPayload_JobStarted,
+    WebhookPayload_Test,
+)
+from ._models import publish
 
 __all__ = [
     "parse", "verify", "DEFAULT_TOLERANCE_SECONDS", "WebhookSignatureError",
-    "WebhookEvent", "UnknownWebhookEvent",
-    "JobCreatedEvent", "JobStartedEvent", "JobCompletedEvent", "JobFailedEvent", "JobCancelledEvent",
-    "JobDeliverySucceededEvent", "JobDeliveryFailedEvent", "JobDeliveriesSettledEvent",
-    "BalanceLowEvent", "BalanceDepletedEvent", "TestEvent",
+    "WebhookEvent", "KnownWebhookEvent", "UnknownWebhookEvent",
+    "JobCreatedWebhookEvent", "JobStartedWebhookEvent", "JobCompletedWebhookEvent", "JobFailedWebhookEvent",
+    "JobCancelledWebhookEvent", "JobDeliverySucceededWebhookEvent", "JobDeliveryFailedWebhookEvent",
+    "JobDeliveriesSettledWebhookEvent", "BalanceLowWebhookEvent", "BalanceDepletedWebhookEvent", "TestWebhookEvent",
     "JobCreatedData", "JobStartedData", "JobCompletedData", "JobFailedData", "JobCancelledData",
     "JobDeliverySucceededData", "JobDeliveryFailedData", "JobDeliveriesSettledData", "SettledDelivery",
-    "BalanceLowData", "BalanceDepletedData", "TestEventData", "WebhookCost", "WebhookStep", "Timing",
+    "BalanceLowData", "BalanceDepletedData", "TestEventData", "WebhookJobCost", "WebhookJobStep",
 ]
 
 DEFAULT_TOLERANCE_SECONDS = 300
@@ -123,204 +151,39 @@ def verify(
 
 # ── events ────────────────────────────────────────────────────────────
 
-class _Model(pydantic.BaseModel):
-    """camelCase on the wire, snake_case in Python; fields the SDK does not know yet are kept, never refused."""
+# The generated core inlines each variant of the spec's WebhookPayload union; these are
+# their spec names (the `<Event>WebhookEvent` components). Check with isinstance.
+JobCreatedWebhookEvent = WebhookPayload_JobCreated
+JobStartedWebhookEvent = WebhookPayload_JobStarted
+JobCompletedWebhookEvent = WebhookPayload_JobCompleted
+JobFailedWebhookEvent = WebhookPayload_JobFailed
+JobCancelledWebhookEvent = WebhookPayload_JobCancelled
+JobDeliverySucceededWebhookEvent = WebhookPayload_JobDeliverySucceeded
+JobDeliveryFailedWebhookEvent = WebhookPayload_JobDeliveryFailed
+JobDeliveriesSettledWebhookEvent = WebhookPayload_JobDeliveriesSettled
+BalanceLowWebhookEvent = WebhookPayload_BalanceLow
+BalanceDepletedWebhookEvent = WebhookPayload_BalanceDepleted
+TestWebhookEvent = WebhookPayload_Test
 
-    model_config = pydantic.ConfigDict(frozen=True, extra="allow", alias_generator=to_camel, populate_by_name=True)
+publish({
+    "JobCreatedWebhookEvent": JobCreatedWebhookEvent,
+    "JobStartedWebhookEvent": JobStartedWebhookEvent,
+    "JobCompletedWebhookEvent": JobCompletedWebhookEvent,
+    "JobFailedWebhookEvent": JobFailedWebhookEvent,
+    "JobCancelledWebhookEvent": JobCancelledWebhookEvent,
+    "JobDeliverySucceededWebhookEvent": JobDeliverySucceededWebhookEvent,
+    "JobDeliveryFailedWebhookEvent": JobDeliveryFailedWebhookEvent,
+    "JobDeliveriesSettledWebhookEvent": JobDeliveriesSettledWebhookEvent,
+    "BalanceLowWebhookEvent": BalanceLowWebhookEvent,
+    "BalanceDepletedWebhookEvent": BalanceDepletedWebhookEvent,
+    "TestWebhookEvent": TestWebhookEvent,
+})
 
-
-class Timing(_Model):
-    """When the job reached each step, in Unix milliseconds. Each event sets the ones it knows."""
-
-    created_at: int
-    dispatched_at: Optional[int] = None
-    started_at: Optional[int] = None
-    completed_at: Optional[int] = None
-    failed_at: Optional[int] = None
-    cancelled_at: Optional[int] = None
-
-
-class WebhookStep(_Model):
-    id: str
-    name: str
-    status: str
-    duration_ms: Optional[int] = None
-    error: Optional[str] = None
-
-
-class WebhookCost(_Model):
-    """What the job was charged. `amount` is in nanodollars (1 USD = 1,000,000,000)."""
-
-    amount: int
-    currency: Union[Literal["USD"], str]
-    formatted: str
-    breakdown: str
-
-
-class JobCreatedData(_Model):
-    job_id: str
-    job_type: str
-    status: str
-    timing: Timing
-
-
-class JobStartedData(_Model):
-    job_id: str
-    job_type: str
-    status: str
-    timing: Timing
-
-
-class JobCompletedData(_Model):
-    """The same `output` GET /jobs/{id} returns for the complete job. `cost` is absent until billing settles."""
-
-    job_id: str
-    job_type: str
-    status: str
-    output: JobOutput
-    timing: Timing
-    cost: Optional[WebhookCost] = None
-    steps: Optional[List[WebhookStep]] = None
-    output_category: Optional[str] = None
-    media_type: Optional[str] = None
-
-
-class JobFailedData(_Model):
-    job_id: str
-    job_type: str
-    status: str
-    error: JobError
-    timing: Timing
-    steps: Optional[List[WebhookStep]] = None
-
-
-class JobCancelledData(_Model):
-    job_id: str
-    job_type: str
-    status: str
-    timing: Timing
-
-
-class JobDeliverySucceededData(_Model):
-    """One destination received the output. `url` is absent when `path` is a folder (ends in "/")."""
-
-    job_id: str
-    storage_id: str
-    status: str
-    path: str
-    url: Optional[str] = None
-
-
-class JobDeliveryFailedData(_Model):
-    """One destination will not receive the output. `reason` is a delivery reason code."""
-
-    job_id: str
-    storage_id: str
-    status: str
-    reason: str
-
-
-class SettledDelivery(_Model):
-    storage_id: str
-    status: Union[Literal["delivered", "failed"], str]
-    path: Optional[str] = None
-    url: Optional[str] = None
-    reason: Optional[str] = None
-    renamed: Optional[bool] = None
-
-
-class JobDeliveriesSettledData(_Model):
-    job_id: str
-    deliveries: List[SettledDelivery]
-
-
-class BalanceLowData(_Model):
-    """`balance` and `threshold` are in nanodollars."""
-
-    balance: int
-    balance_formatted: str
-    threshold: int
-    threshold_formatted: str
-    triggered_by_job_id: str
-    triggered_by_job_type: str
-
-
-class BalanceDepletedData(_Model):
-    """`balance` is in nanodollars."""
-
-    balance: int
-    balance_formatted: str
-    triggered_by_job_id: str
-    triggered_by_job_type: str
-
-
-class TestEventData(_Model):
-    message: str
-    endpoint_id: str
-
-
-class _Envelope(_Model):
-    version: Literal["1"]
-    delivery_id: str
-    timestamp: int  # Unix milliseconds
-    org_id: str
-
-
-class JobCreatedEvent(_Envelope):
-    event: Literal["job.created"]
-    data: JobCreatedData
-
-
-class JobStartedEvent(_Envelope):
-    event: Literal["job.started"]
-    data: JobStartedData
-
-
-class JobCompletedEvent(_Envelope):
-    event: Literal["job.completed"]
-    data: JobCompletedData
-
-
-class JobFailedEvent(_Envelope):
-    event: Literal["job.failed"]
-    data: JobFailedData
-
-
-class JobCancelledEvent(_Envelope):
-    event: Literal["job.cancelled"]
-    data: JobCancelledData
-
-
-class JobDeliverySucceededEvent(_Envelope):
-    event: Literal["job.delivery_succeeded"]
-    data: JobDeliverySucceededData
-
-
-class JobDeliveryFailedEvent(_Envelope):
-    event: Literal["job.delivery_failed"]
-    data: JobDeliveryFailedData
-
-
-class JobDeliveriesSettledEvent(_Envelope):
-    event: Literal["job.deliveries_settled"]
-    data: JobDeliveriesSettledData
-
-
-class BalanceLowEvent(_Envelope):
-    event: Literal["balance.low"]
-    data: BalanceLowData
-
-
-class BalanceDepletedEvent(_Envelope):
-    event: Literal["balance.depleted"]
-    data: BalanceDepletedData
-
-
-class TestEvent(_Envelope):
-    """The ping the dashboard's "Send test" button delivers."""
-
-    event: Literal["test"]
-    data: TestEventData
+KnownWebhookEvent = Union[
+    JobCreatedWebhookEvent, JobStartedWebhookEvent, JobCompletedWebhookEvent, JobFailedWebhookEvent,
+    JobCancelledWebhookEvent, JobDeliverySucceededWebhookEvent, JobDeliveryFailedWebhookEvent,
+    JobDeliveriesSettledWebhookEvent, BalanceLowWebhookEvent, BalanceDepletedWebhookEvent, TestWebhookEvent,
+]
 
 
 class UnknownWebhookEvent:
@@ -339,15 +202,11 @@ class UnknownWebhookEvent:
         return f"UnknownWebhookEvent(event={self.event!r}, version={self.version!r})"
 
 
-_KnownEvent = Union[
-    JobCreatedEvent, JobStartedEvent, JobCompletedEvent, JobFailedEvent, JobCancelledEvent,
-    JobDeliverySucceededEvent, JobDeliveryFailedEvent, JobDeliveriesSettledEvent,
-    BalanceLowEvent, BalanceDepletedEvent, TestEvent,
-]
-# What parse() returns. Check with isinstance; anything else is an UnknownWebhookEvent.
-WebhookEvent = Union[_KnownEvent, UnknownWebhookEvent]
+# What parse() returns. Check with isinstance; anything this SDK cannot type is an UnknownWebhookEvent.
+WebhookEvent = Union[KnownWebhookEvent, UnknownWebhookEvent]
 
-_EVENTS: pydantic.TypeAdapter[_KnownEvent] = pydantic.TypeAdapter(_KnownEvent)
+_EVENTS: pydantic.TypeAdapter[KnownWebhookEvent] = pydantic.TypeAdapter(WebhookPayload)
+_VERSION = "1"  # the envelope version these models describe
 
 
 def parse(
@@ -375,7 +234,7 @@ def parse(
     envelope = as_mapping(decoded)
     if envelope is None:
         raise RendobarError("The delivery is signed but its body is not a JSON object.", code="INVALID_RESPONSE")
-    if envelope.get("version") != "1":
+    if envelope.get("version") != _VERSION:
         return UnknownWebhookEvent(envelope)
     try:
         return _EVENTS.validate_python(envelope)

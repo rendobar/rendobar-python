@@ -13,7 +13,7 @@ from pydantic import BaseModel
 
 from rendobar import AsyncRendobar
 from rendobar import WebhookSignatureError
-from rendobar.webhooks import JobCompletedEvent, parse
+from rendobar.webhooks import JobCompletedWebhookEvent, parse
 
 
 class VideoIn(BaseModel):
@@ -39,7 +39,7 @@ def create_app(rb: Optional[AsyncRendobar] = None, webhook_secret: Optional[str]
             event = parse(body, dict(request.headers), secret)
         except WebhookSignatureError:
             raise HTTPException(status_code=401) from None
-        if isinstance(event, JobCompletedEvent):
+        if isinstance(event, JobCompletedWebhookEvent):
             print("complete", event.data.job_id)
 
     return app

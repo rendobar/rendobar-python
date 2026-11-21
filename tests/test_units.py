@@ -56,7 +56,7 @@ _BY_STATUS = {"waiting": JobWaiting, "dispatched": JobDispatched, "running": Job
 
 def model(status: str, timeout_ms: Any = None) -> SomeJob:
     """A job with only the fields the wait logic reads (model_construct skips validation)."""
-    fields: Dict[str, Any] = {"id": "job_1", "status": status, "timeout_ms": timeout_ms}
+    fields: Dict[str, Any] = {"id": "job_1", "status": status, "timeout_ms": timeout_ms, "terminal": status in ("complete", "failed", "cancelled")}
     if status == "failed":
         fields["error"] = JobError(code="FFMPEG_ERROR", message="exit 1", retryable=False)
     return _BY_STATUS[status].model_construct(**fields)
@@ -162,10 +162,16 @@ def test_poll_times_out_with_the_last_status() -> None:
     assert info.value.code == "WAIT_TIMEOUT"
 
 
-def test_an_unknown_status_is_not_terminal() -> None:
+def test_an_unknown_status_ends_the_wait_only_when_terminal() -> None:
     p = poll(FakeClock())
-    job = UnknownJob({"id": "job_1", "status": "paused"})
-    assert p.finished(job) is None and p.pause(job) == 2.0
+    waiting = UnknownJob({"id": "job_1", "status": "paused", "terminal": False})
+    assert p.finished(waiting) is None and p.pause(waiting) == 2.0
+    assert p.finished(UnknownJob({"id": "job_1", "status": "paused"})) is None  # no flag: not terminal
+    ended = UnknownJob({"id": "job_1", "status": "archived", "terminal": True})
+    assert p.finished(ended) is ended
+    with pytest.raises(JobFailedError) as info:
+        poll(FakeClock(), throw_on_failure=True).finished(ended)
+    assert info.value.code == "JOB_ENDED" and info.value.job is ended
 
 
 @pytest.mark.parametrize("seconds, shown", [(0.5, "0.5s"), (0.25, "0.25s"), (2.0, "2s"), (9.5, "9.5s"), (300.0, "300s"), (420.4, "420s")])
@@ -224,6 +230,7 @@ def job(job_id: str, status: str, **extra: Any) -> Dict[str, Any]:
         "id": job_id, "status": status, "orgId": "org_1", "type": "ffprobe", "source": "api", "retryCount": 0,
         "inputs": {}, "params": {}, "outputCategory": "json", "steps": [], "logsAvailable": False,
         "resourcesAvailable": False, "createdAt": 1731000000000, "webUrl": "https://app.rendobar.com/jobs/x",
+        "terminal": status in ("complete", "failed", "cancelled"),
     }
     out.update(extra)
     return out
@@ -758,3 +765,37 @@ def test_async_download_streams_too() -> None:
         return await async_client(handle).jobs.download("job_1", io.BytesIO())
 
     assert asyncio.run(go()) == 8 * _BIG
+
+
+# ── round five: the named spec components ─────────────────────────────
+
+@pytest.mark.parametrize("status, data, kind", [
+    (201, {"id": "job_1", "status": "waiting"}, "JobCreated"),
+    (200, {"id": "job_1", "status": "complete", "url": "data:application/json,{}"}, "JobCompletedOnSubmit"),
+    (200, {"id": "job_1", "status": "running", "idempotent": True}, "JobReplayed"),
+])
+def test_a_submit_is_typed_by_its_status_code(status: int, data: Dict[str, Any], kind: str) -> None:
+    created = sync_client(routes({"POST /jobs": (status, {"data": data})})).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
+    assert type(created).__name__ == kind and created.id == "job_1"
+
+
+def test_a_submit_body_without_data_keeps_the_key() -> None:
+    with pytest.raises(ResponseValidationError) as info:
+        sync_client(routes({"POST /jobs": (201, {"nope": True})})).jobs.create({"type": "ffprobe", "params": {"command": "x"}}, idempotency_key="k7")
+    assert info.value.idempotency_key == "k7"
+
+
+PROBE = {"format": {"format_name": "mov,mp4"}, "streams": [], "brandNew": 1}
+
+
+def test_output_data_reads_a_typed_result() -> None:
+    from rendobar import FfprobeResult, JobComplete, output_data
+
+    done = job("job_1", "complete", output={"data": PROBE, "files": []}, cost={"amount": 2_100_000, "currency": "USD", "formatted": "$0.0021"})
+    got = sync_client(routes({"GET /jobs/job_1": (200, {"data": done})})).jobs.get("job_1")
+    assert isinstance(got, JobComplete)
+    result = output_data(got, FfprobeResult)
+    assert isinstance(result, FfprobeResult) and result.format is not None and result.streams == []
+    assert got.cost is not None and got.cost.amount == 2_100_000 and isinstance(got.cost.amount, int)
+    with pytest.raises(ResponseValidationError):
+        output_data(got.model_copy(update={"output": got.output.model_copy(update={"data": "not a probe"})}), FfprobeResult)

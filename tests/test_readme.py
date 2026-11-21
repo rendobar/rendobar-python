@@ -54,7 +54,10 @@ def test_every_error_the_readme_names_is_exported() -> None:
     named = set(re.findall(r"`([A-Za-z]+Error)`", README)) - set(dir(builtins))
     assert {"APIConnectionError", "APITimeoutError", "JobFailedError", "ConflictError", "InvalidArgumentError"} <= named
     for name in named:
-        assert name in rendobar.__all__ and issubclass(getattr(rendobar, name), rendobar.RendobarError), name
+        exported = getattr(rendobar, name)
+        assert name in rendobar.__all__, name
+        if issubclass(exported, BaseException):  # JobError is the job's error model, not an exception
+            assert issubclass(exported, rendobar.RendobarError), name
 
 
 def test_the_job_options_table_lists_every_run_option() -> None:

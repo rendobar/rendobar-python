@@ -29,7 +29,7 @@ import httpx
 
 from ._generated.core.api_error import ApiError as _GeneratedApiError
 from ._generated.core.parse_error import ParsingError as _GeneratedParsingError
-from ._models import JobCancelled, JobFailed, SomeJob
+from ._models import JobCancelled, JobFailed, SomeJob, UnknownJob
 
 REQUEST_ID_HEADER = "x-request-id"
 
@@ -42,7 +42,7 @@ ErrorCode = Literal[
     "ORG_SUSPENDED", "INPUT_URL_BLOCKED", "INPUT_NOT_MEDIA", "INPUT_UNSUPPORTED", "INPUT_FETCH_FAILED",
     "INPUT_FETCH_STALLED", "PROCESSING_FAILED", "INTERNAL_ERROR",
     "MISSING_API_KEY", "INVALID_API_KEY", "INVALID_ARGUMENT", "CLIENT_CLOSED", "CONNECTION_ERROR",
-    "TIMEOUT", "INVALID_RESPONSE", "UNKNOWN_ERROR", "JOB_FAILED", "JOB_CANCELLED", "WAIT_TIMEOUT",
+    "TIMEOUT", "INVALID_RESPONSE", "UNKNOWN_ERROR", "JOB_FAILED", "JOB_CANCELLED", "JOB_ENDED", "WAIT_TIMEOUT",
     "INVALID_SIGNATURE",
 ]
 # A plan name a refusal can point to. A newer API may name another.
@@ -252,16 +252,20 @@ class ResponseValidationError(RendobarError):
 class JobFailedError(RendobarError):
     """Raised by `jobs.wait(throw_on_failure=True)` and `jobs.run()` when a job ends failed or cancelled.
 
-    `code` is the job's own error code (`JOB_CANCELLED` for a cancelled job), `job` the job itself.
+    `code` is the job's own error code, `JOB_CANCELLED` for a cancelled job, or
+    `JOB_ENDED` for a job that ended with a status newer than this SDK (an
+    `UnknownJob`). `job` is the job itself.
     """
 
-    def __init__(self, job: Union[JobFailed, JobCancelled]) -> None:
+    def __init__(self, job: Union[JobFailed, JobCancelled, UnknownJob]) -> None:
         if isinstance(job, JobFailed):
             code, detail = job.error.code or "JOB_FAILED", job.error.message
-        else:
+        elif isinstance(job, JobCancelled):
             code, detail = "JOB_CANCELLED", ""
+        else:
+            code, detail = "JOB_ENDED", "a final status this SDK version does not know"
         super().__init__(f"Job {job.id} ended with status {job.status!r}" + (f": {detail}" if detail else "."), code=code)
-        self.job: Union[JobFailed, JobCancelled] = job
+        self.job: Union[JobFailed, JobCancelled, UnknownJob] = job
         self.job_id: str = job.id
         self.status: str = job.status
 

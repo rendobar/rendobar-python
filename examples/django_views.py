@@ -15,7 +15,7 @@ from django.views.decorators.http import require_POST
 
 from rendobar import Rendobar
 from rendobar import WebhookSignatureError
-from rendobar.webhooks import JobCompletedEvent, parse
+from rendobar.webhooks import JobCompletedWebhookEvent, parse
 
 rb = Rendobar(base_url=os.environ.get("RENDOBAR_API_URL", "https://api.rendobar.com"))  # reads RENDOBAR_API_KEY
 # Required: a missing secret stops Django at startup (KeyError), never verifies against "".
@@ -37,6 +37,6 @@ def webhook(request: HttpRequest) -> HttpResponse:
         event = parse(request.body, dict(request.headers), WEBHOOK_SECRET)
     except WebhookSignatureError:
         return HttpResponse(status=401)
-    if isinstance(event, JobCompletedEvent):
+    if isinstance(event, JobCompletedWebhookEvent):
         print("complete", event.data.job_id)
     return HttpResponse(status=204)

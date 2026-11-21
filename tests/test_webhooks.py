@@ -66,9 +66,9 @@ import hmac  # noqa: E402
 from rendobar import JobError, RendobarError, WebhookSignatureError  # noqa: E402
 from rendobar import webhooks  # noqa: E402
 from rendobar.webhooks import (  # noqa: E402
-    BalanceLowEvent,
-    JobCompletedEvent,
-    JobFailedEvent,
+    BalanceLowWebhookEvent,
+    JobCompletedWebhookEvent,
+    JobFailedWebhookEvent,
     UnknownWebhookEvent,
     parse,
 )
@@ -97,7 +97,7 @@ COMPLETED = {
 
 def test_parse_types_a_known_event() -> None:
     event = parse(*signed(envelope("job.completed", COMPLETED)), SECRET, now=NOW)
-    assert isinstance(event, JobCompletedEvent)
+    assert isinstance(event, JobCompletedWebhookEvent)
     assert event.data.job_id == "job_1" and event.data.cost is not None and event.data.cost.amount == 2_100_000
     assert event.delivery_id == "dlv_1" and event.timestamp == NOW * 1000 and event.data.timing.completed_at == 2
 
@@ -106,12 +106,12 @@ def test_parse_types_failed_balance_and_test_events() -> None:
     failed = {"jobId": "job_2", "jobType": "ffmpeg", "status": "failed", "timing": {"createdAt": 1, "failedAt": 3},
               "error": {"code": "PROCESSING_FAILED", "message": "exit 1", "retryable": False}}
     event = parse(*signed(envelope("job.failed", failed)), SECRET, now=NOW)
-    assert isinstance(event, JobFailedEvent) and isinstance(event.data.error, JobError)
+    assert isinstance(event, JobFailedWebhookEvent) and isinstance(event.data.error, JobError)
     low = {"balance": 1_000_000_000, "balanceFormatted": "$1.00", "threshold": 2_000_000_000, "thresholdFormatted": "$2.00",
            "triggeredByJobId": "job_3", "triggeredByJobType": "ffmpeg"}
-    assert isinstance(parse(*signed(envelope("balance.low", low)), SECRET, now=NOW), BalanceLowEvent)
+    assert isinstance(parse(*signed(envelope("balance.low", low)), SECRET, now=NOW), BalanceLowWebhookEvent)
     ping = parse(*signed(envelope("test", {"message": "hi", "endpointId": "whe_1"})), SECRET, now=NOW)
-    assert isinstance(ping, webhooks.TestEvent) and ping.data.endpoint_id == "whe_1"
+    assert isinstance(ping, webhooks.TestWebhookEvent) and ping.data.endpoint_id == "whe_1"
 
 
 @pytest.mark.parametrize("body", [

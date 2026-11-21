@@ -38,6 +38,7 @@ from ._client import (
     resolve_api_key,
     retry_delay,
     submit_body,
+    submitted,
     wait_options,
 )
 from ._errors import RendobarError, ResponseValidationError, client_closed, to_public
@@ -48,13 +49,12 @@ from ._models import (
     FinishedJob,
     JobCancellation,
     JobComplete,
-    JobCreated,
-    JobReplayed,
     JobStatus,
     JobType,
     JobTypeSchema,
     SomeJob,
     SubmitJob,
+    Submitted,
     UnknownJob,
     UntypedJob,
 )
@@ -154,8 +154,12 @@ class AsyncJobs:
         destinations: Optional[List[str]] = None,
         callback: Optional[Callback] = None,
         force_async: Optional[bool] = None,
-    ) -> Union[JobCreated, JobReplayed, UnknownJob]:
+    ) -> Submitted:
         """Submit a job and return it as created (`id`, `status`), without waiting.
+
+        Returns a `JobCreated` (status waiting), a `JobCompletedOnSubmit` for a job
+        that finished during the request, or a `JobReplayed` when the idempotency
+        key was used before.
 
         Args:
             job: What to run, typed per job type: `{"type": "ffprobe", "params": {"command": url}}`.
@@ -178,8 +182,12 @@ class AsyncJobs:
         key = idempotency_key if idempotency_key is not None else generate_idempotency_key()
         request = submit_body(job, idempotency_key=key, label=label, destinations=destinations,
                               callback=callback, force_async=force_async)
+        async def submit() -> _Fetched[Submitted]:
+            sent = await self._raw.submit_job(request=request)
+            return _Fetched(sent.headers, submitted(sent.response))
+
         try:
-            return await self._job("POST", "/jobs", lambda: self._raw.submit_job(request=request))
+            return await self._client._call("POST", "/jobs", submit)
         except RendobarError as err:
             mark_cut_off(err, key)
             raise

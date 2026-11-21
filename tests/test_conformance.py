@@ -385,10 +385,21 @@ def test_c36_a_timed_out_request_is_sent_once() -> None:
     assert len(recorder.requests) == 1
 
 
-def test_c37_waiting_on_a_newer_status_times_out_without_crashing(rb: Rendobar) -> None:
-    with pytest.raises(WaitTimeoutError) as info:
-        rb.jobs.wait("job_future", timeout=3, interval=0.5)
-    assert info.value.last_status == "paused" and isinstance(info.value.job, UnknownJob)
+def test_c37_waiting_on_a_newer_status_does_not_crash(rb: Rendobar) -> None:
+    # A status the SDK does not know ends the wait when the job says it is `terminal`
+    # (the spec's flag), and is polled to the timeout when it is not.
+    probe = rb.jobs.get("job_future")
+    assert isinstance(probe, UnknownJob) and probe.status == "paused"
+    if probe.terminal:
+        ended = rb.jobs.wait("job_future", timeout=3, interval=0.5)
+        assert isinstance(ended, UnknownJob) and ended.status == "paused"
+        with pytest.raises(JobFailedError) as failed:
+            rb.jobs.wait("job_future", timeout=3, interval=0.5, throw_on_failure=True)
+        assert failed.value.code == "JOB_ENDED"
+    else:
+        with pytest.raises(WaitTimeoutError) as info:
+            rb.jobs.wait("job_future", timeout=3, interval=0.5)
+        assert info.value.last_status == "paused" and isinstance(info.value.job, UnknownJob)
 
 
 def test_c38_the_client_header_names_the_package_version_runtime_and_app() -> None:

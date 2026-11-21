@@ -90,6 +90,7 @@ from ._models import (
     JobCancellation,
     JobCancelled,
     JobComplete,
+    JobCompletedOnSubmit,
     JobCreated,
     JobFailed,
     JobReplayed,
@@ -99,6 +100,7 @@ from ._models import (
     PageMeta,
     SomeJob,
     SubmitJob,
+    Submitted,
     UnknownJob,
     UntypedJob,
 )
@@ -369,6 +371,54 @@ def job_from(raw: object, err: ResponseValidationError) -> SomeJob:
         raise err from None
 
 
+def submitted(response: httpx.Response) -> Submitted:
+    """The submit's answer, by status: 201 a JobCreated, 200 a JobCompletedOnSubmit or (with `idempotent`) a JobReplayed.
+
+    The core types only the 200 body, so this reads the body itself.
+    """
+    try:
+        decoded: object = response.json()
+    except ValueError:
+        decoded = response.text
+    body = as_mapping(decoded)
+    data = as_mapping(body.get("data")) if body is not None else None
+    unread = ResponseValidationError(
+        f"The API answered the submit with {response.status_code} and a body this SDK cannot read. Upgrade rendobar, or read `body`.",
+        status_code=response.status_code, body=decoded, headers=dict(response.headers),
+    )
+    if data is None:
+        raise unread
+    try:
+        if response.status_code == 201:
+            return JobCreated.model_validate(data)
+        if data.get("idempotent") is True:
+            return JobReplayed.model_validate(data)
+        return JobCompletedOnSubmit.model_validate(data)
+    except pydantic.ValidationError:
+        raise unread from None
+
+
+Model = TypeVar("Model", bound=pydantic.BaseModel)
+
+
+def output_data(job: JobComplete, model: Type[Model]) -> Model:
+    """`job.output.data` read as `model`, the result type of the job's type, such as `FfprobeResult` for ffprobe.
+
+        probe = rb.jobs.run({"type": "ffprobe", "params": {"command": url}})
+        result = output_data(probe, FfprobeResult)
+
+    Raises ResponseValidationError when the data is not that shape (such as a
+    result type that belongs to another job type). Unknown fields are kept.
+    """
+    try:
+        return model.model_validate(job.output.data)
+    except pydantic.ValidationError:
+        raise ResponseValidationError(
+            f"Job {job.id} ({job.type}) has output data that is not a {model.__name__}.",
+            status_code=None, body=job.output.data,
+        ) from None
+
+
 def one_job(err: ResponseValidationError) -> UnknownJob:
     """Recovers a single-job response (get, create, cancel) the core could not parse."""
     body = as_mapping(err.body)
@@ -481,8 +531,8 @@ class WaitPoll:
     After each poll, `finished(job)` returns the job when the wait is over (or
     raises `JobFailedError` when asked to), and otherwise `pause(job)` returns
     the seconds to sleep before the next poll, or raises `WaitTimeoutError`. A
-    status this SDK does not know (`UnknownJob`) is not finished, so the wait
-    ends at its deadline.
+    status this SDK does not know (`UnknownJob`) is over when the job says it
+    is `terminal`, and otherwise polled until the deadline.
     """
 
     def __init__(self, job_id: str, *, timeout: Optional[float], interval: float, max_interval: float,
@@ -494,11 +544,11 @@ class WaitPoll:
         self._throw = throw_on_failure
 
     def finished(self, job: SomeJob) -> Optional[FinishedJob]:
-        if isinstance(job, (JobFailed, JobCancelled)):
+        if isinstance(job, JobComplete):
+            return job
+        if isinstance(job, (JobFailed, JobCancelled)) or (isinstance(job, UnknownJob) and job.terminal):
             if self._throw:
                 raise JobFailedError(job)
-            return job
-        if isinstance(job, JobComplete):
             return job
         return None
 
@@ -721,8 +771,12 @@ class Jobs:
         destinations: Optional[List[str]] = None,
         callback: Optional[Callback] = None,
         force_async: Optional[bool] = None,
-    ) -> Union[JobCreated, JobReplayed, UnknownJob]:
+    ) -> Submitted:
         """Submit a job and return it as created (`id`, `status`), without waiting.
+
+        Returns a `JobCreated` (status waiting), a `JobCompletedOnSubmit` for a job
+        that finished during the request, or a `JobReplayed` when the idempotency
+        key was used before.
 
         Args:
             job: What to run, typed per job type: `{"type": "ffprobe", "params": {"command": url}}`.
@@ -745,8 +799,12 @@ class Jobs:
         key = idempotency_key if idempotency_key is not None else generate_idempotency_key()
         request = submit_body(job, idempotency_key=key, label=label, destinations=destinations,
                               callback=callback, force_async=force_async)
+        def submit() -> _Fetched[Submitted]:
+            sent = self._raw.submit_job(request=request)
+            return _Fetched(sent.headers, submitted(sent.response))
+
         try:
-            return self._job("POST", "/jobs", lambda: self._raw.submit_job(request=request))
+            return self._client._call("POST", "/jobs", submit)
         except RendobarError as err:
             mark_cut_off(err, key)
             raise
