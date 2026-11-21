@@ -220,7 +220,7 @@ def one_job(err: ResponseValidationError) -> Any:
     """Recovers a single-job response (get, create, cancel) the core could not parse."""
     body = err.body
     data = body.get("data") if isinstance(body, Mapping) else None
-    if _is_newer_job(data):
+    if isinstance(data, Mapping) and _is_newer_job(data):
         return UnknownJob(data)
     raise err
 
