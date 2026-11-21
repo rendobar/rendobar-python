@@ -56,10 +56,18 @@ The `with` block closes the client's connections when it ends. A long-lived clie
 ### asyncio
 
 ```python
+import asyncio
+
 from rendobar import AsyncRendobar
 
-async with AsyncRendobar() as rb:
-    job = await rb.jobs.run(type="ffprobe", params={"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"})
+
+async def main() -> None:
+    async with AsyncRendobar() as rb:
+        job = await rb.jobs.run(type="ffprobe", params={"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"})
+        print(job.output.data)
+
+
+asyncio.run(main())
 ```
 
 `AsyncRendobar` takes the same arguments and has the same methods as `Rendobar`, awaited. `await rb.aclose()` does the same as the `async with` block for a client you keep open.
@@ -67,6 +75,8 @@ async with AsyncRendobar() as rb:
 ## Client options
 
 ```python
+from rendobar import Rendobar
+
 rb = Rendobar(
     api_key="rb_...",                  # default: the RENDOBAR_API_KEY environment variable
     base_url="https://api.rendobar.com",
@@ -79,7 +89,7 @@ rb = Rendobar(
 
 `base_url` points the client at another server, such as a staging deployment or a local mock: `Rendobar(base_url="https://api.staging.example.com")`.
 
-With no key passed and no `RENDOBAR_API_KEY` set (or an empty one), the client still works for `jobs.types()` and `jobs.schema()`, which need no key. Every other call raises `AuthenticationError` with code `MISSING_API_KEY` before it sends anything.
+With no key passed and no `RENDOBAR_API_KEY` set (or an empty one), the client still works for `jobs.types()` and `jobs.schema()`, which need no key. Every other call raises `AuthenticationError` with code `MISSING_API_KEY` before it sends anything. A key that does not start with `rb_` gets code `INVALID_API_KEY` the same way, and the client never sends it.
 
 ## Job options
 
@@ -120,14 +130,19 @@ Every method returns a typed result, so your editor completes fields and your ty
 Only a `JobComplete` has `output`, and only a `JobFailed` has `error`. Check which one you have with `isinstance`:
 
 ```python
-from rendobar import JobComplete, JobFailed
+from rendobar import JobComplete, JobFailed, Rendobar
 
+rb = Rendobar()
 job = rb.jobs.get("job_abc123")
 if isinstance(job, JobComplete):
     print(job.output.files[0].url)
 elif isinstance(job, JobFailed):
     print(job.error.code, job.error.message)
 ```
+
+These names are aliases of the models generated from the API spec. `isinstance()` and annotations work with them, and `type(job).__name__` and `repr(job)` use them. Your editor's hovers and pyright's messages show the generated class name instead, such as `Job_Complete` for `JobComplete`, `SubmitJobResponseDataUrl` for `JobCreated` and `CancelJobResponseData` for `JobCancellation`. Nested models, such as the items of `job.output.files`, have only their generated names.
+
+`jobs.list()` takes `status` as one of the six job statuses (`JobStatus`), `limit` (1 or more) and `offset` (0 or more).
 
 `job.cost.amount` is in nanodollars (1 USD = 1,000,000,000). `job.cost.formatted` has the same amount as dollars, such as `"$0.0021"`.
 
@@ -136,8 +151,9 @@ A job whose status is newer than your installed SDK comes back as `UnknownJob` w
 ## Errors
 
 ```python
-from rendobar import NotFoundError, RendobarError
+from rendobar import NotFoundError, Rendobar, RendobarError
 
+rb = Rendobar()
 try:
     rb.jobs.get("job_missing")
 except NotFoundError as err:
@@ -151,7 +167,8 @@ Everything the SDK raises is a `RendobarError` with a `code`:
 | Error | When |
 |---|---|
 | `BadRequestError`, `AuthenticationError`, `InsufficientCreditsError`, `PermissionDeniedError`, `NotFoundError`, `ConflictError`, `RateLimitError`, `InternalServerError` | the API answered 400, 401, 402, 403, 404, 409, 429 or 5xx. `status_code` and `request_id` are set |
-| `AuthenticationError` with code `MISSING_API_KEY` | the client has no API key. Raised before any request, so `status_code` is `None` |
+| `AuthenticationError` with code `MISSING_API_KEY` or `INVALID_API_KEY` | the client has no API key, or one that does not start with `rb_`. Raised before any request, so `status_code` is `None` |
+| `InvalidArgumentError` (also a `ValueError`) | an argument the SDK refuses before any request: a job id that is not one path segment (`"../x"`), `limit` below 1, a negative `offset`, an invalid `app` name |
 | `APIConnectionError` | no response: the connection failed or dropped |
 | `APITimeoutError` (an `APIConnectionError`) | the request took longer than the client's `timeout` |
 | `ResponseValidationError` | a response this SDK version cannot read (`body` holds it) |
@@ -199,9 +216,12 @@ pip install "rendobar[langchain]"
 
 ```python
 from langchain.agents import create_agent
+from langchain_core.language_models import BaseChatModel
 from rendobar.agents.langchain import rendobar_tools
 
-agent = create_agent(model, tools=rendobar_tools())  # model: any LangChain chat model
+
+def build_agent(model: BaseChatModel):  # model: any LangChain chat model
+    return create_agent(model, tools=rendobar_tools())
 ```
 
 ```bash
@@ -212,7 +232,18 @@ pip install "rendobar[crewai]"
 from crewai import Agent
 from rendobar.agents.crewai import rendobar_tools
 
-editor = Agent(role="Video editor", goal="Cut and caption clips", backstory="Edits for social", tools=rendobar_tools())
+
+def video_editor() -> Agent:
+    return Agent(role="Video editor", goal="Cut and caption clips", backstory="Edits for social", tools=rendobar_tools())
+```
+
+With no argument, `rendobar_tools()` builds a client that reads `RENDOBAR_API_KEY` and talks to `https://api.rendobar.com`. Pass your own client to choose the key, the server or any other [client option](#client-options):
+
+```python
+from rendobar import Rendobar
+from rendobar.agents.langchain import rendobar_tools
+
+tools = rendobar_tools(Rendobar(api_key="rb_...", base_url="https://api.staging.example.com"))
 ```
 
 The `crewai` extra installs CrewAI itself, which brings about 120 packages and takes a few minutes. The `langchain` extra installs LangChain and LangGraph.
