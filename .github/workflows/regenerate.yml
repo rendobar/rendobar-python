@@ -31,6 +31,8 @@ jobs:
         run: |
           cp /tmp/live.json fern/openapi.json
           cd fern && npx -y fern-api@5.224.0 generate --local --group python --force
+          # The generator also writes tests for its own layout. They do not apply here and must not ship.
+          git -C .. rm -rq --ignore-unmatch src/rendobar/_generated/tests
       - name: Open the regeneration PR
         if: steps.spec.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v7
