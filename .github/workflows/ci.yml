@@ -45,8 +45,8 @@ jobs:
         if: matrix.python == '3.13'
         run: uv build
   agents:
-    # The agent adapters and the full type check, with the optional frameworks
-    # installed. Separate from the matrix so a plain install stays the common path.
+    # The agent adapters, the framework examples and the full type check, with
+    # the optional frameworks installed. Separate from the matrix so a plain install stays the common path.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,8 +64,8 @@ jobs:
       - name: Install with the agent extras
         run: |
           uv venv
-          uv pip install -e ".[langchain,crewai]" pytest pyright
-      - name: Adapter tests (LangChain, CrewAI)
-        run: .venv/bin/python -m pytest -q tests/test_agents.py tests/test_agents_frameworks.py
+          uv pip install -e ".[langchain,crewai]" pytest pyright "fastapi>=0.115" "django>=5.2" django-stubs
+      - name: Adapter and example tests (LangChain, CrewAI, FastAPI, Django)
+        run: .venv/bin/python -m pytest -q tests/test_agents.py tests/test_agents_frameworks.py tests/test_examples.py
       - name: Types
         run: .venv/bin/pyright --pythonpath .venv/bin/python

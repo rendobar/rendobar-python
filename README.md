@@ -119,6 +119,10 @@ editor = Agent(role="Video editor", goal="Cut and caption clips", backstory="Edi
 
 Frameworks that speak MCP (the OpenAI Agents SDK, the Claude Agent SDK) can connect to `https://api.rendobar.com/mcp` with no package.
 
+## Framework examples
+
+[`examples/`](examples) has a FastAPI app and Django views that submit a job and verify Rendobar's webhook. CI runs both against the conformance mock.
+
 ## Let your AI assistant do it
 
 Paste this one line into Claude, ChatGPT, or Cursor and the assistant reads the integration playbook and wires Rendobar into your codebase. Your API key stays in your env file, never in the chat.
