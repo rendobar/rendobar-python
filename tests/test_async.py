@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import os
 import time
@@ -31,9 +32,9 @@ def test_async_scenarios() -> None:
         assert info.value.code == "NOT_FOUND" and (info.value.request_id or "").startswith("req_")
         future = await rb.jobs.get("job_future")                                   # C09
         assert isinstance(future, UnknownJob) and future.status == "paused"
-        assert len(await rb.jobs.download("job_x")) == 1024                        # C10
+        assert await rb.jobs.download("job_x", io.BytesIO()) == 1024                       # C10
         reset("?lose_submit=1")                                                    # C13
-        await rb.jobs.create("ffprobe", {"command": "https://x/a.mp4"})
+        await rb.jobs.create({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}})
         assert json.load(urllib.request.urlopen(f"{MOCK}/__created", timeout=5))["data"]["count"] == 1
 
     asyncio.run(scenarios())
@@ -86,7 +87,7 @@ def test_async_run_and_wait() -> None:
         reset()
         async with AsyncRendobar("rb_conformance", base_url=MOCK) as rb:
             seen: list = []                                                        # C16
-            job = await rb.jobs.run("ffprobe", {"command": "https://x/a.mp4"}, interval=0.05, on_progress=lambda j: seen.append(j.status))
+            job = await rb.jobs.run({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}}, interval=0.05, on_progress=lambda j: seen.append(j.status))
             assert seen == ["running", "complete"]
             assert job.status == "complete" and job.output.file is not None and job.output.file.url.startswith("https://")
             with pytest.raises(JobFailedError) as info:                            # C17

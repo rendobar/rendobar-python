@@ -6,6 +6,7 @@ pinned conformance image and fails unless every scenario id passes.
 """
 from __future__ import annotations
 
+import io
 import json
 import os
 import subprocess
@@ -33,6 +34,7 @@ from rendobar import (
     RendobarDeprecationWarning,
     RendobarError,
     UnknownJob,
+    UntypedJob,
     WaitTimeoutError,
     __version__,
 )
@@ -82,7 +84,7 @@ def test_c02_get_unwraps_the_job(rb: Rendobar) -> None:
 
 
 def test_c03_create_returns_the_job_id(rb: Rendobar) -> None:
-    assert rb.jobs.create("ffprobe", {"command": "https://x/a.mp4"}).id.startswith("job_")
+    assert rb.jobs.create({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}}).id.startswith("job_")
 
 
 def test_c04_list_all_pages_through_every_job(rb: Rendobar) -> None:
@@ -125,7 +127,8 @@ def test_c09_unknown_status_does_not_raise(rb: Rendobar) -> None:
 
 
 def test_c10_download_returns_the_bytes(rb: Rendobar) -> None:
-    assert len(rb.jobs.download("job_x")) == 1024
+    sink = io.BytesIO()
+    assert rb.jobs.download("job_x", sink) == 1024 and len(sink.getvalue()) == 1024
 
 
 def test_c11_every_request_names_this_sdk(rb: Rendobar) -> None:
@@ -146,7 +149,7 @@ def test_c12_error_carries_the_request_id(rb: Rendobar) -> None:
 def test_c13_retried_submit_creates_one_job(rb: Rendobar) -> None:
     reset("?lose_submit=1")
     recorder = recording(rb)
-    rb.jobs.create("ffprobe", {"command": "https://x/a.mp4"})
+    rb.jobs.create({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}})
     keys = [json.loads(r.content)["idempotencyKey"] for r in recorder.requests if r.url.path == "/jobs"]
     created = json.load(urllib.request.urlopen(f"{MOCK}/__created", timeout=5))["data"]["count"]
     assert len(keys) == 2 and keys[0] == keys[1] and keys[0].startswith("sdk_")
@@ -177,7 +180,7 @@ def test_c15_reads_the_key_from_the_environment(monkeypatch: pytest.MonkeyPatch)
 
 def test_c16_run_returns_the_complete_job_with_its_file(rb: Rendobar) -> None:
     seen: list = []
-    job = rb.jobs.run("ffprobe", {"command": "https://x/a.mp4"}, interval=0.05, on_progress=lambda j: seen.append(j.status))
+    job = rb.jobs.run({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}}, interval=0.05, on_progress=lambda j: seen.append(j.status))
     assert seen == ["running", "complete"]
     assert job.status == "complete" and job.output.file is not None and job.output.file.url.startswith("https://")
 
@@ -278,24 +281,24 @@ def test_c22_a_cut_off_submit_carries_the_key_and_resubmits_to_the_same_job(pari
     reset("?stall_submit=1")
     client = Rendobar("rb_conformance", base_url=MOCK, timeout=2.0)
     with pytest.raises(APITimeoutError) as info:
-        client.jobs.create("ffprobe", {"command": "https://x/a.mp4"})
+        client.jobs.create({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}})
     key = info.value.idempotency_key
     assert key is not None and key.startswith("sdk_")
-    again = client.jobs.create("ffprobe", {"command": "https://x/a.mp4"}, idempotency_key=key)
+    again = client.jobs.create({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}}, idempotency_key=key)
     assert isinstance(again, JobReplayed) and created_count() == 1
 
 
 def test_c23_same_key_different_params_is_a_conflict_after_one_request(parity_mock: None, rb: Rendobar) -> None:
-    rb.jobs.create("ffprobe", {"command": "https://x/a.mp4"}, idempotency_key="order-23")
+    rb.jobs.create({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}}, idempotency_key="order-23")
     before = len(requests_seen())
     with pytest.raises(ConflictError) as info:
-        rb.jobs.create("ffprobe", {"command": "https://x/b.mp4"}, idempotency_key="order-23")
+        rb.jobs.create({"type": "ffprobe", "params": {"command": "https://x/b.mp4"}}, idempotency_key="order-23")
     assert info.value.code == "CONFLICT" and len(requests_seen()) == before + 1
 
 
 def test_c24_same_key_same_params_replays_the_job(rb: Rendobar) -> None:
-    first = rb.jobs.create("ffprobe", {"command": "https://x/a.mp4"}, idempotency_key="order-24")
-    second = rb.jobs.create("ffprobe", {"command": "https://x/a.mp4"}, idempotency_key="order-24")
+    first = rb.jobs.create({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}}, idempotency_key="order-24")
+    second = rb.jobs.create({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}}, idempotency_key="order-24")
     assert isinstance(first, JobCreated) and isinstance(second, JobReplayed) and second.id == first.id
 
 
@@ -332,14 +335,14 @@ def test_c29_list_all_follows_the_rows_returned(parity_mock: None, rb: Rendobar)
 def test_c30_a_phantom_total_does_not_loop(parity_mock: None, rb: Rendobar) -> None:
     reset("?phantom_total=1")
     assert len(list(rb.jobs.list_all())) == 60
+    assert len([r for r in requests_seen() if r["path"] == "/jobs"]) == 2
 
 
 def test_c31_a_bad_page_window_fails_locally(rb: Rendobar) -> None:
     recorder = recording(rb)
-    with pytest.raises(InvalidArgumentError):
-        rb.jobs.list(limit=0)
-    with pytest.raises(InvalidArgumentError):
-        rb.jobs.list(offset=-1)
+    for limit, offset in ((-1, None), (None, -1), (0, None)):
+        with pytest.raises(InvalidArgumentError):
+            rb.jobs.list(limit=limit, offset=offset)
     assert recorder.requests == []
 
 
@@ -353,9 +356,10 @@ def test_c32_an_unsafe_id_fails_locally(rb: Rendobar, job_id: str) -> None:
 
 def test_c33_an_invalid_submit_exposes_its_problems(parity_mock: None, rb: Rendobar) -> None:
     with pytest.raises(RendobarError) as info:
-        rb.jobs.create("no_such_type", {})
+        rb.jobs.create(UntypedJob("no_such_type"))
     problems = info.value.problems
-    assert info.value.code == "VALIDATION_ERROR" and problems and problems[0].path == ("type",) and problems[0].message
+    assert info.value.code == "VALIDATION_ERROR" and info.value.status_code == 400
+    assert problems and problems[0].path == ("type",) and problems[0].message == 'Unknown job type "no_such_type"'
 
 
 def test_c34_a_wait_timeout_carries_the_last_job(parity_mock: None, rb: Rendobar) -> None:
@@ -369,7 +373,7 @@ def test_c35_wait_returns_a_cancelled_job_and_run_raises(parity_mock: None, rb: 
     assert isinstance(rb.jobs.wait("job_cancelled"), JobCancelled)
     reset("?cancel_created=1")
     with pytest.raises(JobFailedError) as info:
-        rb.jobs.run("ffprobe", {"command": "https://x/a.mp4"}, interval=0.05)
+        rb.jobs.run({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}}, interval=0.05)
     assert info.value.code == "JOB_CANCELLED" and isinstance(info.value.job, JobCancelled)
 
 

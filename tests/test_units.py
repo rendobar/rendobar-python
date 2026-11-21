@@ -6,9 +6,10 @@ No mock server: the HTTP side is an httpx.MockTransport.
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import typing
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional
 
 import httpx
 import pytest
@@ -33,6 +34,7 @@ from rendobar import (
     RendobarError,
     ResponseValidationError,
     UnknownJob,
+    UntypedJob,
     WaitTimeoutError,
 )
 from rendobar._client import SomeJob, WaitClock, WaitPoll, retry_delay
@@ -304,7 +306,7 @@ def test_a_known_status_that_does_not_parse_is_not_hidden() -> None:
 
 def test_create_and_cancel_with_a_new_status_do_not_raise() -> None:
     rb = sync_client(routes(PAGES))
-    created = rb.jobs.create("ffprobe", {"command": "x"})
+    created = rb.jobs.create({"type": "ffprobe", "params": {"command": "x"}})
     assert created.id == "job_9" and created.status == "paused"
     cancelled = rb.jobs.cancel("job_2")
     assert cancelled.id == "job_2" and cancelled.status == "paused"
@@ -326,7 +328,7 @@ def test_one_job_is_the_single_fallback_for_get_create_and_cancel() -> None:
 def test_create_with_a_known_status_that_does_not_parse_raises() -> None:
     rb = sync_client(routes({"POST /jobs": (201, {"data": {"status": "waiting"}})}))
     with pytest.raises(ResponseValidationError):
-        rb.jobs.create("ffprobe", {"command": "x"})
+        rb.jobs.create({"type": "ffprobe", "params": {"command": "x"}})
 
 
 def test_an_error_with_an_unreadable_body_keeps_its_status() -> None:
@@ -389,7 +391,7 @@ def test_submit_retries_reuse_one_idempotency_key() -> None:
             return httpx.Response(502, json={"error": {"code": "BAD_GATEWAY", "message": "x"}}, headers={"Retry-After": "0"})
         return httpx.Response(201, json={"data": {"id": "job_1", "status": "waiting", "idempotent": True}})
 
-    asyncio.run(async_client(handle).jobs.create("ffprobe", {"command": "x"}))
+    asyncio.run(async_client(handle).jobs.create({"type": "ffprobe", "params": {"command": "x"}}))
     assert len(keys) == 2 and keys[0] == keys[1]
 
 
@@ -415,7 +417,7 @@ def test_no_key_raises_locally_before_any_request(monkeypatch: pytest.MonkeyPatc
 
     arb = AsyncRendobar(key, base_url="https://api.test")
     with pytest.raises(AuthenticationError):
-        asyncio.run(arb.jobs.run("ffprobe", {"command": "x"}))
+        asyncio.run(arb.jobs.run({"type": "ffprobe", "params": {"command": "x"}}))
 
 
 def test_an_empty_env_key_is_missing_too(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -436,7 +438,7 @@ def test_models_carry_their_public_names() -> None:
         assert getattr(rendobar, name) is cls and name in rendobar.__all__
         assert cls.__name__ == name and cls.__qualname__ == name
         assert typing.get_type_hints(cls)  # annotations still resolve in the generated module
-    created = sync_client(routes({"POST /jobs": (201, {"data": {"id": "job_9", "status": "waiting"}})})).jobs.create("ffprobe")
+    created = sync_client(routes({"POST /jobs": (201, {"data": {"id": "job_9", "status": "waiting"}})})).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
     assert type(created).__name__ == "JobCreated" and repr(created).startswith("JobCreated(")
     running = sync_client(routes({"GET /jobs/job_1": (200, {"data": job("job_1", "running")})})).jobs.get("job_1")
     assert isinstance(running, rendobar.JobRunning) and pickle.loads(pickle.dumps(running)) == running
@@ -468,7 +470,8 @@ def refuse_all(request: httpx.Request) -> httpx.Response:
 @pytest.mark.parametrize("job_id", ["../../etc", "..", ".", "", "job_1/cancel", "job_1?x=1", "job 1"])
 def test_an_unsafe_job_id_is_an_invalid_argument(job_id: str) -> None:
     rb = sync_client(refuse_all)
-    for call in (rb.jobs.get, rb.jobs.cancel, rb.jobs.download, rb.jobs.wait, rb.jobs.schema):
+    calls: List[Callable[[str], object]] = [rb.jobs.get, rb.jobs.cancel, lambda i: rb.jobs.download(i, io.BytesIO()), rb.jobs.wait, rb.jobs.schema]
+    for call in calls:
         with pytest.raises(InvalidArgumentError) as info:
             call(job_id)
         assert isinstance(info.value, RendobarError) and isinstance(info.value, ValueError)
@@ -550,16 +553,16 @@ def _answer(status: int) -> Handler:
 @pytest.mark.parametrize("handler", [_down, _answer(503), _answer(429)], ids=["connection", "503", "429"])
 def test_a_cut_off_submit_carries_the_key_it_sent(handler: Handler) -> None:
     with pytest.raises(RendobarError) as info:
-        sync_client(handler, max_retries=1).jobs.create("ffprobe", {"command": "x"})
+        sync_client(handler, max_retries=1).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
     assert (info.value.idempotency_key or "").startswith("sdk_")
     with pytest.raises(RendobarError) as mine:
-        asyncio.run(async_client(handler, max_retries=0).jobs.create("ffprobe", idempotency_key="order-7"))
+        asyncio.run(async_client(handler, max_retries=0).jobs.create({"type": "ffprobe", "params": {"command": "x"}}, idempotency_key="order-7"))
     assert mine.value.idempotency_key == "order-7"
 
 
 def test_a_refused_submit_carries_no_key() -> None:
     with pytest.raises(RendobarError) as info:
-        sync_client(_answer(400)).jobs.create("ffprobe")
+        sync_client(_answer(400)).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
     assert info.value.idempotency_key is None
 
 
@@ -582,7 +585,7 @@ def test_problems_are_parsed_from_details_and_never_raise() -> None:
         return httpx.Response(400, json={"error": {"code": "VALIDATION_ERROR", "message": "x", "details": details}})
 
     with pytest.raises(RendobarError) as info:
-        sync_client(refuse).jobs.create("ffprobe")
+        sync_client(refuse).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
     problems = info.value.problems
     assert [(p.path, p.message, p.upgrade_to) for p in problems] == [
         (("params", "command"), "Required", None),
@@ -590,8 +593,10 @@ def test_problems_are_parsed_from_details_and_never_raise() -> None:
         (("params.fps",), "Too high", None),
         ((0, "x"), "odd path", None),
     ]
-    assert info.value.details == details  # passed through unchanged
-    assert RendobarError("x", code="X", details={"not": "a list"}).problems == []
+    assert info.value.details == problems  # a list of problems is the typed details
+    other = RendobarError("x", code="X", details={"jobId": "job_1"})
+    assert other.problems == [] and other.details == {"jobId": "job_1"}
+    assert RendobarError("x", code="X", details="a sentence").details is None
 
 
 def test_a_wait_timeout_carries_the_last_job_read() -> None:
@@ -626,4 +631,130 @@ def test_the_agent_headline_url_is_output_file_only() -> None:
     many = job("job_1", "complete", output={"file": None, "files": files})
     rb = sync_client(routes({"GET /jobs/job_1": (200, {"data": many})}))
     summary = summarize(rb.jobs.get("job_1"))
-    assert summary["url"] is None and summary["files"][0]["url"] == "https://cdn.test/a.png"
+    assert summary["url"] is None and summary["files"] == [{"url": "https://cdn.test/a.png", "type": "image", "path": "a.png", "size": 1}]
+
+
+# ── round four: strict submits, streaming, closed clients ─────────────
+
+def test_a_submit_sends_the_wire_names_and_only_what_was_set() -> None:
+    sent: List[Dict[str, Any]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(201, json={"data": {"id": "job_1", "status": "waiting"}})
+
+    rb = sync_client(handle)
+    rb.jobs.create({"type": "ffprobe", "params": {"command": "x"}}, idempotency_key="k1", label="probe",
+                   destinations=["storage://media"], force_async=True, callback={"url": "https://hook.test"})
+    rb.jobs.create(UntypedJob("video.newthing", {"quality": "high"}, {"source": "https://x/a.mp4"}))
+    assert sent[0] == {"type": "ffprobe", "params": {"command": "x"}, "idempotencyKey": "k1", "label": "probe",
+                       "destinations": ["storage://media"], "forceAsync": True, "callback": {"url": "https://hook.test"}}
+    assert sent[1]["type"] == "video.newthing" and sent[1]["params"] == {"quality": "high"}
+    assert sent[1]["inputs"] == {"source": "https://x/a.mp4"} and sent[1]["idempotencyKey"].startswith("sdk_")
+
+
+@pytest.mark.parametrize("job, why", [
+    ({"type": "ffprobe", "params": {"command": "x"}, "label": "in the job"}, "not part of a job"),
+    ({"type": "ffprobe", "params": "command=x"}, "params"),
+    ({"params": {"command": "x"}}, "type"),
+    ("ffprobe", "job dict"),
+    (UntypedJob("ffprobe", ["not", "a", "mapping"]), "params"),  # type: ignore[arg-type]
+])
+def test_a_malformed_job_is_an_invalid_argument(job: Any, why: str) -> None:
+    with pytest.raises(InvalidArgumentError, match=why):
+        sync_client(refuse_all).jobs.create(job)
+
+
+@pytest.mark.parametrize("options", [{"destinations": "storage://media"}, {"destinations": [1]}, {"label": 5},
+                                     {"force_async": "yes"}, {"callback": {"headers": {}}}])
+def test_a_malformed_submit_option_is_an_invalid_argument(options: Dict[str, Any]) -> None:
+    with pytest.raises(InvalidArgumentError):
+        sync_client(refuse_all).jobs.create({"type": "ffprobe", "params": {"command": "x"}}, **options)
+
+
+@pytest.mark.parametrize("call", [
+    lambda rb: rb.jobs.list(limit="5"), lambda rb: rb.jobs.list(offset=1.5), lambda rb: rb.jobs.list(status=3),
+    lambda rb: list(rb.jobs.list_all(page_size="x")), lambda rb: rb.jobs.wait("job_1", interval=0),
+    lambda rb: rb.jobs.wait("job_1", timeout=-1),
+])
+def test_a_wrong_argument_type_is_an_invalid_argument_not_a_type_error(call: Callable[[Rendobar], object]) -> None:
+    with pytest.raises(InvalidArgumentError):
+        call(sync_client(refuse_all))
+
+
+def test_a_2xx_the_sdk_cannot_read_keeps_the_submit_key() -> None:
+    def garbled(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(201, text="<html>proxy page</html>", headers={"x-request-id": "req_2xx"})
+
+    with pytest.raises(ResponseValidationError) as info:
+        sync_client(garbled).jobs.create({"type": "ffprobe", "params": {"command": "x"}}, idempotency_key="order-9")
+    assert info.value.idempotency_key == "order-9" and info.value.status_code == 201
+    assert info.value.request_id == "req_2xx" and info.value.body == "<html>proxy page</html>"
+    with pytest.raises(ResponseValidationError):
+        sync_client(garbled).jobs.get("job_1")
+
+
+def test_a_closed_client_raises_client_closed() -> None:
+    rb = sync_client(routes(PAGES))
+    rb.close()
+    for call in (lambda: rb.jobs.get("job_2"), rb.jobs.types, rb.account.capabilities):
+        with pytest.raises(RendobarError) as info:
+            call()
+        assert info.value.code == "CLIENT_CLOSED"
+
+    async def go() -> None:
+        arb = async_client(routes(PAGES))
+        await arb.aclose()
+        with pytest.raises(RendobarError, match="closed"):
+            await arb.jobs.get("job_2")
+
+    asyncio.run(go())
+
+
+_BIG = 1024 * 1024  # bytes per chunk
+
+
+def _streamed(chunks: int, fail_after: Optional[int] = None) -> Handler:
+    def body() -> Iterator[bytes]:
+        for i in range(chunks):
+            if fail_after is not None and i == fail_after:
+                raise httpx.ReadError("connection reset mid-body")
+            yield bytes([i % 256]) * _BIG
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        return httpx.Response(200, content=body(), headers={"content-type": "video/mp4"})
+
+    calls: List[str] = []
+    handle.calls = calls  # type: ignore[attr-defined]
+    return handle
+
+
+def test_download_streams_a_large_body_to_a_file(tmp_path: Any) -> None:
+    target = tmp_path / "out.mp4"
+    assert sync_client(_streamed(24)).jobs.download("job_1", target) == 24 * _BIG
+    assert target.stat().st_size == 24 * _BIG
+    sink = io.BytesIO()
+    assert sync_client(_streamed(3)).jobs.download("job_1", sink) == 3 * _BIG and sink.getvalue()[_BIG] == 1
+
+
+def test_a_body_that_breaks_is_raised_once_and_its_file_removed(tmp_path: Any) -> None:
+    handler = _streamed(10, fail_after=4)
+    target = tmp_path / "out.mp4"
+    with pytest.raises(APIConnectionError):
+        sync_client(handler, max_retries=3).jobs.download("job_1", str(target))
+    assert handler.calls == ["/jobs/job_1/download"] and not target.exists()  # type: ignore[attr-defined]
+
+
+def test_async_download_streams_too() -> None:
+    async def body() -> AsyncIterator[bytes]:
+        for i in range(8):
+            yield bytes([i]) * _BIG
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body())
+
+    async def go() -> int:
+        return await async_client(handle).jobs.download("job_1", io.BytesIO())
+
+    assert asyncio.run(go()) == 8 * _BIG

@@ -14,14 +14,16 @@ the case you handle, or `RendobarError` for all of them.
     │   └── APITimeoutError         it timed out
     ├── ResponseValidationError     a response this SDK version cannot read
     ├── JobFailedError              a waited-on job ended failed or cancelled
-    └── WaitTimeoutError            jobs.wait() gave up; the job may still finish
+    ├── WaitTimeoutError            jobs.wait() gave up; the job may still finish
+    └── WebhookSignatureError       a webhook delivery that is not signed by Rendobar
 """
+# pyright: strict
 from __future__ import annotations
 
 import email.utils
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Type, Union
+from typing import Dict, List, Literal, Mapping, Optional, Tuple, Type, TypeVar, Union, cast
 
 import httpx
 
@@ -31,62 +33,112 @@ from ._models import JobCancelled, JobFailed, SomeJob
 
 REQUEST_ID_HEADER = "x-request-id"
 
+# Every code this SDK version knows: the API's, then the ones the SDK sets itself.
+# `RendobarError.code` is one of these or, from a newer API, any other string.
+ErrorCode = Literal[
+    "UNAUTHORIZED", "FORBIDDEN", "VALIDATION_ERROR", "INVALID_JOB_TYPE", "FEATURE_NOT_ENABLED",
+    "INSUFFICIENT_CREDITS", "PLAN_LIMIT", "STORAGE_QUOTA_EXCEEDED", "FILE_TOO_LARGE", "RATE_LIMITED",
+    "QUEUE_FULL", "QUEUE_EXPIRED", "NOT_FOUND", "CONFLICT", "GONE", "RUNNER_ERROR", "RUNNER_TIMEOUT",
+    "ORG_SUSPENDED", "INPUT_URL_BLOCKED", "INPUT_NOT_MEDIA", "INPUT_UNSUPPORTED", "INPUT_FETCH_FAILED",
+    "INPUT_FETCH_STALLED", "PROCESSING_FAILED", "INTERNAL_ERROR",
+    "MISSING_API_KEY", "INVALID_API_KEY", "INVALID_ARGUMENT", "CLIENT_CLOSED", "CONNECTION_ERROR",
+    "TIMEOUT", "INVALID_RESPONSE", "UNKNOWN_ERROR", "JOB_FAILED", "JOB_CANCELLED", "WAIT_TIMEOUT",
+    "INVALID_SIGNATURE",
+]
+# A plan name a refusal can point to. A newer API may name another.
+PlanName = Literal["pro", "studio"]
+
+_K = TypeVar("_K")
+
 
 @dataclass(frozen=True)
 class Problem:
     """One problem in a refused request: where it is (`path`), what is wrong, and the plan that allows it.
 
     `upgrade_to` is set on a plan refusal: the cheapest plan that runs the
-    request ("pro", "studio"), or None when there is none to name.
+    request, or None when there is none to name.
     """
 
     path: Tuple[Union[str, int], ...]
     message: str
-    upgrade_to: Optional[str] = None
+    upgrade_to: Union[PlanName, str, None] = None
 
 
-def parse_problems(details: Any) -> List[Problem]:
-    """`error.details` as Problems when it is a list of them. Items that are not problem-shaped are skipped, never raised on."""
-    if not isinstance(details, list):
-        return []
+Details = Union[List[Problem], Mapping[str, object], None]
+
+
+def as_mapping(value: object) -> Optional[Mapping[str, object]]:
+    """`value` when it is a mapping with string keys, else None. For data read from JSON."""
+    if not isinstance(value, Mapping):
+        return None
+    # isinstance cannot see the key and value types; the check below makes the key type true.
+    mapping = cast(Mapping[object, object], value)
+    if not all(isinstance(key, str) for key in mapping):
+        return None
+    return cast(Mapping[str, object], mapping)
+
+
+def is_text(value: object) -> bool:
+    """isinstance(value, str), for a runtime check on an argument typed str that an untyped caller may still get wrong."""
+    return isinstance(value, str)
+
+
+def as_list(value: object) -> Optional[List[object]]:
+    """`value` when it is a list, else None. For data read from JSON."""
+    # isinstance cannot see the item type; every item is kept as object, which is always true.
+    return cast(List[object], value) if isinstance(value, list) else None
+
+
+def parse_details(details: object) -> Details:
+    """`error.details` typed: a list becomes Problems (items that are not problem-shaped are skipped), a mapping stays a mapping."""
+    items = as_list(details)
+    if items is None:
+        return as_mapping(details)
     out: List[Problem] = []
-    for item in details:
-        if not isinstance(item, Mapping):
+    for item in items:
+        problem = as_mapping(item)
+        if problem is None:
             continue
-        path, message, upgrade = item.get("path"), item.get("message"), item.get("upgradeTo")
-        if isinstance(path, str):
-            path = [path]
-        if not isinstance(path, list) or not isinstance(message, str):
+        path, message, upgrade = problem.get("path"), problem.get("message"), problem.get("upgradeTo")
+        steps = [path] if isinstance(path, str) else as_list(path)
+        if steps is None or not isinstance(message, str):
             continue
-        steps = tuple(p for p in path if isinstance(p, (str, int)) and not isinstance(p, bool))
-        out.append(Problem(steps, message, upgrade if isinstance(upgrade, str) else None))
+        typed = tuple(step for step in steps if isinstance(step, (str, int)) and not isinstance(step, bool))
+        out.append(Problem(typed, message, upgrade if isinstance(upgrade, str) else None))
     return out
 
 
 class RendobarError(Exception):
-    """The base of every error this SDK raises. `status_code` is None when no HTTP response was involved."""
+    """The base of every error this SDK raises. `status_code` is None when no HTTP response was involved.
+
+    `details` is what the API said beyond the message: the list of `Problem`s of
+    a refusal, or a mapping of other facts (such as `jobId` on a conflict).
+    """
 
     def __init__(
         self,
         message: str,
         *,
-        code: str,
+        code: Union[ErrorCode, str],
         status_code: Optional[int] = None,
         request_id: Optional[str] = None,
-        details: Any = None,
+        details: object = None,
         retry_after: Optional[float] = None,
     ) -> None:
         super().__init__(message)
         self.message = message
-        self.code = code
+        self.code: Union[ErrorCode, str] = code
         self.status_code = status_code
         self.request_id = request_id
-        self.details = details
+        self.details: Details = parse_details(details)
         self.retry_after = retry_after
-        # Each problem the API listed in `details` (VALIDATION_ERROR, PLAN_LIMIT, FEATURE_NOT_ENABLED), typed.
-        self.problems: List[Problem] = parse_problems(details)
         # Set on a submit that failed after the job may exist: submit again with it to get that job, not a second one.
         self.idempotency_key: Optional[str] = None
+
+    @property
+    def problems(self) -> List[Problem]:
+        """The refusal's problems (VALIDATION_ERROR, PLAN_LIMIT, FEATURE_NOT_ENABLED), or an empty list."""
+        return self.details if isinstance(self.details, list) else []
 
     def __str__(self) -> str:
         rid = f" (request {self.request_id})" if self.request_id else ""
@@ -94,7 +146,7 @@ class RendobarError(Exception):
 
 
 class BadRequestError(RendobarError):
-    """400: the request was invalid. `details` lists the problems."""
+    """400: the request was invalid. `problems` lists what is wrong."""
 
 
 class AuthenticationError(RendobarError):
@@ -119,7 +171,7 @@ class NotFoundError(RendobarError):
 
 
 class ConflictError(RendobarError):
-    """409: conflicts with the current state, such as a reused idempotency key."""
+    """409: conflicts with the current state, such as an idempotency key reused with different params."""
 
 
 class RateLimitError(RendobarError):
@@ -159,6 +211,11 @@ def api_key_error(key: Optional[str]) -> Optional[AuthenticationError]:
     return None
 
 
+def client_closed() -> RendobarError:
+    """The error for a call on a client after `close()` / `aclose()`."""
+    return RendobarError("This client is closed. Create a new Rendobar client.", code="CLIENT_CLOSED")
+
+
 class InvalidArgumentError(RendobarError, ValueError):
     """An argument the SDK refuses before sending any request, such as a job id with a `/` in it or `limit=0`.
 
@@ -186,7 +243,7 @@ class APITimeoutError(APIConnectionError):
 class ResponseValidationError(RendobarError):
     """The API answered with a body this SDK version cannot read. `body` holds it as sent."""
 
-    def __init__(self, message: str, *, status_code: Optional[int], body: Any, headers: Optional[Mapping[str, str]] = None) -> None:
+    def __init__(self, message: str, *, status_code: Optional[int], body: object, headers: Optional[Mapping[str, str]] = None) -> None:
         lowered = {k.lower(): v for k, v in (headers or {}).items()}
         super().__init__(message, code="INVALID_RESPONSE", status_code=status_code, request_id=lowered.get(REQUEST_ID_HEADER))
         self.body = body
@@ -232,6 +289,13 @@ class WaitTimeoutError(RendobarError):
         return self.message
 
 
+class WebhookSignatureError(RendobarError):
+    """`rendobar.webhooks.parse()` refused a delivery: its signature is missing, wrong or stale, or the secret is blank."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, code="INVALID_SIGNATURE")
+
+
 def format_seconds(seconds: float) -> str:
     """`0.5` -> "0.5s", `2.0` -> "2s", `420.4` -> "420s": whole seconds from 10 up, three significant digits below."""
     return f"{seconds:.0f}s" if seconds >= 10 else f"{seconds:.3g}s"
@@ -250,34 +314,46 @@ def parse_retry_after(value: Optional[str], *, now: Optional[float] = None) -> O
         when = email.utils.parsedate_to_datetime(text)
     except (TypeError, ValueError, IndexError):
         return None
-    if when is None:
-        return None
     return max(0.0, when.timestamp() - (time.time() if now is None else now))
 
 
-def _field(value: Any, key: str) -> Any:
-    if isinstance(value, Mapping):
-        return value.get(key)
+def _field(value: object, key: str) -> object:
+    mapping = as_mapping(value)
+    if mapping is not None:
+        return mapping.get(key)
     return getattr(value, key, None)
 
 
+def _lower(headers: Optional[Mapping[_K, str]]) -> Dict[str, str]:
+    return {str(k).lower(): v for k, v in (headers or {}).items()}
+
+
 def from_generated(err: _GeneratedApiError) -> RendobarError:
-    """Turns the generated core's ApiError into the public RendobarError hierarchy."""
+    """Turns the generated core's ApiError into the public RendobarError hierarchy.
+
+    A 2xx here is a success response the core could not read (such as a body
+    that is not JSON): that is a ResponseValidationError, never a plain error.
+    """
     status = err.status_code or 0
-    body = err.body
-    envelope = _field(body, "error")
-    code = _field(envelope, "code") or "UNKNOWN_ERROR"
-    message = _field(envelope, "message") or f"Request failed with status {status}"
-    headers = {k.lower(): v for k, v in (err.headers or {}).items()}
-    retry_after = parse_retry_after(headers.get("retry-after"))
+    headers = _lower(err.headers)
+    if 200 <= status < 300:
+        unread = ResponseValidationError(
+            f"The API answered {status} with a body this SDK cannot read. Upgrade rendobar, or read `body`.",
+            status_code=status, body=err.body, headers=headers,
+        )
+        unread.__cause__ = err
+        return unread
+    envelope = _field(err.body, "error")
+    code = _field(envelope, "code")
+    message = _field(envelope, "message")
     cls = _BY_STATUS.get(status) or (InternalServerError if status >= 500 else RendobarError)
     out = cls(
-        str(message),
-        code=str(code),
+        message if isinstance(message, str) and message else f"Request failed with status {status}",
+        code=code if isinstance(code, str) and code else "UNKNOWN_ERROR",
         status_code=status,
         request_id=headers.get(REQUEST_ID_HEADER),
         details=_field(envelope, "details"),
-        retry_after=retry_after,
+        retry_after=parse_retry_after(headers.get("retry-after")),
     )
     out.__cause__ = err
     return out

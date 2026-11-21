@@ -2,27 +2,28 @@
 
 A thin, hand-written layer over the generated core in `_generated` (Fern, from
 the published OpenAPI document). The core supplies models, timeouts and HTTP.
-It is built with its own retries off: this layer owns them, so only 429, 5xx
-and connection failures are retried (never a 409 or 408). It adds what a spec
-cannot say:
+It is built with its own retries off: this layer owns them, so only 429, 500,
+502, 503, 504 and connection failures are retried (never a 409 or 408). It
+adds what a spec cannot say:
 
 - the same method names as `@rendobar/sdk` (`jobs.create`, `jobs.run`, ...),
 - responses unwrapped from the `{data}` envelope,
 - one idempotency key per `jobs.create()` call, so a retried submit cannot
   create a second job,
-- `jobs.wait()` / `jobs.run()`, `jobs.list_all()`,
+- `jobs.wait()` / `jobs.run()`, `jobs.list_all()`, a streamed `jobs.download()`,
 - `RENDOBAR_API_KEY` from the environment, the `X-Rendobar-Client` header,
 - `Deprecation` notices, and a job whose status is newer than this SDK
   (`UnknownJob`, from any call that returns jobs),
-- one error hierarchy (`RendobarError`) for API errors, transport failures and
-  responses this version cannot read.
+- one error hierarchy (`RendobarError`) for API errors, transport failures,
+  bad arguments and responses this version cannot read.
 
 Everything that is not I/O lives here as plain helpers (`retry_delay`,
-`WaitPoll`, `one_job`, `job_page`, ...) that `_async_client` reuses, so the sync
-and async clients behave identically.
+`WaitPoll`, `one_job`, `job_page`, `submit_body`, ...) that `_async_client`
+reuses, so the sync and async clients behave identically.
 
 Behaviour is held to the shared conformance scenarios (tests/test_conformance.py).
 """
+# pyright: strict, reportPrivateUsage=false
 from __future__ import annotations
 
 import datetime as _dt
@@ -34,7 +35,27 @@ import secrets
 import time
 import warnings
 from types import TracebackType
-from typing import Any, Callable, Dict, Iterator, List, Literal, Mapping, Optional, Protocol, Sequence, Tuple, Type, TypeVar, Union, get_args, overload
+from typing import (
+    IO,
+    Callable,
+    Dict,
+    Generic,
+    Iterator,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Protocol,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
+
+from typing_extensions import TypedDict
 
 import httpx
 import pydantic
@@ -47,6 +68,10 @@ from ._errors import (
     ResponseValidationError,
     WaitTimeoutError,
     api_key_error,
+    as_list,
+    as_mapping,
+    client_closed,
+    is_text,
     normalize,
     parse_retry_after,
     to_public,
@@ -54,14 +79,13 @@ from ._errors import (
 from ._generated.client import GeneratedClient
 from ._generated.core.api_error import ApiError as _GeneratedApiError
 from ._generated.core.parse_error import ParsingError as _GeneratedParsingError
-from ._generated.core.pydantic_utilities import parse_obj_as
+from ._generated.jobs.requests.submit_job_request import SubmitJobRequestParams
 from ._generated.types.job import Job as _Job
-from ._generated.types.submit_any_job import SubmitAnyJob
 from ._models import (
+    KNOWN_STATUSES,
     AccountCapabilities,
+    Callback,
     FinishedJob,
-    SomeJob,
-    UnknownJob,
     Job,
     JobCancellation,
     JobCancelled,
@@ -69,15 +93,18 @@ from ._models import (
     JobCreated,
     JobFailed,
     JobReplayed,
+    JobStatus,
     JobType,
     JobTypeSchema,
     PageMeta,
+    SomeJob,
+    SubmitJob,
+    UnknownJob,
+    UntypedJob,
 )
 from ._version import __version__
 
 DEFAULT_BASE_URL = "https://api.rendobar.com"
-JobStatus = Literal["waiting", "dispatched", "running", "complete", "failed", "cancelled"]  # every status this SDK knows
-KNOWN_STATUSES = frozenset(get_args(JobStatus))
 _DEFAULT_WAIT_TIMEOUT = 300.0  # seconds, until the job reports its own budget
 _WAIT_GRACE = 120.0  # headroom past the job's budget for upload and callback
 _APP_NAME = re.compile(r"^[A-Za-z0-9._+-]{1,32}$")
@@ -88,6 +115,9 @@ RETRIED_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 # What a call through the core can fail with. Everything else is a bug and propagates as is.
 _CORE_FAILURES: Tuple[Type[BaseException], ...] = (_GeneratedApiError, _GeneratedParsingError, httpx.TransportError)
+
+# Where jobs.download() writes: a file path (created or replaced) or a binary file you opened.
+DownloadTarget = Union[str, "os.PathLike[str]", IO[bytes]]
 
 
 class RendobarDeprecationWarning(FutureWarning):
@@ -108,8 +138,6 @@ class DeprecationNotice:
 
     def __repr__(self) -> str:
         return f"DeprecationNotice({self.method} {self.path}, since {self.deprecated_at.date()})"
-
-
 
 
 class Page:
@@ -159,6 +187,27 @@ def _route_of(path: str) -> str:
     return _ID_SEGMENT.sub("/:id", path.split("?", 1)[0])
 
 
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+
+
+class Response(Protocol[T_co]):
+    """What a call through the core returns: the core's HttpResponse, or a `_Fetched` download."""
+
+    @property
+    def headers(self) -> Mapping[str, str]: ...
+
+    @property
+    def data(self) -> T_co: ...
+
+
+class Envelope(Protocol[T_co]):
+    """A response body that wraps its payload in `data`."""
+
+    @property
+    def data(self) -> T_co: ...
+
+
 class _Deprecations:
     """Reports each deprecated route once per client. Shared by the sync and async clients.
 
@@ -168,9 +217,9 @@ class _Deprecations:
 
     def __init__(self, handler: Optional[Callable[[DeprecationNotice], None]]) -> None:
         self._handler = handler
-        self._seen: set = set()
+        self._seen: Set[str] = set()
 
-    def note(self, response: Any, method: str, path: str) -> None:
+    def note(self, response: Response[object], method: str, path: str) -> None:
         since = _parse_deprecation(response.headers.get("deprecation") or response.headers.get("Deprecation"))
         route = _route_of(path)
         key = f"{method} {route}"
@@ -187,75 +236,165 @@ class _Deprecations:
             pass
 
 
-def build_submit(
-    type: str,
-    params: Optional[Mapping[str, Any]],
-    inputs: Optional[Mapping[str, Any]],
+# ── arguments, checked before any request ──────────────────────────────
+
+_JOB_KEYS = frozenset({"type", "params", "inputs"})  # what to run; the submit options are keyword arguments
+
+
+def _job_fields(job: object) -> Dict[str, object]:
+    """The `type`, `params` and `inputs` of a typed job dict, checked at runtime too (the type check is the user's to run)."""
+    fields = as_mapping(job)
+    if fields is None:
+        raise InvalidArgumentError(f'job must be a job dict, such as {{"type": "ffprobe", "params": {{...}}}}, or an UntypedJob. Got {type(job).__name__}.')
+    extra = sorted(set(fields) - _JOB_KEYS)
+    if extra:
+        raise InvalidArgumentError(f"{extra} are not part of a job. Pass submit options to create() or run(): create(job, label=...).")
+    kind = fields.get("type")
+    if not isinstance(kind, str) or not kind:
+        raise InvalidArgumentError(f"job type must be a non-empty string. Got {kind!r}.")
+    out: Dict[str, object] = {"type": kind}
+    for name in ("params", "inputs"):
+        if name in fields:
+            value = as_mapping(fields[name])
+            if value is None:
+                raise InvalidArgumentError(f"job {name} must be a dict with string keys. Got {type(fields[name]).__name__}.")
+            out[name] = dict(value)
+    return out
+
+
+def submit_body(
+    job: Union[SubmitJob, UntypedJob],
     *,
     idempotency_key: str,
     label: Optional[str],
-    destinations: Optional[Sequence[str]],
-    callback: Optional[Mapping[str, Any]],
+    destinations: Optional[List[str]],
+    callback: Optional[Callback],
     force_async: Optional[bool],
-) -> SubmitAnyJob:
+) -> SubmitJobRequestParams:
     """The submit body. `idempotency_key` is the caller's, or one `generate_idempotency_key()` made for this call."""
-    body: Dict[str, Any] = {"type": type, "params": dict(params or {}), "inputs": dict(inputs or {})}
-    body["idempotencyKey"] = idempotency_key
+    if isinstance(job, UntypedJob):
+        body = _job_fields({"type": job.type, "params": job.params, "inputs": job.inputs})
+    else:
+        body = _job_fields(job)
+    body["idempotency_key"] = idempotency_key
     if label is not None:
+        if not is_text(label):
+            raise InvalidArgumentError(f"label must be a string. Got {type(label).__name__}.")
         body["label"] = label
     if destinations is not None:
-        body["destinations"] = list(destinations)
+        items = None if isinstance(destinations, str) else as_list(destinations)
+        if items is None or not all(isinstance(item, str) for item in items):
+            raise InvalidArgumentError(f'destinations must be a list of strings, such as ["storage://prod-media"]. Got {destinations!r}.')
+        body["destinations"] = items
     if callback is not None:
-        body["callback"] = dict(callback)
+        hook = as_mapping(callback)
+        if hook is None or not isinstance(hook.get("url"), str):
+            raise InvalidArgumentError('callback must be a dict with a "url", such as {"url": "https://example.com/hook"}.')
+        body["callback"] = dict(hook)
     if force_async is not None:
-        body["forceAsync"] = force_async
-    try:
-        return SubmitAnyJob.model_validate(body)  # the untyped variant: valid for every job type
-    except pydantic.ValidationError as err:
-        raise InvalidArgumentError(f"The job cannot be submitted: {err}") from None
+        if force_async is not True and force_async is not False:
+            raise InvalidArgumentError(f"force_async must be True or False. Got {force_async!r}.")
+        body["force_async"] = force_async
+    # The fields were checked above. The core serialises this dict by the union's annotations
+    # (snake_case to the wire's camelCase); a TypedDict union cannot be built from a dict without a cast.
+    return cast(SubmitJobRequestParams, body)
 
 
-def _is_newer_job(raw: Any) -> bool:
+_PATH_SEGMENT = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def path_segment(name: str, value: str) -> str:
+    """`value` when it is safe as one URL path segment (a job id, a job type), else InvalidArgumentError."""
+    if not is_text(value) or not _PATH_SEGMENT.match(value) or value in (".", ".."):
+        raise InvalidArgumentError(f"{name} must be letters, digits, '.', '_' or '-', such as job_abc123. Got {value!r}.")
+    return value
+
+
+def _whole(name: str, value: object, minimum: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise InvalidArgumentError(f"{name} must be a whole number of {minimum} or more. Got {value!r}.")
+
+
+def page_window(limit: Optional[int], offset: Optional[int]) -> None:
+    """InvalidArgumentError for a page size below 1, a negative offset, or either not a whole number. The API sets the maximum."""
+    if limit is not None:
+        _whole("limit", limit, 1)
+    if offset is not None:
+        _whole("offset", offset, 0)
+
+
+def list_filters(status: Optional[str], kind: Optional[str]) -> None:
+    """InvalidArgumentError for a list filter that is not a string."""
+    for name, value in (("status", status), ("type", kind)):
+        if value is not None and not is_text(value):
+            raise InvalidArgumentError(f"{name} must be a string. Got {type(value).__name__}.")
+
+
+def _seconds(name: str, value: object, *, allow_zero: bool) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0 or (value == 0 and not allow_zero):
+        raise InvalidArgumentError(f"{name} must be a {'non-negative' if allow_zero else 'positive'} number of seconds. Got {value!r}.")
+
+
+def wait_options(timeout: Optional[float], interval: float, max_interval: float) -> None:
+    """InvalidArgumentError for a negative timeout, or a pause between polls that is not a positive number of seconds."""
+    if timeout is not None:
+        _seconds("timeout", timeout, allow_zero=True)
+    _seconds("interval", interval, allow_zero=False)
+    _seconds("max_interval", max_interval, allow_zero=False)
+
+
+# ── responses ─────────────────────────────────────────────────────────
+
+def _is_newer_job(raw: object) -> bool:
     """A job-shaped body (it has an id) whose status this SDK does not know."""
-    return isinstance(raw, Mapping) and isinstance(raw.get("id"), str) and str(raw.get("status", "")) not in KNOWN_STATUSES
+    job = as_mapping(raw)
+    return job is not None and isinstance(job.get("id"), str) and str(job.get("status", "")) not in KNOWN_STATUSES
 
 
-def job_from(raw: Any, err: ResponseValidationError) -> SomeJob:
+_JOB_ADAPTER: pydantic.TypeAdapter[Job] = pydantic.TypeAdapter(_Job)
+
+
+def job_from(raw: object, err: ResponseValidationError) -> SomeJob:
     """One job as the API sent it: the typed model, or `UnknownJob` when its status is newer than this SDK.
 
     A job with a status this SDK knows that still does not parse is a real
     mismatch, and raises `err` rather than hiding it.
     """
     try:
-        job: Job = parse_obj_as(_Job, raw)  # type: ignore[arg-type]  # `_Job` is an Annotated union, which parse_obj_as reads at runtime
-        return job
+        return _JOB_ADAPTER.validate_python(raw)
     except pydantic.ValidationError:
-        if _is_newer_job(raw):
-            return UnknownJob(raw)
+        job = as_mapping(raw)
+        if job is not None and _is_newer_job(job):
+            return UnknownJob(job)
         raise err from None
 
 
 def one_job(err: ResponseValidationError) -> UnknownJob:
     """Recovers a single-job response (get, create, cancel) the core could not parse."""
-    body = err.body
-    data = body.get("data") if isinstance(body, Mapping) else None
-    if isinstance(data, Mapping) and _is_newer_job(data):
+    body = as_mapping(err.body)
+    data = as_mapping(body.get("data")) if body is not None else None
+    if data is not None and _is_newer_job(data):
         return UnknownJob(data)
     raise err
 
 
-def job_page(err: ResponseValidationError) -> "Page":
+_META_ADAPTER: pydantic.TypeAdapter[PageMeta] = pydantic.TypeAdapter(PageMeta)
+
+
+def job_page(err: ResponseValidationError) -> Page:
     """Recovers a list response the core could not parse: each job on its own, so one new status costs one item, not the page."""
-    body = err.body
-    data = body.get("data") if isinstance(body, Mapping) else None
-    if not isinstance(data, list):
+    body = as_mapping(err.body)
+    data = as_list(body.get("data")) if body is not None else None
+    if body is None or data is None:
         raise err
     try:
-        meta = parse_obj_as(PageMeta, body.get("meta"))
+        meta = _META_ADAPTER.validate_python(body.get("meta"))
     except pydantic.ValidationError:
         raise err from None
     return Page([job_from(item, err) for item in data], meta)
 
+
+# ── retries ───────────────────────────────────────────────────────────
 
 def retry_delay(err: BaseException, attempt: int, max_retries: int, *, deadline: Optional[float] = None,
                 clock: Callable[[], float] = time.monotonic, rand: Callable[[], float] = random.random) -> Optional[float]:
@@ -303,6 +442,8 @@ def mark_cut_off(err: RendobarError, idempotency_key: str) -> None:
         err.idempotency_key = idempotency_key
 
 
+# ── waiting ───────────────────────────────────────────────────────────
+
 class WaitClock:
     """The deadline of jobs.wait().
 
@@ -321,7 +462,7 @@ class WaitClock:
         self.adopted = False
 
     def observe(self, job: SomeJob) -> None:
-        budget_ms = getattr(job, "timeout_ms", None)
+        budget_ms: object = None if isinstance(job, UnknownJob) else job.timeout_ms
         if self.explicit or self.adopted or isinstance(budget_ms, bool) or not isinstance(budget_ms, (int, float)):
             return
         self.adopted = True
@@ -339,7 +480,9 @@ class WaitPoll:
 
     After each poll, `finished(job)` returns the job when the wait is over (or
     raises `JobFailedError` when asked to), and otherwise `pause(job)` returns
-    the seconds to sleep before the next poll, or raises `WaitTimeoutError`.
+    the seconds to sleep before the next poll, or raises `WaitTimeoutError`. A
+    status this SDK does not know (`UnknownJob`) is not finished, so the wait
+    ends at its deadline.
     """
 
     def __init__(self, job_id: str, *, timeout: Optional[float], interval: float, max_interval: float,
@@ -369,6 +512,8 @@ class WaitPoll:
         return pause
 
 
+# ── the client's key and core ─────────────────────────────────────────
+
 def resolve_api_key(api_key: Optional[str]) -> Optional[str]:
     """The client's key: `api_key`, else RENDOBAR_API_KEY, as given. `api_key_error` says whether it can be used."""
     return api_key if api_key is not None else os.environ.get("RENDOBAR_API_KEY")
@@ -381,67 +526,81 @@ def require_key(key: Optional[str]) -> None:
         raise problem
 
 
-_PATH_SEGMENT = re.compile(r"^[A-Za-z0-9._-]+$")
+class CoreOptions(TypedDict):
+    """The generated core's constructor arguments this layer sets."""
+
+    base_url: str
+    token: Optional[str]
+    headers: Dict[str, str]
+    timeout: float
+    max_retries: int
 
 
-def path_segment(name: str, value: str) -> str:
-    """`value` when it is safe as one URL path segment (a job id, a job type), else InvalidArgumentError."""
-    if not isinstance(value, str) or not _PATH_SEGMENT.match(value) or value in (".", ".."):
-        raise InvalidArgumentError(f"{name} must be letters, digits, '.', '_' or '-', such as job_abc123. Got {value!r}.")
-    return value
-
-
-def page_window(limit: Optional[int], offset: Optional[int]) -> None:
-    """InvalidArgumentError for a page size below 1 or a negative offset. The API sets the maximum."""
-    if limit is not None and limit < 1:
-        raise InvalidArgumentError(f"limit must be 1 or more. Got {limit}.")
-    if offset is not None and offset < 0:
-        raise InvalidArgumentError(f"offset must be 0 or more. Got {offset}.")
-
-
-def core_options(key: Optional[str], *, base_url: str, timeout: float, app: Optional[str]) -> Dict[str, Any]:
+def core_options(key: Optional[str], *, base_url: str, timeout: float, app: Optional[str]) -> CoreOptions:
     """The generated core's constructor kwargs, shared by both clients. Its own retries are off: `_call` owns them.
 
     A key `api_key_error` refuses is not sent at all: public calls then go out without one.
     """
     if app is not None and not _APP_NAME.match(app):
         raise InvalidArgumentError('"app" must be 1-32 letters, digits or . _ + -')
-    return {
-        "base_url": base_url,
-        "token": key if api_key_error(key) is None else None,
-        "headers": {"X-Rendobar-Client": _client_header(app)},
-        "timeout": timeout,
-        "max_retries": 0,
-    }
+    return CoreOptions(
+        base_url=base_url,
+        token=key if api_key_error(key) is None else None,
+        headers={"X-Rendobar-Client": _client_header(app)},
+        timeout=timeout,
+        max_retries=0,
+    )
 
 
-class _Fetched:
-    """A downloaded body with the headers the deprecation check reads."""
+# ── downloads ─────────────────────────────────────────────────────────
 
-    def __init__(self, headers: Mapping[str, str], data: bytes) -> None:
+class _Fetched(Generic[T]):
+    """A downloaded body's result with the headers the deprecation check reads."""
+
+    def __init__(self, headers: Mapping[str, str], data: T) -> None:
         self.headers = headers
         self.data = data
 
 
-T = TypeVar("T")
-T_co = TypeVar("T_co", covariant=True)
+class Sink:
+    """Where a download's bytes go: the file the caller passed, or one opened (and on failure removed) here."""
+
+    def __init__(self, to: DownloadTarget) -> None:
+        self._path: Optional[str] = None
+        if isinstance(to, (str, os.PathLike)):
+            self._path = os.fspath(to)
+            self.file: IO[bytes] = open(self._path, "wb")  # noqa: SIM115 (closed in finish/fail)
+        else:
+            self.file = to
+        self.written = 0
+
+    def write(self, chunk: bytes) -> None:
+        self.file.write(chunk)
+        self.written += len(chunk)
+
+    def finish(self) -> int:
+        if self._path is not None:
+            self.file.close()
+        return self.written
+
+    def fail(self) -> None:
+        if self._path is not None:
+            self.file.close()
+            try:
+                os.remove(self._path)
+            except OSError:
+                pass
 
 
-class Response(Protocol[T_co]):
-    """What a call through the core returns: the core's HttpResponse, or a `_Fetched` download."""
-
-    @property
-    def headers(self) -> Mapping[str, str]: ...
-
-    @property
-    def data(self) -> T_co: ...
-
-
-class Envelope(Protocol[T_co]):
-    """A response body that wraps its payload in `data`."""
-
-    @property
-    def data(self) -> T_co: ...
+def body_failed(err: BaseException) -> RendobarError:
+    """A failure after the body started. Raised as a RendobarError `_call` does not retry: the bytes so far are gone."""
+    if isinstance(err, RendobarError):
+        return err
+    if isinstance(err, httpx.TransportError):
+        return to_public(err)
+    out = RendobarError(f"The download failed while writing: {err}", code="DOWNLOAD_FAILED")
+    out.__cause__ = err
+    return out
 
 
 # What jobs.wait() and jobs.run() accept for `on_progress`: called with the job after every poll.
@@ -453,7 +612,7 @@ class Rendobar:
 
     >>> from rendobar import Rendobar
     >>> with Rendobar() as rb:  # reads RENDOBAR_API_KEY
-    ...     job = rb.jobs.run(type="ffprobe", params={"command": "https://example.com/a.mp4"})
+    ...     job = rb.jobs.run({"type": "ffprobe", "params": {"command": "https://example.com/a.mp4"}})
     >>> job.status
     'complete'
 
@@ -464,13 +623,14 @@ class Rendobar:
             anything. `jobs.types()` and `jobs.schema()` need no key.
         base_url: The API to talk to. Defaults to https://api.rendobar.com.
         timeout: Seconds one HTTP request may take.
-        max_retries: How many times a 429, a 5xx or a failed connection is retried.
+        max_retries: How many times a 429, a 500, 502, 503, 504 or a failed connection is retried.
         app: Your app's name (1-32 letters, digits or `. _ + -`), sent in the
             `X-Rendobar-Client` header so your jobs show where they came from.
         on_deprecation: Called once per deprecated endpoint this client calls.
             Without it, a `RendobarDeprecationWarning` is emitted instead.
 
     Use it as a context manager, or call `close()`, to release its connections.
+    A call after `close()` raises RendobarError with code `CLIENT_CLOSED`.
     """
 
     def __init__(
@@ -486,15 +646,17 @@ class Rendobar:
         self._api_key = resolve_api_key(api_key)
         self._core = GeneratedClient(**core_options(self._api_key, base_url=base_url, timeout=timeout, app=app))
         self._max_retries = max_retries
+        self._closed = False
         self._deprecations = _Deprecations(on_deprecation)
         self.jobs = Jobs(self)
         self.account = Account(self)
 
     def close(self) -> None:
-        """Close the underlying HTTP connections. The client cannot be used after."""
+        """Close the underlying HTTP connections. Every call after raises RendobarError (code `CLIENT_CLOSED`)."""
+        self._closed = True
         self._core._client_wrapper.httpx_client.httpx_client.close()
 
-    def __enter__(self) -> "Rendobar":
+    def __enter__(self) -> Rendobar:
         return self
 
     def __exit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException], tb: Optional[TracebackType]) -> None:
@@ -502,15 +664,14 @@ class Rendobar:
 
     # ── shared plumbing ──────────────────────────────────────────────
 
-    def _note(self, response: Response[object], method: str, path: str) -> None:
-        self._deprecations.note(response, method, path)
-
     def _call(self, method: str, path: str, fn: Callable[[], Response[T]], *, public: bool = False, deadline: Optional[float] = None) -> T:
         """One API call: retried per `retry_delay`, failures raised as RendobarError, deprecation noted.
 
         A call that needs a key (every one but `public`) raises at once when the client has none.
         No retry sleeps past `deadline` (time.monotonic seconds).
         """
+        if self._closed:
+            raise client_closed()
         if not public:
             require_key(self._api_key)
         attempt = 0
@@ -524,7 +685,7 @@ class Rendobar:
                 attempt += 1
                 time.sleep(delay)
                 continue
-            self._note(response, method, path)
+            self._deprecations.note(response, method, path)
             return response.data
 
 
@@ -541,7 +702,9 @@ class Jobs:
 
     def schema(self, type: str) -> JobTypeSchema:
         """One job type's params: `fields`, `inputs` and the full `json_schema`. Public: needs no API key."""
-        return self._client._call("GET", f"/jobs/types/{type}/schema", lambda: self._raw.get_job_type_schema(path_segment("type", type)), public=True).data
+        name = path_segment("type", type)
+        schema: JobTypeSchema = self._client._call("GET", f"/jobs/types/{name}/schema", lambda: self._raw.get_job_type_schema(name), public=True).data
+        return schema
 
     def _job(self, method: str, path: str, fn: Callable[[], Response[Envelope[T]]], deadline: Optional[float] = None) -> Union[T, UnknownJob]:
         try:
@@ -551,22 +714,21 @@ class Jobs:
 
     def create(
         self,
-        type: str,
-        params: Optional[Mapping[str, Any]] = None,
-        inputs: Optional[Mapping[str, Any]] = None,
+        job: Union[SubmitJob, UntypedJob],
         *,
         idempotency_key: Optional[str] = None,
         label: Optional[str] = None,
-        destinations: Optional[Sequence[str]] = None,
-        callback: Optional[Mapping[str, Any]] = None,
+        destinations: Optional[List[str]] = None,
+        callback: Optional[Callback] = None,
         force_async: Optional[bool] = None,
     ) -> Union[JobCreated, JobReplayed, UnknownJob]:
         """Submit a job and return it as created (`id`, `status`), without waiting.
 
         Args:
-            type: The job type, such as "ffmpeg" or "ffprobe". `jobs.types()` lists every live one.
-            params: The job type's params. `jobs.schema(type)` describes them.
-            inputs: Named input files, as URLs, for job types that take them.
+            job: What to run, typed per job type: `{"type": "ffprobe", "params": {"command": url}}`.
+                A misspelt or missing param, a wrong value type or an unknown
+                type fails your type checker. For a job type this SDK does not
+                know yet, pass `UntypedJob(type, params)`.
             idempotency_key: Makes the submit safe to repeat. A second submit
                 with the same key returns the first one's job (a `JobReplayed`)
                 instead of creating another. Reusing a key with different
@@ -575,14 +737,14 @@ class Jobs:
                 every retry of it, so a lost response cannot become a second job.
             label: A short name for the job, shown in the dashboard and returned as `job.label`.
             destinations: Where to deliver the output once the job completes,
-                as `storage://<id>[/<folder or path>]`.
+                as a list of `storage://<id>[/<folder or path>]`.
             callback: A URL Rendobar POSTs the job to when it ends:
                 `{"url": ..., "headers": {...}, "verify": True, "events": ["job.started"]}`.
             force_async: Queue the job even when its type can finish during the request.
         """
         key = idempotency_key if idempotency_key is not None else generate_idempotency_key()
-        request = build_submit(type, params, inputs, idempotency_key=key, label=label,
-                               destinations=destinations, callback=callback, force_async=force_async)
+        request = submit_body(job, idempotency_key=key, label=label, destinations=destinations,
+                              callback=callback, force_async=force_async)
         try:
             return self._job("POST", "/jobs", lambda: self._raw.submit_job(request=request))
         except RendobarError as err:
@@ -598,7 +760,8 @@ class Jobs:
         return self._get(job_id, None)
 
     def _get(self, job_id: str, deadline: Optional[float]) -> SomeJob:
-        return self._job("GET", f"/jobs/{job_id}", lambda: self._raw.get_job(path_segment("job_id", job_id)), deadline)
+        safe = path_segment("job_id", job_id)
+        return self._job("GET", f"/jobs/{safe}", lambda: self._raw.get_job(safe), deadline)
 
     def list(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
         """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page.
@@ -606,6 +769,7 @@ class Jobs:
         `limit` is the page size (1 or more, the API sets the maximum) and `offset` the jobs to skip.
         """
         page_window(limit, offset)
+        list_filters(status, type)
         try:
             res = self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(status=status, type=type, limit=limit, offset=offset))
         except ResponseValidationError as err:
@@ -615,6 +779,7 @@ class Jobs:
 
     def list_all(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, page_size: int = 100) -> Iterator[SomeJob]:
         """Every matching job, fetching pages as you iterate."""
+        page_window(page_size, None)
         offset = 0
         while True:
             page = self.list(status=status, type=type, limit=page_size, offset=offset)
@@ -625,15 +790,31 @@ class Jobs:
 
     def cancel(self, job_id: str) -> Union[JobCancellation, UnknownJob]:
         """Cancel a job that has not finished."""
-        return self._job("POST", f"/jobs/{job_id}/cancel", lambda: self._raw.cancel_job(path_segment("job_id", job_id)))
+        safe = path_segment("job_id", job_id)
+        return self._job("POST", f"/jobs/{safe}/cancel", lambda: self._raw.cancel_job(safe))
 
-    def download(self, job_id: str) -> bytes:
-        """The output file of a completed job, as bytes."""
-        def fetch() -> _Fetched:
-            with self._raw.download_job_output(path_segment("job_id", job_id)) as response:
-                return _Fetched(response.headers, b"".join(response.data))
+    def download(self, job_id: str, to: DownloadTarget) -> int:
+        """Stream a completed job's output file to `to` and return the bytes written.
 
-        return self._client._call("GET", f"/jobs/{job_id}/download", fetch)
+        `to` is a file path (created or replaced) or a binary file you opened
+        (`open(path, "wb")`, `io.BytesIO()`). The body is never held in memory.
+        A failure before the body starts is retried like any call. One after it
+        started is raised at once, and a file this call created is removed.
+        """
+        safe = path_segment("job_id", job_id)
+
+        def fetch() -> _Fetched[int]:
+            with self._raw.download_job_output(safe) as response:
+                sink = Sink(to)
+                try:
+                    for chunk in response.data:
+                        sink.write(chunk)
+                except BaseException as err:
+                    sink.fail()
+                    raise body_failed(err) from err
+                return _Fetched(response.headers, sink.finish())
+
+        return self._client._call("GET", f"/jobs/{safe}/download", fetch)
 
     @overload
     def wait(self, job_id: str, *, timeout: Optional[float] = None, interval: float = 2.0, max_interval: float = 10.0,
@@ -663,13 +844,15 @@ class Jobs:
                 per-job limit) to that budget plus two minutes for upload and
                 delivery, counted from the poll that saw it. So a long job is
                 not cut off while it runs, and a job stuck in the queue still
-                ends the wait.
+                ends the wait. A status newer than this SDK counts as not
+                finished, so it too ends at this bound.
             interval: Seconds before the second poll. Each later pause is 1.5 times longer.
             max_interval: The longest pause between polls, in seconds.
             on_progress: Called with the job after every poll.
             throw_on_failure: Raise `JobFailedError` when the job fails or is
                 cancelled. Default: return that job instead.
         """
+        wait_options(timeout, interval, max_interval)
         poll = WaitPoll(job_id, timeout=timeout, interval=interval, max_interval=max_interval, throw_on_failure=throw_on_failure)
         while True:
             job = self._get(job_id, poll.clock.deadline)
@@ -681,29 +864,27 @@ class Jobs:
             time.sleep(poll.pause(job))
 
     @overload
-    def run(self, type: str, params: Optional[Mapping[str, Any]] = None, inputs: Optional[Mapping[str, Any]] = None, *,
-            idempotency_key: Optional[str] = None, label: Optional[str] = None, destinations: Optional[Sequence[str]] = None,
-            callback: Optional[Mapping[str, Any]] = None, force_async: Optional[bool] = None,
+    def run(self, job: Union[SubmitJob, UntypedJob], *,
+            idempotency_key: Optional[str] = None, label: Optional[str] = None, destinations: Optional[List[str]] = None,
+            callback: Optional[Callback] = None, force_async: Optional[bool] = None,
             timeout: Optional[float] = None, interval: float = 2.0, max_interval: float = 10.0,
             on_progress: Optional[ProgressCallback] = None, throw_on_failure: Literal[True] = True) -> JobComplete: ...
 
     @overload
-    def run(self, type: str, params: Optional[Mapping[str, Any]] = None, inputs: Optional[Mapping[str, Any]] = None, *,
-            idempotency_key: Optional[str] = None, label: Optional[str] = None, destinations: Optional[Sequence[str]] = None,
-            callback: Optional[Mapping[str, Any]] = None, force_async: Optional[bool] = None,
+    def run(self, job: Union[SubmitJob, UntypedJob], *,
+            idempotency_key: Optional[str] = None, label: Optional[str] = None, destinations: Optional[List[str]] = None,
+            callback: Optional[Callback] = None, force_async: Optional[bool] = None,
             timeout: Optional[float] = None, interval: float = 2.0, max_interval: float = 10.0,
             on_progress: Optional[ProgressCallback] = None, throw_on_failure: bool) -> FinishedJob: ...
 
     def run(
         self,
-        type: str,
-        params: Optional[Mapping[str, Any]] = None,
-        inputs: Optional[Mapping[str, Any]] = None,
+        job: Union[SubmitJob, UntypedJob],
         *,
         idempotency_key: Optional[str] = None,
         label: Optional[str] = None,
-        destinations: Optional[Sequence[str]] = None,
-        callback: Optional[Mapping[str, Any]] = None,
+        destinations: Optional[List[str]] = None,
+        callback: Optional[Callback] = None,
         force_async: Optional[bool] = None,
         timeout: Optional[float] = None,
         interval: float = 2.0,
@@ -717,13 +898,11 @@ class Jobs:
         is cancelled, unless `throw_on_failure=False`, which returns that job.
 
         Args:
-            type: The job type, such as "ffmpeg" or "ffprobe". `jobs.types()` lists every live one.
-            params: The job type's params. `jobs.schema(type)` describes them.
-            inputs: Named input files, as URLs, for job types that take them.
+            job: What to run, typed per job type (see `jobs.create()`), or an `UntypedJob`.
             idempotency_key: Makes the submit safe to repeat (see `jobs.create()`).
                 Reusing a key with different params raises `ConflictError` (409).
             label: A short name for the job, shown in the dashboard.
-            destinations: Where to deliver the output, as `storage://<id>[/<folder or path>]`.
+            destinations: Where to deliver the output, as a list of `storage://<id>[/<folder or path>]`.
             callback: A URL Rendobar POSTs the job to when it ends (see `jobs.create()`).
             force_async: Queue the job even when its type can finish during the request.
             timeout: Seconds to wait (see `jobs.wait()`). Default: five minutes,
@@ -733,8 +912,9 @@ class Jobs:
             on_progress: Called with the job after every poll.
             throw_on_failure: Raise `JobFailedError` when the job fails or is cancelled. Default: True.
         """
-        created = self.create(type, params, inputs, idempotency_key=idempotency_key, label=label,
-                              destinations=destinations, callback=callback, force_async=force_async)
+        wait_options(timeout, interval, max_interval)
+        created = self.create(job, idempotency_key=idempotency_key, label=label, destinations=destinations,
+                              callback=callback, force_async=force_async)
         return self.wait(created.id, timeout=timeout, interval=interval, max_interval=max_interval,
                          on_progress=on_progress, throw_on_failure=throw_on_failure)
 
@@ -748,4 +928,5 @@ class Account:
     def capabilities(self) -> AccountCapabilities:
         """Plan limits and enabled features. Contains no billing data."""
         raw = self._client._core.account.with_raw_response
-        return self._client._call("GET", "/account/capabilities", raw.get_account_capabilities).data
+        capabilities: AccountCapabilities = self._client._call("GET", "/account/capabilities", raw.get_account_capabilities).data
+        return capabilities

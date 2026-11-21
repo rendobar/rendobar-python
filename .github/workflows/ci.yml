@@ -48,6 +48,9 @@ jobs:
       - name: Public-surface deny-list
         if: matrix.python == '3.13'
         run: python3 -I .openapi/scripts/deny_list.py
+      - name: Fern overrides match the spec
+        if: matrix.python == '3.13'
+        run: python3 -I fern/derive_overrides.py --check
       - name: Build
         if: matrix.python == '3.13'
         run: uv build
@@ -78,8 +81,12 @@ jobs:
       - name: Install with the agent extras
         run: |
           uv venv
-          uv pip install -e ".[langchain,crewai]" pytest pyright "fastapi>=0.115" "django>=5.2" django-stubs
+          uv pip install -e ".[langchain,crewai]" pytest pyright mypy "fastapi>=0.115" "django>=5.2" django-stubs
       - name: Full suite with the adapters and examples (LangChain, CrewAI, FastAPI, Django)
         run: .venv/bin/python -m pytest -q
-      - name: Types
+      - name: Types (pyright; every hand-written module and tests/typing_check.py are strict)
         run: .venv/bin/pyright --pythonpath .venv/bin/python
+      - name: Types (mypy --strict on the package and a user's code)
+        run: |
+          .venv/bin/python -m mypy
+          .venv/bin/python -m mypy tests/typing_check.py
