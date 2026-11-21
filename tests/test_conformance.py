@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import time
 import urllib.request
 import warnings
@@ -15,7 +17,18 @@ import warnings
 import httpx
 import pytest
 
-from rendobar import NotFoundError, InternalServerError, Rendobar, RendobarError, UnknownJob, __version__
+from rendobar import (
+    APITimeoutError,
+    ConflictError,
+    InternalServerError,
+    JobFailedError,
+    NotFoundError,
+    Rendobar,
+    RendobarDeprecationWarning,
+    RendobarError,
+    UnknownJob,
+    __version__,
+)
 
 MOCK = os.environ.get("RENDOBAR_MOCK", "http://127.0.0.1:4100")
 
@@ -82,16 +95,19 @@ def test_c06_retries_429_after_retry_after(rb: Rendobar) -> None:
 
 
 def test_c07_retries_503_then_raises(rb: Rendobar) -> None:
+    recorder = recording(rb)
     with pytest.raises(InternalServerError) as info:
         rb.jobs.get("job_503")
     assert info.value.status_code == 503
+    assert len(recorder.requests) == 3  # the first try and two retries
 
 
 def test_c08_timeout() -> None:
     fast = Rendobar("k", base_url=MOCK, timeout=2.0, max_retries=0)
     started = time.monotonic()
-    with pytest.raises(Exception):
+    with pytest.raises(APITimeoutError) as info:
         fast.jobs.get("job_slow")
+    assert info.value.code == "TIMEOUT" and info.value.status_code is None
     assert 1.8 <= time.monotonic() - started < 4
 
 
@@ -152,10 +168,54 @@ def test_c15_reads_the_key_from_the_environment(monkeypatch: pytest.MonkeyPatch)
     assert recorder.requests[0].headers["Authorization"] == "Bearer rb_from_env"
 
 
+def test_c16_run_returns_the_complete_job_with_its_file(rb: Rendobar) -> None:
+    seen: list = []
+    job = rb.jobs.run("ffprobe", {"command": "https://x/a.mp4"}, interval=0.05, on_progress=lambda j: seen.append(j.status))
+    assert seen == ["running", "complete"]
+    assert job.status == "complete" and job.output.file is not None and job.output.file.url.startswith("https://")
+
+
+def test_c17_wait_raises_the_failed_jobs_error_code(rb: Rendobar) -> None:
+    with pytest.raises(JobFailedError) as info:
+        rb.jobs.wait("job_failed", throw_on_failure=True)
+    assert isinstance(info.value, RendobarError)
+    assert info.value.code == info.value.job.error.code and info.value.code
+    assert info.value.job_id == "job_failed" and info.value.status == "failed"
+
+
+def test_c17_without_raising_returns_the_failed_job(rb: Rendobar) -> None:
+    assert rb.jobs.wait("job_failed").status == "failed"
+
+
+def test_c18_conflict_is_not_retried(rb: Rendobar) -> None:
+    recorder = recording(rb)
+    with pytest.raises(ConflictError) as info:
+        rb.jobs.get("job_409")
+    assert info.value.status_code == 409 and info.value.code == "CONFLICT"
+    assert len(recorder.requests) == 1
+
+
 def test_default_deprecation_warning_is_a_python_warning() -> None:
     client = Rendobar("k", base_url=MOCK)
     raw = client._core.billing.with_raw_response  # noqa: SLF001
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         client._call("POST", "/billing/checkout/pro", raw.create_pro_checkout)  # noqa: SLF001
-    assert any(issubclass(w.category, DeprecationWarning) for w in caught)
+    assert [w.category for w in caught if issubclass(w.category, FutureWarning)] == [RendobarDeprecationWarning]
+    assert issubclass(RendobarDeprecationWarning, FutureWarning)
+
+
+def test_deprecation_warning_is_shown_under_default_filters() -> None:
+    script = (
+        "import sys; from rendobar import Rendobar; c = Rendobar('k', base_url=sys.argv[1]); "
+        "c._call('POST', '/billing/checkout/pro', c._core.billing.with_raw_response.create_pro_checkout)"
+    )
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONWARNINGS"}
+    out = subprocess.run([sys.executable, "-c", script, MOCK], capture_output=True, text=True, env=env, timeout=30, check=True)
+    assert "RendobarDeprecationWarning" in out.stderr and "/billing/checkout/pro" in out.stderr
+
+
+def test_close_and_context_manager() -> None:
+    with Rendobar("k", base_url=MOCK) as client:
+        assert client.jobs.get("job_x").id == "job_x"
+    assert client._core._client_wrapper.httpx_client.httpx_client.is_closed  # noqa: SLF001
