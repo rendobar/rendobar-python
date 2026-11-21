@@ -4,10 +4,10 @@ import typing
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
-from .job_running_callback import JobRunningCallbackParams
-from .job_running_cost import JobRunningCostParams
-from .job_running_deliveries_item import JobRunningDeliveriesItemParams
-from .job_running_steps_item import JobRunningStepsItemParams
+from .callback_status import CallbackStatusParams
+from .job_cost import JobCostParams
+from .job_delivery import JobDeliveryParams
+from .job_step import JobStepParams
 
 
 class JobRunningParams(typing_extensions.TypedDict):
@@ -66,17 +66,13 @@ class JobRunningParams(typing_extensions.TypedDict):
     Job parameters
     """
 
-    cost: typing.Optional[JobRunningCostParams]
-    """
-    Amount charged, or null when not yet billed
-    """
-
+    cost: typing.Optional[JobCostParams]
     output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
     """
     Output category. Clients should tolerate unknown future values.
     """
 
-    steps: typing.Sequence[JobRunningStepsItemParams]
+    steps: typing.Sequence[JobStepParams]
     """
     Execution steps
     """
@@ -108,27 +104,27 @@ class JobRunningParams(typing_extensions.TypedDict):
     How long this job is allowed to run, in milliseconds: the requested timeout clamped to the plan ceiling. Null until the job is dispatched. Clients waiting on a job should bound the wait by this rather than a fixed guess.
     """
 
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
     """
     Creation timestamp (Unix ms)
     """
 
-    dispatched_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="dispatchedAt")]
+    dispatched_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="dispatchedAt")]
     """
     Dispatch timestamp (Unix ms)
     """
 
-    started_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="startedAt")]
+    started_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="startedAt")]
     """
     Start timestamp (Unix ms)
     """
 
-    completed_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="completedAt")]
+    completed_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="completedAt")]
     """
     Completion timestamp (Unix ms)
     """
 
-    settled_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="settledAt")]
+    settled_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="settledAt")]
     """
     CF Worker timestamp when terminal status written (Unix ms)
     """
@@ -148,12 +144,13 @@ class JobRunningParams(typing_extensions.TypedDict):
     Resolved generation model id (image.generate / image.edit jobs only), else null
     """
 
-    callback: typing_extensions.NotRequired[typing.Optional[JobRunningCallbackParams]]
+    terminal: bool
     """
-    Per-job callback delivery status, populated by GET /jobs/:id when a callback.url was set at submit (else null/absent). Deliberately carries ONLY the status — the callback url and any custom headers are secret and are never returned by any response.
+    True once the job has ended (complete, failed or cancelled), false while it waits or runs. Stop waiting on this rather than on a list of statuses: it stays right when a status is added.
     """
 
-    deliveries: typing_extensions.NotRequired[typing.Sequence[JobRunningDeliveriesItemParams]]
+    callback: typing_extensions.NotRequired[typing.Optional[CallbackStatusParams]]
+    deliveries: typing_extensions.NotRequired[typing.Sequence[JobDeliveryParams]]
     """
     Where the output was or will be delivered, one entry per destination given at submit. Detail endpoint only; absent when the job had no destinations.
     """

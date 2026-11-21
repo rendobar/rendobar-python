@@ -5,4 +5,4 @@ import typing_extensions
 
 class GetUploadSessionResponseDataExpectedFilesItemParams(typing_extensions.TypedDict):
     filename: str
-    size: typing_extensions.NotRequired[float]
+    size: typing_extensions.NotRequired[int]

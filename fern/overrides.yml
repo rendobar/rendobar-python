@@ -2,6 +2,27 @@
 {
   "components": {
     "schemas": {
+      "BalanceDepletedWebhookEvent": {
+        "properties": {
+          "version": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "BalanceLowWebhookEvent": {
+        "properties": {
+          "version": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "CallbackStatus": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
       "CaptionBurnJob": {
         "description": "Submit a caption.burn job.",
         "properties": {
@@ -188,225 +209,198 @@
       },
       "JobCancelled": {
         "properties": {
-          "callback": {
-            "properties": {
-              "status": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "cost": {
-            "properties": {
-              "currency": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "deliveries": {
-            "items": {
-              "properties": {
-                "reason": {
-                  "x-fern-type": "string"
-                },
-                "status": {
-                  "x-fern-type": "string"
-                }
-              }
-            }
-          },
           "outputCategory": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobCancelledData": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobCancelledWebhookEvent": {
+        "properties": {
+          "version": {
             "x-fern-type": "string"
           }
         }
       },
       "JobComplete": {
         "properties": {
-          "callback": {
-            "properties": {
-              "status": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "cost": {
-            "properties": {
-              "currency": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "deliveries": {
-            "items": {
-              "properties": {
-                "reason": {
-                  "x-fern-type": "string"
-                },
-                "status": {
-                  "x-fern-type": "string"
-                }
-              }
-            }
-          },
-          "output": {
-            "properties": {
-              "file": {
-                "properties": {
-                  "type": {
-                    "x-fern-type": "string"
-                  }
-                }
-              },
-              "files": {
-                "items": {
-                  "properties": {
-                    "type": {
-                      "x-fern-type": "string"
-                    }
-                  }
-                }
-              }
-            }
-          },
           "outputCategory": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobCompletedData": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobCompletedOnSubmit": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobCompletedWebhookEvent": {
+        "properties": {
+          "version": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobCost": {
+        "properties": {
+          "currency": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobCreated": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobCreatedData": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobCreatedWebhookEvent": {
+        "properties": {
+          "version": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobDeliveriesSettledWebhookEvent": {
+        "properties": {
+          "version": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobDelivery": {
+        "properties": {
+          "reason": {
+            "x-fern-type": "string"
+          },
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobDeliveryFailedData": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobDeliveryFailedWebhookEvent": {
+        "properties": {
+          "version": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobDeliverySucceededData": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobDeliverySucceededWebhookEvent": {
+        "properties": {
+          "version": {
             "x-fern-type": "string"
           }
         }
       },
       "JobDispatched": {
         "properties": {
-          "callback": {
-            "properties": {
-              "status": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "cost": {
-            "properties": {
-              "currency": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "deliveries": {
-            "items": {
-              "properties": {
-                "reason": {
-                  "x-fern-type": "string"
-                },
-                "status": {
-                  "x-fern-type": "string"
-                }
-              }
-            }
-          },
           "outputCategory": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobError": {
+        "properties": {
+          "failedPhase": {
             "x-fern-type": "string"
           }
         }
       },
       "JobFailed": {
         "properties": {
-          "callback": {
-            "properties": {
-              "status": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "cost": {
-            "properties": {
-              "currency": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "deliveries": {
-            "items": {
-              "properties": {
-                "reason": {
-                  "x-fern-type": "string"
-                },
-                "status": {
-                  "x-fern-type": "string"
-                }
-              }
-            }
-          },
-          "error": {
-            "properties": {
-              "failedPhase": {
-                "x-fern-type": "string"
-              }
-            }
-          },
           "outputCategory": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobFailedData": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobFailedWebhookEvent": {
+        "properties": {
+          "version": {
             "x-fern-type": "string"
           }
         }
       },
       "JobRunning": {
         "properties": {
-          "callback": {
-            "properties": {
-              "status": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "cost": {
-            "properties": {
-              "currency": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "deliveries": {
-            "items": {
-              "properties": {
-                "reason": {
-                  "x-fern-type": "string"
-                },
-                "status": {
-                  "x-fern-type": "string"
-                }
-              }
-            }
-          },
           "outputCategory": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobStartedData": {
+        "properties": {
+          "status": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "JobStartedWebhookEvent": {
+        "properties": {
+          "version": {
             "x-fern-type": "string"
           }
         }
       },
       "JobWaiting": {
         "properties": {
-          "callback": {
-            "properties": {
-              "status": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "cost": {
-            "properties": {
-              "currency": {
-                "x-fern-type": "string"
-              }
-            }
-          },
-          "deliveries": {
-            "items": {
-              "properties": {
-                "reason": {
-                  "x-fern-type": "string"
-                },
-                "status": {
-                  "x-fern-type": "string"
-                }
-              }
-            }
-          },
           "outputCategory": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "OutputFileType": {
+        "x-fern-type": "string"
+      },
+      "SettledDelivery": {
+        "properties": {
+          "reason": {
+            "x-fern-type": "string"
+          },
+          "status": {
             "x-fern-type": "string"
           }
         }
@@ -439,6 +433,20 @@
           }
         ],
         "description": "A job of a type this SDK knows: what to run, typed per job type."
+      },
+      "TestWebhookEvent": {
+        "properties": {
+          "version": {
+            "x-fern-type": "string"
+          }
+        }
+      },
+      "WebhookJobCost": {
+        "properties": {
+          "currency": {
+            "x-fern-type": "string"
+          }
+        }
       }
     }
   }

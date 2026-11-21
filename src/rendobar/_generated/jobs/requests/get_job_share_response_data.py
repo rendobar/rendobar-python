@@ -7,4 +7,4 @@ from ...core.serialization import FieldMetadata
 class GetJobShareResponseDataParams(typing_extensions.TypedDict):
     share_id: typing_extensions.Annotated[str, FieldMetadata(alias="shareId")]
     share_url: typing_extensions.Annotated[str, FieldMetadata(alias="shareUrl")]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]

@@ -22,16 +22,16 @@ class ListWebhookDeliveriesResponseDataItem(UniversalBaseModel):
     payload: str
     status: ListWebhookDeliveriesResponseDataItemStatus
     status_code: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="statusCode"), pydantic.Field(alias="statusCode")
+        typing.Optional[int], FieldMetadata(alias="statusCode"), pydantic.Field(alias="statusCode")
     ] = None
     response_body: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="responseBody"), pydantic.Field(alias="responseBody")
     ] = None
-    attempts: float
+    attempts: int
     last_attempt_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="lastAttemptAt"), pydantic.Field(alias="lastAttemptAt")
+        typing.Optional[int], FieldMetadata(alias="lastAttemptAt"), pydantic.Field(alias="lastAttemptAt")
     ] = None
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

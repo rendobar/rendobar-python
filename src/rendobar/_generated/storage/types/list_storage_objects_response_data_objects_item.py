@@ -12,7 +12,7 @@ class ListStorageObjectsResponseDataObjectsItem(UniversalBaseModel):
     key: str
     size: int
     last_modified: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="lastModified"), pydantic.Field(alias="lastModified")
+        typing.Optional[int], FieldMetadata(alias="lastModified"), pydantic.Field(alias="lastModified")
     ] = None
 
     if IS_PYDANTIC_V2:

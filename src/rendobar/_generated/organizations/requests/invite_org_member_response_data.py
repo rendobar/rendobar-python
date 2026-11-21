@@ -8,4 +8,4 @@ class InviteOrgMemberResponseDataParams(typing_extensions.TypedDict):
     id: str
     email: str
     role: str
-    expires_at: typing_extensions.Annotated[float, FieldMetadata(alias="expiresAt")]
+    expires_at: typing_extensions.Annotated[int, FieldMetadata(alias="expiresAt")]

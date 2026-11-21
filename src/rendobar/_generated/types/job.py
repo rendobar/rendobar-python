@@ -8,33 +8,13 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
-from .job_cancelled_callback import JobCancelledCallback
-from .job_cancelled_cost import JobCancelledCost
-from .job_cancelled_deliveries_item import JobCancelledDeliveriesItem
-from .job_cancelled_steps_item import JobCancelledStepsItem
-from .job_complete_callback import JobCompleteCallback
-from .job_complete_cost import JobCompleteCost
-from .job_complete_deliveries_item import JobCompleteDeliveriesItem
-from .job_complete_output import JobCompleteOutput
-from .job_complete_steps_item import JobCompleteStepsItem
+from .callback_status import CallbackStatus
+from .job_cost import JobCost
+from .job_delivery import JobDelivery
 from .job_dispatched_boot_state import JobDispatchedBootState
-from .job_dispatched_callback import JobDispatchedCallback
-from .job_dispatched_cost import JobDispatchedCost
-from .job_dispatched_deliveries_item import JobDispatchedDeliveriesItem
-from .job_dispatched_steps_item import JobDispatchedStepsItem
-from .job_failed_callback import JobFailedCallback
-from .job_failed_cost import JobFailedCost
-from .job_failed_deliveries_item import JobFailedDeliveriesItem
-from .job_failed_error import JobFailedError
-from .job_failed_steps_item import JobFailedStepsItem
-from .job_running_callback import JobRunningCallback
-from .job_running_cost import JobRunningCost
-from .job_running_deliveries_item import JobRunningDeliveriesItem
-from .job_running_steps_item import JobRunningStepsItem
-from .job_waiting_callback import JobWaitingCallback
-from .job_waiting_cost import JobWaitingCost
-from .job_waiting_deliveries_item import JobWaitingDeliveriesItem
-from .job_waiting_steps_item import JobWaitingStepsItem
+from .job_error import JobError
+from .job_output import JobOutput
+from .job_step import JobStep
 
 
 class Job_Waiting(UniversalBaseModel):
@@ -54,11 +34,11 @@ class Job_Waiting(UniversalBaseModel):
     ] = None
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobWaitingCost] = None
+    cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
         str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
-    steps: typing.List[JobWaitingStepsItem]
+    steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
         bool, FieldMetadata(alias="logsAvailable"), pydantic.Field(alias="logsAvailable")
     ]
@@ -72,26 +52,27 @@ class Job_Waiting(UniversalBaseModel):
     timeout_ms: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="timeoutMs"), pydantic.Field(alias="timeoutMs")
     ] = None
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
     dispatched_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
+        typing.Optional[int], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
     ] = None
     started_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
+        typing.Optional[int], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
     ] = None
     completed_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
+        typing.Optional[int], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
     ] = None
     settled_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
+        typing.Optional[int], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
     ] = None
     retention_expires_at: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="retentionExpiresAt"), pydantic.Field(alias="retentionExpiresAt")
     ] = None
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl"), pydantic.Field(alias="webUrl")]
     model: typing.Optional[str] = None
-    callback: typing.Optional[JobWaitingCallback] = None
-    deliveries: typing.Optional[typing.List[JobWaitingDeliveriesItem]] = None
+    terminal: bool
+    callback: typing.Optional[CallbackStatus] = None
+    deliveries: typing.Optional[typing.List[JobDelivery]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -120,11 +101,11 @@ class Job_Dispatched(UniversalBaseModel):
     ] = None
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobDispatchedCost] = None
+    cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
         str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
-    steps: typing.List[JobDispatchedStepsItem]
+    steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
         bool, FieldMetadata(alias="logsAvailable"), pydantic.Field(alias="logsAvailable")
     ]
@@ -138,26 +119,27 @@ class Job_Dispatched(UniversalBaseModel):
     timeout_ms: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="timeoutMs"), pydantic.Field(alias="timeoutMs")
     ] = None
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
     dispatched_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
+        typing.Optional[int], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
     ] = None
     started_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
+        typing.Optional[int], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
     ] = None
     completed_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
+        typing.Optional[int], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
     ] = None
     settled_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
+        typing.Optional[int], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
     ] = None
     retention_expires_at: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="retentionExpiresAt"), pydantic.Field(alias="retentionExpiresAt")
     ] = None
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl"), pydantic.Field(alias="webUrl")]
     model: typing.Optional[str] = None
-    callback: typing.Optional[JobDispatchedCallback] = None
-    deliveries: typing.Optional[typing.List[JobDispatchedDeliveriesItem]] = None
+    terminal: bool
+    callback: typing.Optional[CallbackStatus] = None
+    deliveries: typing.Optional[typing.List[JobDelivery]] = None
     progress: typing.Optional[float] = None
     eta: typing.Optional[float] = None
     boot_state: typing_extensions.Annotated[
@@ -191,11 +173,11 @@ class Job_Running(UniversalBaseModel):
     ] = None
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobRunningCost] = None
+    cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
         str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
-    steps: typing.List[JobRunningStepsItem]
+    steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
         bool, FieldMetadata(alias="logsAvailable"), pydantic.Field(alias="logsAvailable")
     ]
@@ -209,26 +191,27 @@ class Job_Running(UniversalBaseModel):
     timeout_ms: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="timeoutMs"), pydantic.Field(alias="timeoutMs")
     ] = None
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
     dispatched_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
+        typing.Optional[int], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
     ] = None
     started_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
+        typing.Optional[int], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
     ] = None
     completed_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
+        typing.Optional[int], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
     ] = None
     settled_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
+        typing.Optional[int], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
     ] = None
     retention_expires_at: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="retentionExpiresAt"), pydantic.Field(alias="retentionExpiresAt")
     ] = None
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl"), pydantic.Field(alias="webUrl")]
     model: typing.Optional[str] = None
-    callback: typing.Optional[JobRunningCallback] = None
-    deliveries: typing.Optional[typing.List[JobRunningDeliveriesItem]] = None
+    terminal: bool
+    callback: typing.Optional[CallbackStatus] = None
+    deliveries: typing.Optional[typing.List[JobDelivery]] = None
     progress: typing.Optional[float] = None
     eta: typing.Optional[float] = None
 
@@ -259,11 +242,11 @@ class Job_Complete(UniversalBaseModel):
     ] = None
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobCompleteCost] = None
+    cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
         str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
-    steps: typing.List[JobCompleteStepsItem]
+    steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
         bool, FieldMetadata(alias="logsAvailable"), pydantic.Field(alias="logsAvailable")
     ]
@@ -277,27 +260,28 @@ class Job_Complete(UniversalBaseModel):
     timeout_ms: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="timeoutMs"), pydantic.Field(alias="timeoutMs")
     ] = None
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
     dispatched_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
+        typing.Optional[int], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
     ] = None
     started_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
+        typing.Optional[int], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
     ] = None
     completed_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
+        typing.Optional[int], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
     ] = None
     settled_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
+        typing.Optional[int], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
     ] = None
     retention_expires_at: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="retentionExpiresAt"), pydantic.Field(alias="retentionExpiresAt")
     ] = None
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl"), pydantic.Field(alias="webUrl")]
     model: typing.Optional[str] = None
-    callback: typing.Optional[JobCompleteCallback] = None
-    deliveries: typing.Optional[typing.List[JobCompleteDeliveriesItem]] = None
-    output: JobCompleteOutput
+    terminal: bool
+    callback: typing.Optional[CallbackStatus] = None
+    deliveries: typing.Optional[typing.List[JobDelivery]] = None
+    output: JobOutput
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -326,11 +310,11 @@ class Job_Failed(UniversalBaseModel):
     ] = None
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobFailedCost] = None
+    cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
         str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
-    steps: typing.List[JobFailedStepsItem]
+    steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
         bool, FieldMetadata(alias="logsAvailable"), pydantic.Field(alias="logsAvailable")
     ]
@@ -344,27 +328,28 @@ class Job_Failed(UniversalBaseModel):
     timeout_ms: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="timeoutMs"), pydantic.Field(alias="timeoutMs")
     ] = None
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
     dispatched_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
+        typing.Optional[int], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
     ] = None
     started_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
+        typing.Optional[int], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
     ] = None
     completed_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
+        typing.Optional[int], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
     ] = None
     settled_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
+        typing.Optional[int], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
     ] = None
     retention_expires_at: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="retentionExpiresAt"), pydantic.Field(alias="retentionExpiresAt")
     ] = None
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl"), pydantic.Field(alias="webUrl")]
     model: typing.Optional[str] = None
-    callback: typing.Optional[JobFailedCallback] = None
-    deliveries: typing.Optional[typing.List[JobFailedDeliveriesItem]] = None
-    error: JobFailedError
+    terminal: bool
+    callback: typing.Optional[CallbackStatus] = None
+    deliveries: typing.Optional[typing.List[JobDelivery]] = None
+    error: JobError
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -393,11 +378,11 @@ class Job_Cancelled(UniversalBaseModel):
     ] = None
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobCancelledCost] = None
+    cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
         str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
-    steps: typing.List[JobCancelledStepsItem]
+    steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
         bool, FieldMetadata(alias="logsAvailable"), pydantic.Field(alias="logsAvailable")
     ]
@@ -411,26 +396,27 @@ class Job_Cancelled(UniversalBaseModel):
     timeout_ms: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="timeoutMs"), pydantic.Field(alias="timeoutMs")
     ] = None
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
     dispatched_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
+        typing.Optional[int], FieldMetadata(alias="dispatchedAt"), pydantic.Field(alias="dispatchedAt")
     ] = None
     started_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
+        typing.Optional[int], FieldMetadata(alias="startedAt"), pydantic.Field(alias="startedAt")
     ] = None
     completed_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
+        typing.Optional[int], FieldMetadata(alias="completedAt"), pydantic.Field(alias="completedAt")
     ] = None
     settled_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
+        typing.Optional[int], FieldMetadata(alias="settledAt"), pydantic.Field(alias="settledAt")
     ] = None
     retention_expires_at: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="retentionExpiresAt"), pydantic.Field(alias="retentionExpiresAt")
     ] = None
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl"), pydantic.Field(alias="webUrl")]
     model: typing.Optional[str] = None
-    callback: typing.Optional[JobCancelledCallback] = None
-    deliveries: typing.Optional[typing.List[JobCancelledDeliveriesItem]] = None
+    terminal: bool
+    callback: typing.Optional[CallbackStatus] = None
+    deliveries: typing.Optional[typing.List[JobDelivery]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

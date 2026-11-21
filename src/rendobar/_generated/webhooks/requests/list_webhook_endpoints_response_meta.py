@@ -4,4 +4,4 @@ import typing_extensions
 
 
 class ListWebhookEndpointsResponseMetaParams(typing_extensions.TypedDict):
-    total: float
+    total: int

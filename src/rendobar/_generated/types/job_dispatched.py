@@ -6,11 +6,11 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
+from .callback_status import CallbackStatus
+from .job_cost import JobCost
+from .job_delivery import JobDelivery
 from .job_dispatched_boot_state import JobDispatchedBootState
-from .job_dispatched_callback import JobDispatchedCallback
-from .job_dispatched_cost import JobDispatchedCost
-from .job_dispatched_deliveries_item import JobDispatchedDeliveriesItem
-from .job_dispatched_steps_item import JobDispatchedStepsItem
+from .job_step import JobStep
 
 
 class JobDispatched(UniversalBaseModel):
@@ -83,11 +83,7 @@ class JobDispatched(UniversalBaseModel):
     Job parameters
     """
 
-    cost: typing.Optional[JobDispatchedCost] = pydantic.Field(default=None)
-    """
-    Amount charged, or null when not yet billed
-    """
-
+    cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
         str,
         FieldMetadata(alias="outputCategory"),
@@ -99,7 +95,7 @@ class JobDispatched(UniversalBaseModel):
     Output category. Clients should tolerate unknown future values.
     """
 
-    steps: typing.List[JobDispatchedStepsItem] = pydantic.Field()
+    steps: typing.List[JobStep] = pydantic.Field()
     """
     Execution steps
     """
@@ -151,7 +147,7 @@ class JobDispatched(UniversalBaseModel):
     """
 
     created_at: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="createdAt"),
         pydantic.Field(alias="createdAt", description="Creation timestamp (Unix ms)"),
     ]
@@ -160,7 +156,7 @@ class JobDispatched(UniversalBaseModel):
     """
 
     dispatched_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="dispatchedAt"),
         pydantic.Field(alias="dispatchedAt", description="Dispatch timestamp (Unix ms)"),
     ] = None
@@ -169,7 +165,7 @@ class JobDispatched(UniversalBaseModel):
     """
 
     started_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="startedAt"),
         pydantic.Field(alias="startedAt", description="Start timestamp (Unix ms)"),
     ] = None
@@ -178,7 +174,7 @@ class JobDispatched(UniversalBaseModel):
     """
 
     completed_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="completedAt"),
         pydantic.Field(alias="completedAt", description="Completion timestamp (Unix ms)"),
     ] = None
@@ -187,7 +183,7 @@ class JobDispatched(UniversalBaseModel):
     """
 
     settled_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="settledAt"),
         pydantic.Field(alias="settledAt", description="CF Worker timestamp when terminal status written (Unix ms)"),
     ] = None
@@ -219,12 +215,13 @@ class JobDispatched(UniversalBaseModel):
     Resolved generation model id (image.generate / image.edit jobs only), else null
     """
 
-    callback: typing.Optional[JobDispatchedCallback] = pydantic.Field(default=None)
+    terminal: bool = pydantic.Field()
     """
-    Per-job callback delivery status, populated by GET /jobs/:id when a callback.url was set at submit (else null/absent). Deliberately carries ONLY the status — the callback url and any custom headers are secret and are never returned by any response.
+    True once the job has ended (complete, failed or cancelled), false while it waits or runs. Stop waiting on this rather than on a list of statuses: it stays right when a status is added.
     """
 
-    deliveries: typing.Optional[typing.List[JobDispatchedDeliveriesItem]] = pydantic.Field(default=None)
+    callback: typing.Optional[CallbackStatus] = None
+    deliveries: typing.Optional[typing.List[JobDelivery]] = pydantic.Field(default=None)
     """
     Where the output was or will be delivered, one entry per destination given at submit. Detail endpoint only; absent when the job had no destinations.
     """

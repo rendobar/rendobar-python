@@ -4,4 +4,4 @@ import typing_extensions
 
 
 class ListStorageResponseMetaParams(typing_extensions.TypedDict):
-    total: float
+    total: int

@@ -10,7 +10,7 @@ from ...core.serialization import FieldMetadata
 
 class GetJobStatsResponseDataActivityItem(UniversalBaseModel):
     bucket_start: typing_extensions.Annotated[
-        float, FieldMetadata(alias="bucketStart"), pydantic.Field(alias="bucketStart")
+        int, FieldMetadata(alias="bucketStart"), pydantic.Field(alias="bucketStart")
     ]
     succeeded: int
     failed: int

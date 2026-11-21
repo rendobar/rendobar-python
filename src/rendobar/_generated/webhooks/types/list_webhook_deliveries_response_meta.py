@@ -7,8 +7,8 @@ from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class ListWebhookDeliveriesResponseMeta(UniversalBaseModel):
-    total: float
-    limit: float
+    total: int
+    limit: int
     offset: float
 
     if IS_PYDANTIC_V2:

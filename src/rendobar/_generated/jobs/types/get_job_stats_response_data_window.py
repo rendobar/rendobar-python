@@ -9,8 +9,8 @@ from ...core.serialization import FieldMetadata
 
 
 class GetJobStatsResponseDataWindow(UniversalBaseModel):
-    from_: typing_extensions.Annotated[float, FieldMetadata(alias="from"), pydantic.Field(alias="from")]
-    to: float
+    from_: typing_extensions.Annotated[int, FieldMetadata(alias="from"), pydantic.Field(alias="from")]
+    to: int
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

@@ -15,7 +15,7 @@ from ..types.list_storage_response_data_item_delivery_summary_last_status import
 class ListStorageResponseDataItemDeliverySummaryParams(typing_extensions.TypedDict):
     jobs_last30d: typing_extensions.Annotated[int, FieldMetadata(alias="jobsLast30d")]
     bytes_last30d: typing_extensions.Annotated[int, FieldMetadata(alias="bytesLast30d")]
-    last_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="lastAt")]
+    last_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="lastAt")]
     last_status: typing_extensions.Annotated[
         typing.Optional[ListStorageResponseDataItemDeliverySummaryLastStatus], FieldMetadata(alias="lastStatus")
     ]

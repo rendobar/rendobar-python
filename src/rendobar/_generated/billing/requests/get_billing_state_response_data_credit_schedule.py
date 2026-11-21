@@ -14,7 +14,7 @@ class GetBillingStateResponseDataCreditScheduleParams(typing_extensions.TypedDic
     Amount added each month, in cents
     """
 
-    current_period_end: typing_extensions.Annotated[float, FieldMetadata(alias="currentPeriodEnd")]
+    current_period_end: typing_extensions.Annotated[int, FieldMetadata(alias="currentPeriodEnd")]
     """
     Unix ms of the next charge
     """

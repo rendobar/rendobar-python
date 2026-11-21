@@ -14,12 +14,13 @@ them out and setting one in the job is a type error, not a second way. A job
 type the SDK does not know yet goes through `SubmitAnyJob` (the SDK's
 `UntypedJob`), which stays out of the union.
 
-Every enum inside a job the API returns (output category, currency, file type,
-delivery status, failed phase, ...) is typed `str`. Fern types an enum as
+Every string enum a response can carry (a job's output category, currency,
+file type, delivery status, failed phase; the submit statuses; webhook data)
+is typed `str`. Fern types an enum as
 `Literal[...] | Any`, which turns off checking, and a closed Literal would
 make an older SDK fail on a value the API adds later. `str` is what both
 checkers make of `Literal[...] | str`: typed, and open to new values. The
-status each job variant is discriminated on stays a literal.
+status a job is discriminated on, and the event a webhook is, stay literals.
 
 Usage: python fern/derive_overrides.py [--check]
 --check exits 1 when overrides.yml is not what the spec gives (CI runs this).
@@ -85,37 +86,56 @@ def merge(into: dict, more: dict) -> None:
             into[key] = value
 
 
+def _string_enum(node: dict) -> bool:
+    return "enum" in node and all(isinstance(value, str) for value in node["enum"])
+
+
 def open_enums(spec: dict) -> dict:
-    """`{schema: override}` setting `x-fern-type: string` on every enum reachable from the Job union's variants."""
+    """`{schema: override}` setting `x-fern-type: string` on every string enum a response can carry.
+
+    The roots are the Job union's variants, the webhook payload union's
+    variants (each skipping the property its union is discriminated on) and
+    the POST /jobs success bodies.
+    """
     schemas = spec["components"]["schemas"]
-    job = schemas["Job"]
-    discriminant = job["discriminator"]["propertyName"]
     out: dict = {}
 
-    def walk(node: dict, override: dict, root: bool, seen: frozenset) -> None:
+    def walk(node: dict, override: dict, skip: object, seen: frozenset) -> None:
         if "$ref" in node:
             name = node["$ref"].removeprefix(REF)
-            if name not in seen:
-                walk(schemas[name], out.setdefault(name, {}), False, seen | {name})
+            if name in seen:
+                return
+            target = schemas[name]
+            if _string_enum(target):
+                out.setdefault(name, {})["x-fern-type"] = "string"
+            else:
+                walk(target, out.setdefault(name, {}), None, seen | {name})
             return
         if any(key in node for key in ("anyOf", "oneOf", "allOf")):
-            raise SystemExit("a union inside a job response: teach derive_overrides.py to override inside it")
+            raise SystemExit("a union inside a response: teach derive_overrides.py to override inside it")
         for prop, child in node.get("properties", {}).items():
-            if root and prop == discriminant:
+            if prop == skip:
                 continue
-            if "enum" in child:
+            if _string_enum(child):
                 override.setdefault("properties", {}).setdefault(prop, {})["x-fern-type"] = "string"
             else:
-                walk(child, override.setdefault("properties", {}).setdefault(prop, {}), False, seen)
-        if isinstance(node.get("items"), dict):
-            if "enum" in node["items"]:
+                walk(child, override.setdefault("properties", {}).setdefault(prop, {}), None, seen)
+        items = node.get("items")
+        if isinstance(items, dict):
+            if _string_enum(items):
                 override.setdefault("items", {})["x-fern-type"] = "string"
             else:
-                walk(node["items"], override.setdefault("items", {}), False, seen)
+                walk(items, override.setdefault("items", {}), None, seen)
 
-    for variant in job.get("oneOf", []):
-        name = variant["$ref"].removeprefix(REF)
-        walk(schemas[name], out.setdefault(name, {}), True, frozenset({name}))
+    for union in ("Job", "WebhookPayload"):
+        discriminant = schemas[union]["discriminator"]["propertyName"]
+        for variant in schemas[union]["oneOf"]:
+            name = variant["$ref"].removeprefix(REF)
+            walk(schemas[name], out.setdefault(name, {}), discriminant, frozenset({name}))
+    for status in ("200", "201"):
+        data = spec["paths"]["/jobs"]["post"]["responses"][status]["content"]["application/json"]["schema"]["properties"]["data"]
+        for member in data.get("anyOf", [data]):
+            walk(member, {}, None, frozenset())
     return {name: prune(o) for name, o in out.items() if prune(o)}
 
 

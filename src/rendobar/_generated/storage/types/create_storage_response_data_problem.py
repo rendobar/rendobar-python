@@ -7,7 +7,7 @@ from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class CreateStorageResponseDataProblem(UniversalBaseModel):
-    at: float
+    at: int
     message: str
 
     if IS_PYDANTIC_V2:

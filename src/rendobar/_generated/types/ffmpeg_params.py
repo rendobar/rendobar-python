@@ -14,7 +14,7 @@ class FfmpegParams(UniversalBaseModel):
 
     command: str = pydantic.Field()
     """
-    FFmpeg command string (without the "ffmpeg" prefix)
+    FFmpeg command string, such as "ffmpeg -i input.mp4 output.mp4". The leading "ffmpeg" is optional.
     """
 
     timeout: typing.Optional[int] = pydantic.Field(default=None)

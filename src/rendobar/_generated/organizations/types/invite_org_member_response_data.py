@@ -12,7 +12,7 @@ class InviteOrgMemberResponseData(UniversalBaseModel):
     id: str
     email: str
     role: str
-    expires_at: typing_extensions.Annotated[float, FieldMetadata(alias="expiresAt"), pydantic.Field(alias="expiresAt")]
+    expires_at: typing_extensions.Annotated[int, FieldMetadata(alias="expiresAt"), pydantic.Field(alias="expiresAt")]
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

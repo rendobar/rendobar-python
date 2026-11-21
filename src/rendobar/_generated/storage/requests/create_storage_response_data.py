@@ -24,7 +24,7 @@ class CreateStorageResponseDataParams(typing_extensions.TypedDict):
     account_id: typing_extensions.NotRequired[typing_extensions.Annotated[str, FieldMetadata(alias="accountId")]]
     jurisdiction: typing_extensions.NotRequired[CreateStorageResponseDataJurisdiction]
     project_ref: typing_extensions.NotRequired[typing_extensions.Annotated[str, FieldMetadata(alias="projectRef")]]
-    expires_on: typing_extensions.NotRequired[typing_extensions.Annotated[float, FieldMetadata(alias="expiresOn")]]
+    expires_on: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="expiresOn")]]
     pending: typing_extensions.NotRequired[bool]
     auth: typing_extensions.NotRequired[CreateStorageResponseDataAuth]
     access: typing_extensions.NotRequired[CreateStorageResponseDataAccess]
@@ -41,8 +41,8 @@ class CreateStorageResponseDataParams(typing_extensions.TypedDict):
     ]
     id: str
     provider: str
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
-    updated_at: typing_extensions.Annotated[float, FieldMetadata(alias="updatedAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
+    updated_at: typing_extensions.Annotated[int, FieldMetadata(alias="updatedAt")]
     delivery_summary: typing_extensions.NotRequired[
         typing_extensions.Annotated[
             CreateStorageResponseDataDeliverySummaryParams, FieldMetadata(alias="deliverySummary")

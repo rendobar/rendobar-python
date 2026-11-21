@@ -4,6 +4,6 @@ import typing_extensions
 
 
 class ListWebhookDeliveriesResponseMetaParams(typing_extensions.TypedDict):
-    total: float
-    limit: float
+    total: int
+    limit: int
     offset: float

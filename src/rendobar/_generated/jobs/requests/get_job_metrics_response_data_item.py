@@ -7,7 +7,7 @@ from ...core.serialization import FieldMetadata
 
 
 class GetJobMetricsResponseDataItemParams(typing_extensions.TypedDict):
-    timestamp: float
+    timestamp: int
     cpu_pct: typing_extensions.NotRequired[
         typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="cpuPct")]
     ]

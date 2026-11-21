@@ -11,7 +11,7 @@ class FfmpegParamsParams(typing_extensions.TypedDict):
 
     command: str
     """
-    FFmpeg command string (without the "ffmpeg" prefix)
+    FFmpeg command string, such as "ffmpeg -i input.mp4 output.mp4". The leading "ffmpeg" is optional.
     """
 
     timeout: typing_extensions.NotRequired[int]

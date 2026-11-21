@@ -9,13 +9,13 @@ from ...core.serialization import FieldMetadata
 
 
 class GetJobLogsResponseDataItem(UniversalBaseModel):
-    timestamp: float
+    timestamp: int
     level: str
     step: typing.Optional[str] = None
     event: str
     message: str
     duration_ms: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="durationMs"), pydantic.Field(alias="durationMs")
+        typing.Optional[int], FieldMetadata(alias="durationMs"), pydantic.Field(alias="durationMs")
     ] = None
     meta: typing.Optional[typing.Dict[str, typing.Any]] = None
 

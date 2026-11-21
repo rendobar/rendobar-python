@@ -44,8 +44,6 @@ if typing.TYPE_CHECKING:
     from .submit_job_request import SubmitJobRequestParams
     from .submit_job_response import SubmitJobResponseParams
     from .submit_job_response_data import SubmitJobResponseDataParams
-    from .submit_job_response_data_idempotent import SubmitJobResponseDataIdempotentParams
-    from .submit_job_response_data_url import SubmitJobResponseDataUrlParams
 _dynamic_imports: typing.Dict[str, str] = {
     "CancelJobResponseDataParams": ".cancel_job_response_data",
     "CancelJobResponseParams": ".cancel_job_response",
@@ -83,9 +81,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RetryDeliveriesResponseDataParams": ".retry_deliveries_response_data",
     "RetryDeliveriesResponseParams": ".retry_deliveries_response",
     "SubmitJobRequestParams": ".submit_job_request",
-    "SubmitJobResponseDataIdempotentParams": ".submit_job_response_data_idempotent",
     "SubmitJobResponseDataParams": ".submit_job_response_data",
-    "SubmitJobResponseDataUrlParams": ".submit_job_response_data_url",
     "SubmitJobResponseParams": ".submit_job_response",
 }
 
@@ -148,8 +144,6 @@ __all__ = [
     "RetryDeliveriesResponseDataParams",
     "RetryDeliveriesResponseParams",
     "SubmitJobRequestParams",
-    "SubmitJobResponseDataIdempotentParams",
     "SubmitJobResponseDataParams",
-    "SubmitJobResponseDataUrlParams",
     "SubmitJobResponseParams",
 ]

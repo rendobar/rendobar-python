@@ -15,8 +15,8 @@ class ListWebhookDeliveriesResponseDataItemParams(typing_extensions.TypedDict):
     event: str
     payload: str
     status: ListWebhookDeliveriesResponseDataItemStatus
-    status_code: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="statusCode")]
+    status_code: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="statusCode")]
     response_body: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="responseBody")]
-    attempts: float
-    last_attempt_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="lastAttemptAt")]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
+    attempts: int
+    last_attempt_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="lastAttemptAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]

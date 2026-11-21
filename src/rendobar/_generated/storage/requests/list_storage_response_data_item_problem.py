@@ -4,5 +4,5 @@ import typing_extensions
 
 
 class ListStorageResponseDataItemProblemParams(typing_extensions.TypedDict):
-    at: float
+    at: int
     message: str

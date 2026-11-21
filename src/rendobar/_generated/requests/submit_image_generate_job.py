@@ -34,7 +34,7 @@ class SubmitImageGenerateJobParams(typing_extensions.TypedDict):
         typing_extensions.Annotated[str, FieldMetadata(alias="idempotencyKey")]
     ]
     """
-    Idempotency key to prevent duplicate job creation
+    Idempotency key to prevent duplicate job creation. Resending the same request with the same key returns the job it created. Reusing the key with a different type, inputs or params is a 409 CONFLICT naming that job.
     """
 
     label: typing_extensions.NotRequired[str]

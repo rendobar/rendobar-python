@@ -23,7 +23,7 @@ class GetBillingStateResponseDataCreditSchedule(UniversalBaseModel):
     """
 
     current_period_end: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="currentPeriodEnd"),
         pydantic.Field(alias="currentPeriodEnd", description="Unix ms of the next charge"),
     ]

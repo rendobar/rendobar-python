@@ -9,4 +9,4 @@ from ...core.serialization import FieldMetadata
 class ListStorageObjectsResponseDataObjectsItemParams(typing_extensions.TypedDict):
     key: str
     size: int
-    last_modified: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="lastModified")]
+    last_modified: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="lastModified")]

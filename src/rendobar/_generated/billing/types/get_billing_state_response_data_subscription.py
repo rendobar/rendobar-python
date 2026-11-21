@@ -14,10 +14,10 @@ class GetBillingStateResponseDataSubscription(UniversalBaseModel):
         bool, FieldMetadata(alias="cancelAtPeriodEnd"), pydantic.Field(alias="cancelAtPeriodEnd")
     ]
     current_period_end: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="currentPeriodEnd"), pydantic.Field(alias="currentPeriodEnd")
+        typing.Optional[int], FieldMetadata(alias="currentPeriodEnd"), pydantic.Field(alias="currentPeriodEnd")
     ] = None
     current_period_start: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="currentPeriodStart"), pydantic.Field(alias="currentPeriodStart")
+        typing.Optional[int], FieldMetadata(alias="currentPeriodStart"), pydantic.Field(alias="currentPeriodStart")
     ] = None
     changes_in_place: typing_extensions.Annotated[
         bool,

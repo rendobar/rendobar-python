@@ -31,7 +31,7 @@ class GetStorageResponseData(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="projectRef"), pydantic.Field(alias="projectRef")
     ] = None
     expires_on: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="expiresOn"), pydantic.Field(alias="expiresOn")
+        typing.Optional[int], FieldMetadata(alias="expiresOn"), pydantic.Field(alias="expiresOn")
     ] = None
     pending: typing.Optional[bool] = None
     auth: typing.Optional[GetStorageResponseDataAuth] = None
@@ -53,8 +53,8 @@ class GetStorageResponseData(UniversalBaseModel):
     ] = None
     id: str
     provider: str
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
-    updated_at: typing_extensions.Annotated[float, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    updated_at: typing_extensions.Annotated[int, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")]
     delivery_summary: typing_extensions.Annotated[
         typing.Optional[GetStorageResponseDataDeliverySummary],
         FieldMetadata(alias="deliverySummary"),

@@ -10,23 +10,23 @@ from ...core.serialization import FieldMetadata
 
 class GetAccountCapabilitiesResponseDataLimits(UniversalBaseModel):
     concurrent_jobs: typing_extensions.Annotated[
-        float, FieldMetadata(alias="concurrentJobs"), pydantic.Field(alias="concurrentJobs")
+        int, FieldMetadata(alias="concurrentJobs"), pydantic.Field(alias="concurrentJobs")
     ]
     max_queued_jobs: typing_extensions.Annotated[
-        float, FieldMetadata(alias="maxQueuedJobs"), pydantic.Field(alias="maxQueuedJobs")
+        int, FieldMetadata(alias="maxQueuedJobs"), pydantic.Field(alias="maxQueuedJobs")
     ]
     api_requests_per_minute: typing_extensions.Annotated[
-        float, FieldMetadata(alias="apiRequestsPerMinute"), pydantic.Field(alias="apiRequestsPerMinute")
+        int, FieldMetadata(alias="apiRequestsPerMinute"), pydantic.Field(alias="apiRequestsPerMinute")
     ]
     max_job_timeout: typing_extensions.Annotated[
-        float, FieldMetadata(alias="maxJobTimeout"), pydantic.Field(alias="maxJobTimeout", description="Seconds")
+        int, FieldMetadata(alias="maxJobTimeout"), pydantic.Field(alias="maxJobTimeout", description="Seconds")
     ]
     """
     Seconds
     """
 
     max_input_file_size: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="maxInputFileSize"),
         pydantic.Field(alias="maxInputFileSize", description="Bytes, per input file, uploaded or fetched by URL"),
     ]
@@ -35,7 +35,7 @@ class GetAccountCapabilitiesResponseDataLimits(UniversalBaseModel):
     """
 
     max_job_input_size: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="maxJobInputSize"),
         pydantic.Field(
             alias="maxJobInputSize", description="Deprecated: always equal to maxInputFileSize. Read maxInputFileSize."
@@ -46,20 +46,20 @@ class GetAccountCapabilitiesResponseDataLimits(UniversalBaseModel):
     """
 
     storage_quota: typing_extensions.Annotated[
-        float, FieldMetadata(alias="storageQuota"), pydantic.Field(alias="storageQuota", description="Bytes")
+        int, FieldMetadata(alias="storageQuota"), pydantic.Field(alias="storageQuota", description="Bytes")
     ]
     """
     Bytes
     """
 
     output_retention_days: typing_extensions.Annotated[
-        float, FieldMetadata(alias="outputRetentionDays"), pydantic.Field(alias="outputRetentionDays")
+        int, FieldMetadata(alias="outputRetentionDays"), pydantic.Field(alias="outputRetentionDays")
     ]
     max_upload_session_files: typing_extensions.Annotated[
-        float, FieldMetadata(alias="maxUploadSessionFiles"), pydantic.Field(alias="maxUploadSessionFiles")
+        int, FieldMetadata(alias="maxUploadSessionFiles"), pydantic.Field(alias="maxUploadSessionFiles")
     ]
     team_members: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="teamMembers"),
         pydantic.Field(
             alias="teamMembers", description="Members the organization may hold, pending invitations included"
@@ -70,7 +70,7 @@ class GetAccountCapabilitiesResponseDataLimits(UniversalBaseModel):
     """
 
     compose_max_pixels: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="composeMaxPixels"),
         pydantic.Field(alias="composeMaxPixels", description="Largest compose frame, in pixels (width times height)"),
     ]
@@ -79,7 +79,7 @@ class GetAccountCapabilitiesResponseDataLimits(UniversalBaseModel):
     """
 
     compose_max_fps: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="composeMaxFps"),
         pydantic.Field(alias="composeMaxFps", description="Highest compose frame rate"),
     ]
@@ -88,7 +88,7 @@ class GetAccountCapabilitiesResponseDataLimits(UniversalBaseModel):
     """
 
     compose_animated_max_pixels: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="composeAnimatedMaxPixels"),
         pydantic.Field(
             alias="composeAnimatedMaxPixels", description="Largest compose frame with animated graphics, in pixels"
@@ -99,7 +99,7 @@ class GetAccountCapabilitiesResponseDataLimits(UniversalBaseModel):
     """
 
     compose_animated_max_fps: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="composeAnimatedMaxFps"),
         pydantic.Field(alias="composeAnimatedMaxFps", description="Highest compose frame rate with animated graphics"),
     ]

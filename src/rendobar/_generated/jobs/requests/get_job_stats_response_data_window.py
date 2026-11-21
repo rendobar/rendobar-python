@@ -5,5 +5,5 @@ from ...core.serialization import FieldMetadata
 
 
 class GetJobStatsResponseDataWindowParams(typing_extensions.TypedDict):
-    from_: typing_extensions.Annotated[float, FieldMetadata(alias="from")]
-    to: float
+    from_: typing_extensions.Annotated[int, FieldMetadata(alias="from")]
+    to: int

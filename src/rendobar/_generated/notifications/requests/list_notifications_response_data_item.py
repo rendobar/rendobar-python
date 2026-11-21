@@ -32,7 +32,7 @@ class ListNotificationsResponseDataItemParams(typing_extensions.TypedDict):
     Whether the calling user has read it
     """
 
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
     """
     Unix ms
     """

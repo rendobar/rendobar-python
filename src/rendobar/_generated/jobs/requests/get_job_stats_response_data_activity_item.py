@@ -5,7 +5,7 @@ from ...core.serialization import FieldMetadata
 
 
 class GetJobStatsResponseDataActivityItemParams(typing_extensions.TypedDict):
-    bucket_start: typing_extensions.Annotated[float, FieldMetadata(alias="bucketStart")]
+    bucket_start: typing_extensions.Annotated[int, FieldMetadata(alias="bucketStart")]
     succeeded: int
     failed: int
     other: int

@@ -6,4 +6,4 @@ from ...core.serialization import FieldMetadata
 
 class ResendOrgInvitationResponseDataParams(typing_extensions.TypedDict):
     id: str
-    expires_at: typing_extensions.Annotated[float, FieldMetadata(alias="expiresAt")]
+    expires_at: typing_extensions.Annotated[int, FieldMetadata(alias="expiresAt")]

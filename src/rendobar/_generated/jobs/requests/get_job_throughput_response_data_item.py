@@ -4,7 +4,7 @@ import typing_extensions
 
 
 class GetJobThroughputResponseDataItemParams(typing_extensions.TypedDict):
-    timestamp: float
+    timestamp: int
     fps: typing_extensions.NotRequired[float]
     speed: typing_extensions.NotRequired[float]
     frame: typing_extensions.NotRequired[float]

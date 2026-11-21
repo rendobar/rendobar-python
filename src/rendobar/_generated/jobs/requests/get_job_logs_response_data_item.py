@@ -7,10 +7,10 @@ from ...core.serialization import FieldMetadata
 
 
 class GetJobLogsResponseDataItemParams(typing_extensions.TypedDict):
-    timestamp: float
+    timestamp: int
     level: str
     step: typing_extensions.NotRequired[str]
     event: str
     message: str
-    duration_ms: typing_extensions.NotRequired[typing_extensions.Annotated[float, FieldMetadata(alias="durationMs")]]
+    duration_ms: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="durationMs")]]
     meta: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]

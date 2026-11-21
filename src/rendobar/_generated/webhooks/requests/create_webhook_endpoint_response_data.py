@@ -17,11 +17,11 @@ class CreateWebhookEndpointResponseDataParams(typing_extensions.TypedDict):
 
     active: bool
     disabled_reason: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="disabledReason")]
-    consecutive_failures: typing_extensions.Annotated[float, FieldMetadata(alias="consecutiveFailures")]
+    consecutive_failures: typing_extensions.Annotated[int, FieldMetadata(alias="consecutiveFailures")]
     subscribed_events: typing_extensions.Annotated[typing.Sequence[str], FieldMetadata(alias="subscribedEvents")]
     rotation_active: typing_extensions.Annotated[bool, FieldMetadata(alias="rotationActive")]
     secret_expires_at: typing_extensions.NotRequired[
-        typing_extensions.Annotated[float, FieldMetadata(alias="secretExpiresAt")]
+        typing_extensions.Annotated[int, FieldMetadata(alias="secretExpiresAt")]
     ]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
-    updated_at: typing_extensions.Annotated[float, FieldMetadata(alias="updatedAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
+    updated_at: typing_extensions.Annotated[int, FieldMetadata(alias="updatedAt")]

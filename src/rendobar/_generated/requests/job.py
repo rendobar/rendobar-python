@@ -6,33 +6,13 @@ import typing
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
-from .job_cancelled_callback import JobCancelledCallbackParams
-from .job_cancelled_cost import JobCancelledCostParams
-from .job_cancelled_deliveries_item import JobCancelledDeliveriesItemParams
-from .job_cancelled_steps_item import JobCancelledStepsItemParams
-from .job_complete_callback import JobCompleteCallbackParams
-from .job_complete_cost import JobCompleteCostParams
-from .job_complete_deliveries_item import JobCompleteDeliveriesItemParams
-from .job_complete_output import JobCompleteOutputParams
-from .job_complete_steps_item import JobCompleteStepsItemParams
+from .callback_status import CallbackStatusParams
+from .job_cost import JobCostParams
+from .job_delivery import JobDeliveryParams
 from .job_dispatched_boot_state import JobDispatchedBootStateParams
-from .job_dispatched_callback import JobDispatchedCallbackParams
-from .job_dispatched_cost import JobDispatchedCostParams
-from .job_dispatched_deliveries_item import JobDispatchedDeliveriesItemParams
-from .job_dispatched_steps_item import JobDispatchedStepsItemParams
-from .job_failed_callback import JobFailedCallbackParams
-from .job_failed_cost import JobFailedCostParams
-from .job_failed_deliveries_item import JobFailedDeliveriesItemParams
-from .job_failed_error import JobFailedErrorParams
-from .job_failed_steps_item import JobFailedStepsItemParams
-from .job_running_callback import JobRunningCallbackParams
-from .job_running_cost import JobRunningCostParams
-from .job_running_deliveries_item import JobRunningDeliveriesItemParams
-from .job_running_steps_item import JobRunningStepsItemParams
-from .job_waiting_callback import JobWaitingCallbackParams
-from .job_waiting_cost import JobWaitingCostParams
-from .job_waiting_deliveries_item import JobWaitingDeliveriesItemParams
-from .job_waiting_steps_item import JobWaitingStepsItemParams
+from .job_error import JobErrorParams
+from .job_output import JobOutputParams
+from .job_step import JobStepParams
 
 
 class Job_WaitingParams(typing_extensions.TypedDict):
@@ -48,9 +28,9 @@ class Job_WaitingParams(typing_extensions.TypedDict):
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobWaitingCostParams]
+    cost: typing.Optional[JobCostParams]
     output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
-    steps: typing.Sequence[JobWaitingStepsItemParams]
+    steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
     metrics_available: typing_extensions.NotRequired[
@@ -58,16 +38,17 @@ class Job_WaitingParams(typing_extensions.TypedDict):
     ]
     region: typing_extensions.NotRequired[typing.Optional[str]]
     timeout_ms: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="timeoutMs")]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
-    dispatched_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="dispatchedAt")]
-    started_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="startedAt")]
-    completed_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="completedAt")]
-    settled_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="settledAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
+    dispatched_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="dispatchedAt")]
+    started_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="startedAt")]
+    completed_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="completedAt")]
+    settled_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="settledAt")]
     retention_expires_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="retentionExpiresAt")]
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl")]
     model: typing.Optional[str]
-    callback: typing_extensions.NotRequired[typing.Optional[JobWaitingCallbackParams]]
-    deliveries: typing_extensions.NotRequired[typing.Sequence[JobWaitingDeliveriesItemParams]]
+    terminal: bool
+    callback: typing_extensions.NotRequired[typing.Optional[CallbackStatusParams]]
+    deliveries: typing_extensions.NotRequired[typing.Sequence[JobDeliveryParams]]
 
 
 class Job_DispatchedParams(typing_extensions.TypedDict):
@@ -83,9 +64,9 @@ class Job_DispatchedParams(typing_extensions.TypedDict):
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobDispatchedCostParams]
+    cost: typing.Optional[JobCostParams]
     output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
-    steps: typing.Sequence[JobDispatchedStepsItemParams]
+    steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
     metrics_available: typing_extensions.NotRequired[
@@ -93,16 +74,17 @@ class Job_DispatchedParams(typing_extensions.TypedDict):
     ]
     region: typing_extensions.NotRequired[typing.Optional[str]]
     timeout_ms: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="timeoutMs")]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
-    dispatched_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="dispatchedAt")]
-    started_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="startedAt")]
-    completed_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="completedAt")]
-    settled_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="settledAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
+    dispatched_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="dispatchedAt")]
+    started_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="startedAt")]
+    completed_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="completedAt")]
+    settled_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="settledAt")]
     retention_expires_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="retentionExpiresAt")]
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl")]
     model: typing.Optional[str]
-    callback: typing_extensions.NotRequired[typing.Optional[JobDispatchedCallbackParams]]
-    deliveries: typing_extensions.NotRequired[typing.Sequence[JobDispatchedDeliveriesItemParams]]
+    terminal: bool
+    callback: typing_extensions.NotRequired[typing.Optional[CallbackStatusParams]]
+    deliveries: typing_extensions.NotRequired[typing.Sequence[JobDeliveryParams]]
     progress: typing_extensions.NotRequired[typing.Optional[float]]
     eta: typing_extensions.NotRequired[typing.Optional[float]]
     boot_state: typing_extensions.NotRequired[
@@ -123,9 +105,9 @@ class Job_RunningParams(typing_extensions.TypedDict):
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobRunningCostParams]
+    cost: typing.Optional[JobCostParams]
     output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
-    steps: typing.Sequence[JobRunningStepsItemParams]
+    steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
     metrics_available: typing_extensions.NotRequired[
@@ -133,16 +115,17 @@ class Job_RunningParams(typing_extensions.TypedDict):
     ]
     region: typing_extensions.NotRequired[typing.Optional[str]]
     timeout_ms: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="timeoutMs")]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
-    dispatched_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="dispatchedAt")]
-    started_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="startedAt")]
-    completed_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="completedAt")]
-    settled_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="settledAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
+    dispatched_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="dispatchedAt")]
+    started_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="startedAt")]
+    completed_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="completedAt")]
+    settled_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="settledAt")]
     retention_expires_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="retentionExpiresAt")]
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl")]
     model: typing.Optional[str]
-    callback: typing_extensions.NotRequired[typing.Optional[JobRunningCallbackParams]]
-    deliveries: typing_extensions.NotRequired[typing.Sequence[JobRunningDeliveriesItemParams]]
+    terminal: bool
+    callback: typing_extensions.NotRequired[typing.Optional[CallbackStatusParams]]
+    deliveries: typing_extensions.NotRequired[typing.Sequence[JobDeliveryParams]]
     progress: typing.Optional[float]
     eta: typing.Optional[float]
 
@@ -160,9 +143,9 @@ class Job_CompleteParams(typing_extensions.TypedDict):
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobCompleteCostParams]
+    cost: typing.Optional[JobCostParams]
     output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
-    steps: typing.Sequence[JobCompleteStepsItemParams]
+    steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
     metrics_available: typing_extensions.NotRequired[
@@ -170,17 +153,18 @@ class Job_CompleteParams(typing_extensions.TypedDict):
     ]
     region: typing_extensions.NotRequired[typing.Optional[str]]
     timeout_ms: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="timeoutMs")]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
-    dispatched_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="dispatchedAt")]
-    started_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="startedAt")]
-    completed_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="completedAt")]
-    settled_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="settledAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
+    dispatched_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="dispatchedAt")]
+    started_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="startedAt")]
+    completed_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="completedAt")]
+    settled_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="settledAt")]
     retention_expires_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="retentionExpiresAt")]
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl")]
     model: typing.Optional[str]
-    callback: typing_extensions.NotRequired[typing.Optional[JobCompleteCallbackParams]]
-    deliveries: typing_extensions.NotRequired[typing.Sequence[JobCompleteDeliveriesItemParams]]
-    output: JobCompleteOutputParams
+    terminal: bool
+    callback: typing_extensions.NotRequired[typing.Optional[CallbackStatusParams]]
+    deliveries: typing_extensions.NotRequired[typing.Sequence[JobDeliveryParams]]
+    output: JobOutputParams
 
 
 class Job_FailedParams(typing_extensions.TypedDict):
@@ -196,9 +180,9 @@ class Job_FailedParams(typing_extensions.TypedDict):
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobFailedCostParams]
+    cost: typing.Optional[JobCostParams]
     output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
-    steps: typing.Sequence[JobFailedStepsItemParams]
+    steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
     metrics_available: typing_extensions.NotRequired[
@@ -206,17 +190,18 @@ class Job_FailedParams(typing_extensions.TypedDict):
     ]
     region: typing_extensions.NotRequired[typing.Optional[str]]
     timeout_ms: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="timeoutMs")]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
-    dispatched_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="dispatchedAt")]
-    started_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="startedAt")]
-    completed_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="completedAt")]
-    settled_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="settledAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
+    dispatched_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="dispatchedAt")]
+    started_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="startedAt")]
+    completed_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="completedAt")]
+    settled_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="settledAt")]
     retention_expires_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="retentionExpiresAt")]
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl")]
     model: typing.Optional[str]
-    callback: typing_extensions.NotRequired[typing.Optional[JobFailedCallbackParams]]
-    deliveries: typing_extensions.NotRequired[typing.Sequence[JobFailedDeliveriesItemParams]]
-    error: JobFailedErrorParams
+    terminal: bool
+    callback: typing_extensions.NotRequired[typing.Optional[CallbackStatusParams]]
+    deliveries: typing_extensions.NotRequired[typing.Sequence[JobDeliveryParams]]
+    error: JobErrorParams
 
 
 class Job_CancelledParams(typing_extensions.TypedDict):
@@ -232,9 +217,9 @@ class Job_CancelledParams(typing_extensions.TypedDict):
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
     inputs: typing.Dict[str, typing.Any]
     params: typing.Dict[str, typing.Any]
-    cost: typing.Optional[JobCancelledCostParams]
+    cost: typing.Optional[JobCostParams]
     output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
-    steps: typing.Sequence[JobCancelledStepsItemParams]
+    steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
     metrics_available: typing_extensions.NotRequired[
@@ -242,16 +227,17 @@ class Job_CancelledParams(typing_extensions.TypedDict):
     ]
     region: typing_extensions.NotRequired[typing.Optional[str]]
     timeout_ms: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="timeoutMs")]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt")]
-    dispatched_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="dispatchedAt")]
-    started_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="startedAt")]
-    completed_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="completedAt")]
-    settled_at: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="settledAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt")]
+    dispatched_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="dispatchedAt")]
+    started_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="startedAt")]
+    completed_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="completedAt")]
+    settled_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="settledAt")]
     retention_expires_at: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="retentionExpiresAt")]
     web_url: typing_extensions.Annotated[str, FieldMetadata(alias="webUrl")]
     model: typing.Optional[str]
-    callback: typing_extensions.NotRequired[typing.Optional[JobCancelledCallbackParams]]
-    deliveries: typing_extensions.NotRequired[typing.Sequence[JobCancelledDeliveriesItemParams]]
+    terminal: bool
+    callback: typing_extensions.NotRequired[typing.Optional[CallbackStatusParams]]
+    deliveries: typing_extensions.NotRequired[typing.Sequence[JobDeliveryParams]]
 
 
 JobParams = typing.Union[

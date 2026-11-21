@@ -28,15 +28,15 @@ class ConnectorFieldParams(typing_extensions.TypedDict):
     options: typing_extensions.NotRequired[typing.Sequence[ConnectorFieldOptionsItemParams]]
     min: typing_extensions.NotRequired[float]
     max: typing_extensions.NotRequired[float]
-    min_length: typing_extensions.NotRequired[typing_extensions.Annotated[float, FieldMetadata(alias="minLength")]]
-    max_length: typing_extensions.NotRequired[typing_extensions.Annotated[float, FieldMetadata(alias="maxLength")]]
+    min_length: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="minLength")]]
+    max_length: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="maxLength")]]
     description: typing_extensions.NotRequired[str]
     example: typing_extensions.NotRequired[typing.Any]
     """
     Example value, for placeholder text
     """
 
-    order: typing_extensions.NotRequired[float]
+    order: typing_extensions.NotRequired[int]
     """
     Render position; fields are already returned in this order
     """
