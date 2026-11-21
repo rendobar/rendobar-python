@@ -46,14 +46,12 @@ with Rendobar() as rb:  # reads RENDOBAR_API_KEY, or pass Rendobar("rb_...")
         type="ffmpeg",
         params={"command": "ffmpeg -i https://cdn.rendobar.com/assets/examples/sample.mp4 -vf scale=1280:-2 out.mp4"},
     )
-print(job.output.file.url)
+print(job.output.files[0].url)
 ```
 
 `jobs.run()` submits the job and waits for it. Use `jobs.create()` and `jobs.wait()` to do the two steps yourself, and `rb.jobs.types()` to list every live job type.
 
 The `with` block closes the client's connections when it ends. A long-lived client (one per app) can skip it and call `rb.close()` at shutdown.
-
-`jobs.wait()` with no `timeout` allows five minutes. Once the job reports its own execution budget (your plan's per-job limit), the wait extends to that budget plus two minutes, counted from the poll that saw it, so a long job is not cut off while it runs. Pass `timeout=` for a fixed bound.
 
 ### asyncio
 
@@ -64,7 +62,76 @@ async with AsyncRendobar() as rb:
     job = await rb.jobs.run(type="ffprobe", params={"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"})
 ```
 
-`await rb.aclose()` does the same as the `async with` block for a client you keep open.
+`AsyncRendobar` takes the same arguments and has the same methods as `Rendobar`, awaited. `await rb.aclose()` does the same as the `async with` block for a client you keep open.
+
+## Client options
+
+```python
+rb = Rendobar(
+    api_key="rb_...",                  # default: the RENDOBAR_API_KEY environment variable
+    base_url="https://api.rendobar.com",
+    timeout=30.0,                      # seconds per HTTP request
+    max_retries=2,                     # retries of a 429, a 5xx or a failed connection
+    app="my-app",                      # sent in X-Rendobar-Client, so your jobs show where they came from
+    on_deprecation=print,              # called once per deprecated endpoint, see Support policy
+)
+```
+
+`base_url` points the client at another server, such as a staging deployment or a local mock: `Rendobar(base_url="https://api.staging.example.com")`.
+
+With no key passed and no `RENDOBAR_API_KEY` set (or an empty one), the client still works for `jobs.types()` and `jobs.schema()`, which need no key. Every other call raises `AuthenticationError` with code `MISSING_API_KEY` before it sends anything.
+
+## Job options
+
+`jobs.run()` takes every option of `jobs.create()` and `jobs.wait()`. All of them are keyword arguments except `type`, `params` and `inputs`.
+
+| Option | Method | What it does |
+|---|---|---|
+| `type` | create, run | The job type, such as `"ffmpeg"`. `rb.jobs.types()` lists every live one. |
+| `params` | create, run | The job type's params. `rb.jobs.schema(type)` describes them. |
+| `inputs` | create, run | Named input files, as URLs, for job types that take them. |
+| `idempotency_key` | create, run | Makes the submit safe to repeat. See [Retries and idempotency](#retries-and-idempotency). |
+| `label` | create, run | A short name for the job, shown in the dashboard and returned as `job.label`. |
+| `destinations` | create, run | Where to deliver the output, as `storage://<id>[/<folder or path>]`. |
+| `callback` | create, run | A URL Rendobar POSTs the job to when it ends: `{"url": ..., "headers": {...}, "verify": True}`. |
+| `force_async` | create, run | Queue the job even when its type can finish during the request. |
+| `timeout` | wait, run | Seconds to wait before `WaitTimeoutError`. Default described below. |
+| `interval` | wait, run | Seconds before the second poll (default 2). Each later pause is 1.5 times longer. |
+| `max_interval` | wait, run | The longest pause between polls, in seconds (default 10). |
+| `on_progress` | wait, run | Called with the job after every poll. |
+| `throw_on_failure` | wait, run | Raise `JobFailedError` when the job fails or is cancelled. Default `True` for `run()`, `False` for `wait()`, which then returns the failed job. |
+
+`jobs.wait()` with no `timeout` allows five minutes. Once the job reports its own execution budget (your plan's per-job limit), the wait extends to that budget plus two minutes, counted from the poll that saw it, so a long job is not cut off while it runs. Pass `timeout=` for a fixed bound.
+
+## Results
+
+Every method returns a typed result, so your editor completes fields and your type checker flags a misspelled one.
+
+| Call | Returns |
+|---|---|
+| `jobs.run()` | `JobComplete` (with `throw_on_failure=False`: `JobComplete`, `JobFailed` or `JobCancelled`) |
+| `jobs.wait()` | `JobComplete`, `JobFailed` or `JobCancelled` (with `throw_on_failure=True`: `JobComplete`) |
+| `jobs.create()` | `JobCreated`, or `JobReplayed` when the idempotency key was used before |
+| `jobs.get()`, `jobs.list()`, `jobs.list_all()` | `Job`: one of `JobWaiting`, `JobDispatched`, `JobRunning`, `JobComplete`, `JobFailed`, `JobCancelled` |
+| `jobs.cancel()` | `JobCancellation` (`id` and `status`) |
+| `jobs.types()`, `jobs.schema()` | a list of `JobType`, a `JobTypeSchema` |
+| `account.capabilities()` | `AccountCapabilities` (`plan`, `limits`, `features`) |
+
+Only a `JobComplete` has `output`, and only a `JobFailed` has `error`. Check which one you have with `isinstance`:
+
+```python
+from rendobar import JobComplete, JobFailed
+
+job = rb.jobs.get("job_abc123")
+if isinstance(job, JobComplete):
+    print(job.output.files[0].url)
+elif isinstance(job, JobFailed):
+    print(job.error.code, job.error.message)
+```
+
+`job.cost.amount` is in nanodollars (1 USD = 1,000,000,000). `job.cost.formatted` has the same amount as dollars, such as `"$0.0021"`.
+
+A job whose status is newer than your installed SDK comes back as `UnknownJob` with `id`, `status` and `raw`, rather than raising. That holds for every call that returns jobs (`get`, `list`, `list_all`, `create`, `cancel`, `wait`): in a list, only the job with the new status is an `UnknownJob`, the rest of the page is typed as usual.
 
 ## Errors
 
@@ -84,17 +151,18 @@ Everything the SDK raises is a `RendobarError` with a `code`:
 | Error | When |
 |---|---|
 | `BadRequestError`, `AuthenticationError`, `InsufficientCreditsError`, `PermissionDeniedError`, `NotFoundError`, `ConflictError`, `RateLimitError`, `InternalServerError` | the API answered 400, 401, 402, 403, 404, 409, 429 or 5xx. `status_code` and `request_id` are set |
+| `AuthenticationError` with code `MISSING_API_KEY` | the client has no API key. Raised before any request, so `status_code` is `None` |
 | `APIConnectionError` | no response: the connection failed or dropped |
 | `APITimeoutError` (an `APIConnectionError`) | the request took longer than the client's `timeout` |
 | `ResponseValidationError` | a response this SDK version cannot read (`body` holds it) |
-| `JobFailedError` | `jobs.run()`, or `jobs.wait(throw_on_failure=True)`, saw the job fail or be cancelled. `code` is the job's own error code |
+| `JobFailedError` | `jobs.run()`, or `jobs.wait(throw_on_failure=True)`, saw the job fail or be cancelled. `code` is the job's own error code and `job` the job |
 | `WaitTimeoutError` | `jobs.wait()` gave up. The job may still finish |
+
+## Retries and idempotency
 
 Only 429, 5xx and a connection that could not be made are retried, twice by default (`max_retries`), honouring `Retry-After` (up to 60 seconds, a longer one raises `RateLimitError` with `retry_after` set) and backing off exponentially otherwise. Everything else raises at once: a 409 conflict, any other 4xx, and a request that timed out after reaching the API.
 
-Retrying a submit never creates a second job. With no `idempotency_key`, `jobs.create()` generates one for that call and sends it on every retry, so the API returns the job the first attempt created. Pass your own key, such as an order id, to make separate calls safe to repeat. Keys never expire.
-
-A job whose status is newer than your installed SDK comes back as `UnknownJob` with `id`, `status` and `raw`, rather than raising. That holds for every call that returns jobs (`get`, `list`, `list_all`, `create`, `cancel`, `wait`): in a list, only the job with the new status is an `UnknownJob`, the rest of the page is typed as usual.
+Retrying a submit never creates a second job. With no `idempotency_key`, `jobs.create()` generates one for that call and sends it on every retry, so the API returns the job the first attempt created. Pass your own key, such as an order id, to make separate calls safe to repeat. A repeat with the same key and the same params returns the first job as a `JobReplayed`. A repeat with the same key and different params raises `ConflictError` (409, code `CONFLICT`). Keys never expire.
 
 ## Webhooks
 
@@ -109,14 +177,24 @@ def handle_rendobar_webhook(raw_body: bytes, headers: dict) -> int:
     return 200
 ```
 
-Pass the raw body exactly as received. It checks the signature, rejects deliveries older than 5 minutes, and accepts the previous secret during a rotation. An empty secret never verifies, so read it with `os.environ["RENDOBAR_WEBHOOK_SECRET"]` and let a missing one fail at startup. The job id is at `data.jobId` in the parsed body.
+Pass the raw body exactly as received. Parsing and re-serialising the JSON first changes the bytes, and the signature no longer matches. An empty secret never verifies, so read it with `os.environ["RENDOBAR_WEBHOOK_SECRET"]` and let a missing one fail at startup. The job id is at `data.jobId` in the parsed body.
+
+Rendobar signs each delivery with these headers:
+
+| Header | Value |
+|---|---|
+| `X-Rendobar-Timestamp` | when Rendobar sent it, in Unix seconds |
+| `X-Rendobar-Signature` | `sha256=` and the hex HMAC-SHA256 of `"<timestamp>.<raw body>"`, keyed with your webhook secret |
+| `X-Rendobar-Signature-Previous` | during a secret rotation, the same signature made with the previous secret |
+
+`verify()` recomputes the signature and compares it in constant time. It accepts either signature header, so a receiver holding the old or the new secret verifies during a rotation. It rejects a timestamp more than 5 minutes from now (`tolerance_seconds=300`). A per-job callback sent with `"verify": True` carries the same headers, signed with your callback signing secret.
 
 ## AI agents
 
-Give an agent Rendobar's four tools (`list_job_types`, `run_job`, `get_job`, `probe_media`), the same ones as the Rendobar MCP server. Failures come back to the model as data, so one bad call does not end the run. Once a job exists, a failure while waiting returns its `id` and tells the model to call `get_job`, so a dropped connection never leads to a second billed job.
+Give an agent Rendobar's four tools (`list_job_types`, `run_job`, `get_job`, `probe_media`), the same ones as the Rendobar MCP server. Failures come back to the model as data (`{"error": {"code", "message", "request_id"}}`), so one bad call does not end the run. Once a job exists, a failure while waiting returns its `id` and tells the model to call `get_job`, so a dropped connection never leads to a second billed job.
 
 ```bash
-pip install "rendobar[langchain]"   # or "rendobar[crewai]"
+pip install "rendobar[langchain]"
 ```
 
 ```python
@@ -126,12 +204,18 @@ from rendobar.agents.langchain import rendobar_tools
 agent = create_agent(model, tools=rendobar_tools())  # model: any LangChain chat model
 ```
 
+```bash
+pip install "rendobar[crewai]"
+```
+
 ```python
 from crewai import Agent
 from rendobar.agents.crewai import rendobar_tools
 
 editor = Agent(role="Video editor", goal="Cut and caption clips", backstory="Edits for social", tools=rendobar_tools())
 ```
+
+The `crewai` extra installs CrewAI itself, which brings about 120 packages and takes a few minutes. The `langchain` extra installs LangChain and LangGraph.
 
 Frameworks that speak MCP (the OpenAI Agents SDK, the Claude Agent SDK) can connect to `https://api.rendobar.com/mcp` with no package.
 
