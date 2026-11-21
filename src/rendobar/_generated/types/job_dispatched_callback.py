@@ -4,7 +4,6 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .job_dispatched_callback_status import JobDispatchedCallbackStatus
 
 
 class JobDispatchedCallback(UniversalBaseModel):
@@ -12,7 +11,7 @@ class JobDispatchedCallback(UniversalBaseModel):
     Per-job callback delivery status, populated by GET /jobs/:id when a callback.url was set at submit (else null/absent). Deliberately carries ONLY the status — the callback url and any custom headers are secret and are never returned by any response.
     """
 
-    status: JobDispatchedCallbackStatus = pydantic.Field()
+    status: str = pydantic.Field()
     """
     Delivery state of the per-job completion callback.
     """

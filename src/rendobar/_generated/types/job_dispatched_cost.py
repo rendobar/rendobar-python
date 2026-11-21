@@ -4,7 +4,6 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .job_dispatched_cost_currency import JobDispatchedCostCurrency
 
 
 class JobDispatchedCost(UniversalBaseModel):
@@ -17,7 +16,7 @@ class JobDispatchedCost(UniversalBaseModel):
     Amount charged in nanodollars (integer minor units; 1 USD = 1,000,000,000). Use `formatted` for display.
     """
 
-    currency: JobDispatchedCostCurrency = pydantic.Field()
+    currency: str = pydantic.Field()
     """
     ISO-4217 currency code
     """

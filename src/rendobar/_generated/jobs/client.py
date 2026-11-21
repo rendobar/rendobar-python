@@ -5,6 +5,7 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawJobsClient, RawJobsClient
+from .requests.submit_job_request import SubmitJobRequestParams
 from .types.cancel_job_response import CancelJobResponse
 from .types.create_job_share_response import CreateJobShareResponse
 from .types.delete_job_share_response import DeleteJobShareResponse
@@ -25,7 +26,6 @@ from .types.list_jobs_request_sort import ListJobsRequestSort
 from .types.list_jobs_request_status import ListJobsRequestStatus
 from .types.list_jobs_response import ListJobsResponse
 from .types.retry_deliveries_response import RetryDeliveriesResponse
-from .types.submit_job_request import SubmitJobRequest
 from .types.submit_job_response import SubmitJobResponse
 
 # this is used as the default value for optional parameters
@@ -187,14 +187,14 @@ class JobsClient:
         return _response.data
 
     def submit_job(
-        self, *, request: SubmitJobRequest, request_options: typing.Optional[RequestOptions] = None
+        self, *, request: SubmitJobRequestParams, request_options: typing.Optional[RequestOptions] = None
     ) -> SubmitJobResponse:
         """
         Create a new media processing job. Specify the job type, input files, and processing parameters. Use GET /jobs/types to discover available types.
 
         Parameters
         ----------
-        request : SubmitJobRequest
+        request : SubmitJobRequestParams
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -206,18 +206,18 @@ class JobsClient:
 
         Examples
         --------
-        from rendobar import FfprobeParams, GeneratedClient, SubmitFfprobeJob
+        from rendobar import GeneratedClient
 
         client = GeneratedClient(
             token="YOUR_TOKEN",
         )
         client.jobs.submit_job(
-            request=SubmitFfprobeJob(
-                type="ffprobe",
-                params=FfprobeParams(
-                    command="https://cdn.rendobar.com/assets/examples/sample.mp4",
-                ),
-            ),
+            request={
+                "type": "ffprobe",
+                "params": {
+                    "command": "https://cdn.rendobar.com/assets/examples/sample.mp4"
+                },
+            },
         )
         """
         _response = self._raw_client.submit_job(request=request, request_options=request_options)
@@ -859,14 +859,14 @@ class AsyncJobsClient:
         return _response.data
 
     async def submit_job(
-        self, *, request: SubmitJobRequest, request_options: typing.Optional[RequestOptions] = None
+        self, *, request: SubmitJobRequestParams, request_options: typing.Optional[RequestOptions] = None
     ) -> SubmitJobResponse:
         """
         Create a new media processing job. Specify the job type, input files, and processing parameters. Use GET /jobs/types to discover available types.
 
         Parameters
         ----------
-        request : SubmitJobRequest
+        request : SubmitJobRequestParams
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -880,7 +880,7 @@ class AsyncJobsClient:
         --------
         import asyncio
 
-        from rendobar import AsyncGeneratedClient, FfprobeParams, SubmitFfprobeJob
+        from rendobar import AsyncGeneratedClient
 
         client = AsyncGeneratedClient(
             token="YOUR_TOKEN",
@@ -889,12 +889,12 @@ class AsyncJobsClient:
 
         async def main() -> None:
             await client.jobs.submit_job(
-                request=SubmitFfprobeJob(
-                    type="ffprobe",
-                    params=FfprobeParams(
-                        command="https://cdn.rendobar.com/assets/examples/sample.mp4",
-                    ),
-                ),
+                request={
+                    "type": "ffprobe",
+                    "params": {
+                        "command": "https://cdn.rendobar.com/assets/examples/sample.mp4"
+                    },
+                },
             )
 
 

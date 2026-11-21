@@ -7,7 +7,8 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import ListModelsResponse
-_dynamic_imports: typing.Dict[str, str] = {"ListModelsResponse": ".types"}
+    from .requests import ListModelsResponseParams
+_dynamic_imports: typing.Dict[str, str] = {"ListModelsResponse": ".types", "ListModelsResponseParams": ".requests"}
 
 
 def __getattr__(attr_name: str) -> typing.Any:
@@ -31,4 +32,4 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["ListModelsResponse"]
+__all__ = ["ListModelsResponse", "ListModelsResponseParams"]

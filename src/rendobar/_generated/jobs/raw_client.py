@@ -20,6 +20,7 @@ from ..errors.payment_required_error import PaymentRequiredError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.error_response import ErrorResponse
+from .requests.submit_job_request import SubmitJobRequestParams
 from .types.cancel_job_response import CancelJobResponse
 from .types.create_job_share_response import CreateJobShareResponse
 from .types.delete_job_share_response import DeleteJobShareResponse
@@ -40,7 +41,6 @@ from .types.list_jobs_request_sort import ListJobsRequestSort
 from .types.list_jobs_request_status import ListJobsRequestStatus
 from .types.list_jobs_response import ListJobsResponse
 from .types.retry_deliveries_response import RetryDeliveriesResponse
-from .types.submit_job_request import SubmitJobRequest
 from .types.submit_job_response import SubmitJobResponse
 from pydantic import ValidationError
 
@@ -269,14 +269,14 @@ class RawJobsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def submit_job(
-        self, *, request: SubmitJobRequest, request_options: typing.Optional[RequestOptions] = None
+        self, *, request: SubmitJobRequestParams, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[SubmitJobResponse]:
         """
         Create a new media processing job. Specify the job type, input files, and processing parameters. Use GET /jobs/types to discover available types.
 
         Parameters
         ----------
-        request : SubmitJobRequest
+        request : SubmitJobRequestParams
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -290,7 +290,7 @@ class RawJobsClient:
             "jobs",
             method="POST",
             json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=SubmitJobRequest, direction="write"
+                object_=request, annotation=SubmitJobRequestParams, direction="write"
             ),
             request_options=request_options,
             omit=OMIT,
@@ -1522,14 +1522,14 @@ class AsyncRawJobsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def submit_job(
-        self, *, request: SubmitJobRequest, request_options: typing.Optional[RequestOptions] = None
+        self, *, request: SubmitJobRequestParams, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[SubmitJobResponse]:
         """
         Create a new media processing job. Specify the job type, input files, and processing parameters. Use GET /jobs/types to discover available types.
 
         Parameters
         ----------
-        request : SubmitJobRequest
+        request : SubmitJobRequestParams
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1543,7 +1543,7 @@ class AsyncRawJobsClient:
             "jobs",
             method="POST",
             json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=SubmitJobRequest, direction="write"
+                object_=request, annotation=SubmitJobRequestParams, direction="write"
             ),
             request_options=request_options,
             omit=OMIT,

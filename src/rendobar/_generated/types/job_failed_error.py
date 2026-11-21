@@ -6,7 +6,6 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
-from .job_failed_error_failed_phase import JobFailedErrorFailedPhase
 
 
 class JobFailedError(UniversalBaseModel):
@@ -35,7 +34,7 @@ class JobFailedError(UniversalBaseModel):
     """
 
     failed_phase: typing_extensions.Annotated[
-        typing.Optional[JobFailedErrorFailedPhase],
+        typing.Optional[str],
         FieldMetadata(alias="failedPhase"),
         pydantic.Field(alias="failedPhase", description="Which phase the job failed in, when known"),
     ] = None

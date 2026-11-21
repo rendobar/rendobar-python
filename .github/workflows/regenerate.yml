@@ -48,6 +48,8 @@ jobs:
         if: steps.spec.outputs.changed == 'true'
         run: |
           cp /tmp/live.json fern/openapi.json
+          # The Fern overrides are derived from the spec (strict submit types, open enums as str).
+          python3 fern/derive_overrides.py
           cd fern && npx -y fern-api@5.224.0 generate --local --group python --force
           # The generator also writes tests for its own layout. They do not apply here and must not ship.
           rm -r ../src/rendobar/_generated/tests || true

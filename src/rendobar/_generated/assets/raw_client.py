@@ -21,7 +21,7 @@ from ..errors.payment_required_error import PaymentRequiredError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.error_response import ErrorResponse
-from .types.complete_asset_upload_request_parts_item import CompleteAssetUploadRequestPartsItem
+from .requests.complete_asset_upload_request_parts_item import CompleteAssetUploadRequestPartsItemParams
 from .types.complete_asset_upload_response import CompleteAssetUploadResponse
 from .types.create_asset_request_lifecycle import CreateAssetRequestLifecycle
 from .types.create_asset_response import CreateAssetResponse
@@ -445,7 +445,7 @@ class RawAssetsClient:
         self,
         id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CompleteAssetUploadResponse]:
         """
@@ -456,7 +456,7 @@ class RawAssetsClient:
         id : str
             Asset ID
 
-        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]
@@ -472,7 +472,9 @@ class RawAssetsClient:
             method="POST",
             json={
                 "parts": convert_and_respect_annotation_metadata(
-                    object_=parts, annotation=typing.Sequence[CompleteAssetUploadRequestPartsItem], direction="write"
+                    object_=parts,
+                    annotation=typing.Sequence[CompleteAssetUploadRequestPartsItemParams],
+                    direction="write",
                 ),
             },
             headers={
@@ -1162,7 +1164,7 @@ class AsyncRawAssetsClient:
         self,
         id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CompleteAssetUploadResponse]:
         """
@@ -1173,7 +1175,7 @@ class AsyncRawAssetsClient:
         id : str
             Asset ID
 
-        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]
@@ -1189,7 +1191,9 @@ class AsyncRawAssetsClient:
             method="POST",
             json={
                 "parts": convert_and_respect_annotation_metadata(
-                    object_=parts, annotation=typing.Sequence[CompleteAssetUploadRequestPartsItem], direction="write"
+                    object_=parts,
+                    annotation=typing.Sequence[CompleteAssetUploadRequestPartsItemParams],
+                    direction="write",
                 ),
             },
             headers={

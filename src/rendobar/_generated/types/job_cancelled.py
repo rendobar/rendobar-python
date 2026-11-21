@@ -9,7 +9,6 @@ from ..core.serialization import FieldMetadata
 from .job_cancelled_callback import JobCancelledCallback
 from .job_cancelled_cost import JobCancelledCost
 from .job_cancelled_deliveries_item import JobCancelledDeliveriesItem
-from .job_cancelled_output_category import JobCancelledOutputCategory
 from .job_cancelled_steps_item import JobCancelledStepsItem
 
 
@@ -89,7 +88,7 @@ class JobCancelled(UniversalBaseModel):
     """
 
     output_category: typing_extensions.Annotated[
-        JobCancelledOutputCategory,
+        str,
         FieldMetadata(alias="outputCategory"),
         pydantic.Field(
             alias="outputCategory", description="Output category. Clients should tolerate unknown future values."

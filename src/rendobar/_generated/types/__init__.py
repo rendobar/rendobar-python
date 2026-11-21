@@ -10,10 +10,12 @@ if typing.TYPE_CHECKING:
     from .api_key_created_by import ApiKeyCreatedBy
     from .api_key_created_by_role import ApiKeyCreatedByRole
     from .api_key_disabled_by import ApiKeyDisabledBy
+    from .caption_burn_job import CaptionBurnJob
     from .caption_burn_params import CaptionBurnParams
     from .caption_burn_params_alignment import CaptionBurnParamsAlignment
     from .caption_burn_params_language import CaptionBurnParamsLanguage
     from .caption_burn_params_position import CaptionBurnParamsPosition
+    from .captions_animate_job import CaptionsAnimateJob
     from .captions_animate_params import CaptionsAnimateParams
     from .captions_animate_params_language import CaptionsAnimateParamsLanguage
     from .captions_animate_params_mode import CaptionsAnimateParamsMode
@@ -29,6 +31,7 @@ if typing.TYPE_CHECKING:
     from .captions_animate_params_style_punctuation import CaptionsAnimateParamsStylePunctuation
     from .captions_animate_params_style_stroke import CaptionsAnimateParamsStyleStroke
     from .captions_animate_params_translate_to import CaptionsAnimateParamsTranslateTo
+    from .compress_target_job import CompressTargetJob
     from .compress_target_params import CompressTargetParams
     from .compress_target_params_alpha import CompressTargetParamsAlpha
     from .compress_target_params_alpha_zero import CompressTargetParamsAlphaZero
@@ -60,8 +63,10 @@ if typing.TYPE_CHECKING:
     from .connector_input import ConnectorInput
     from .error_response import ErrorResponse
     from .error_response_error import ErrorResponseError
+    from .ffmpeg_job import FfmpegJob
     from .ffmpeg_params import FfmpegParams
     from .ffmpeg_params_compute import FfmpegParamsCompute
+    from .ffprobe_job import FfprobeJob
     from .ffprobe_params import FfprobeParams
     from .gen_model import GenModel
     from .gen_model_price_tier import GenModelPriceTier
@@ -69,6 +74,7 @@ if typing.TYPE_CHECKING:
     from .gen_model_steps import GenModelSteps
     from .gen_model_supports import GenModelSupports
     from .gen_model_tier import GenModelTier
+    from .image_edit_job import ImageEditJob
     from .image_edit_params import (
         ImageEditParams,
         ImageEditParams_Economy,
@@ -84,6 +90,7 @@ if typing.TYPE_CHECKING:
     from .image_edit_params_qwen_image_edit2511 import ImageEditParamsQwenImageEdit2511
     from .image_edit_params_qwen_image_edit2511lightning import ImageEditParamsQwenImageEdit2511Lightning
     from .image_edit_params_standard import ImageEditParamsStandard
+    from .image_generate_job import ImageGenerateJob
     from .image_generate_params import (
         ImageGenerateParams,
         ImageGenerateParams_Economy,
@@ -105,6 +112,7 @@ if typing.TYPE_CHECKING:
     from .image_generate_params_qwen_image2512lightning import ImageGenerateParamsQwenImage2512Lightning
     from .image_generate_params_standard import ImageGenerateParamsStandard
     from .image_generate_params_z_image_turbo import ImageGenerateParamsZImageTurbo
+    from .image_upscale_job import ImageUpscaleJob
     from .image_upscale_params import ImageUpscaleParams
     from .image_upscale_params_color_correction import ImageUpscaleParamsColorCorrection
     from .image_upscale_params_model import ImageUpscaleParamsModel
@@ -118,74 +126,41 @@ if typing.TYPE_CHECKING:
     from .job import Job, Job_Cancelled, Job_Complete, Job_Dispatched, Job_Failed, Job_Running, Job_Waiting
     from .job_cancelled import JobCancelled
     from .job_cancelled_callback import JobCancelledCallback
-    from .job_cancelled_callback_status import JobCancelledCallbackStatus
     from .job_cancelled_cost import JobCancelledCost
-    from .job_cancelled_cost_currency import JobCancelledCostCurrency
     from .job_cancelled_deliveries_item import JobCancelledDeliveriesItem
-    from .job_cancelled_deliveries_item_reason import JobCancelledDeliveriesItemReason
-    from .job_cancelled_deliveries_item_status import JobCancelledDeliveriesItemStatus
-    from .job_cancelled_output_category import JobCancelledOutputCategory
     from .job_cancelled_steps_item import JobCancelledStepsItem
     from .job_complete import JobComplete
     from .job_complete_callback import JobCompleteCallback
-    from .job_complete_callback_status import JobCompleteCallbackStatus
     from .job_complete_cost import JobCompleteCost
-    from .job_complete_cost_currency import JobCompleteCostCurrency
     from .job_complete_deliveries_item import JobCompleteDeliveriesItem
-    from .job_complete_deliveries_item_reason import JobCompleteDeliveriesItemReason
-    from .job_complete_deliveries_item_status import JobCompleteDeliveriesItemStatus
     from .job_complete_output import JobCompleteOutput
-    from .job_complete_output_category import JobCompleteOutputCategory
     from .job_complete_output_file import JobCompleteOutputFile
     from .job_complete_output_file_meta import JobCompleteOutputFileMeta
-    from .job_complete_output_file_type import JobCompleteOutputFileType
     from .job_complete_output_files_item import JobCompleteOutputFilesItem
     from .job_complete_output_files_item_meta import JobCompleteOutputFilesItemMeta
-    from .job_complete_output_files_item_type import JobCompleteOutputFilesItemType
     from .job_complete_steps_item import JobCompleteStepsItem
     from .job_dispatched import JobDispatched
     from .job_dispatched_boot_state import JobDispatchedBootState
     from .job_dispatched_callback import JobDispatchedCallback
-    from .job_dispatched_callback_status import JobDispatchedCallbackStatus
     from .job_dispatched_cost import JobDispatchedCost
-    from .job_dispatched_cost_currency import JobDispatchedCostCurrency
     from .job_dispatched_deliveries_item import JobDispatchedDeliveriesItem
-    from .job_dispatched_deliveries_item_reason import JobDispatchedDeliveriesItemReason
-    from .job_dispatched_deliveries_item_status import JobDispatchedDeliveriesItemStatus
-    from .job_dispatched_output_category import JobDispatchedOutputCategory
     from .job_dispatched_steps_item import JobDispatchedStepsItem
     from .job_failed import JobFailed
     from .job_failed_callback import JobFailedCallback
-    from .job_failed_callback_status import JobFailedCallbackStatus
     from .job_failed_cost import JobFailedCost
-    from .job_failed_cost_currency import JobFailedCostCurrency
     from .job_failed_deliveries_item import JobFailedDeliveriesItem
-    from .job_failed_deliveries_item_reason import JobFailedDeliveriesItemReason
-    from .job_failed_deliveries_item_status import JobFailedDeliveriesItemStatus
     from .job_failed_error import JobFailedError
-    from .job_failed_error_failed_phase import JobFailedErrorFailedPhase
-    from .job_failed_output_category import JobFailedOutputCategory
     from .job_failed_steps_item import JobFailedStepsItem
     from .job_running import JobRunning
     from .job_running_callback import JobRunningCallback
-    from .job_running_callback_status import JobRunningCallbackStatus
     from .job_running_cost import JobRunningCost
-    from .job_running_cost_currency import JobRunningCostCurrency
     from .job_running_deliveries_item import JobRunningDeliveriesItem
-    from .job_running_deliveries_item_reason import JobRunningDeliveriesItemReason
-    from .job_running_deliveries_item_status import JobRunningDeliveriesItemStatus
-    from .job_running_output_category import JobRunningOutputCategory
     from .job_running_steps_item import JobRunningStepsItem
     from .job_type import JobType
     from .job_waiting import JobWaiting
     from .job_waiting_callback import JobWaitingCallback
-    from .job_waiting_callback_status import JobWaitingCallbackStatus
     from .job_waiting_cost import JobWaitingCost
-    from .job_waiting_cost_currency import JobWaitingCostCurrency
     from .job_waiting_deliveries_item import JobWaitingDeliveriesItem
-    from .job_waiting_deliveries_item_reason import JobWaitingDeliveriesItemReason
-    from .job_waiting_deliveries_item_status import JobWaitingDeliveriesItemStatus
-    from .job_waiting_output_category import JobWaitingOutputCategory
     from .job_waiting_steps_item import JobWaitingStepsItem
     from .oauth_scope import OauthScope
     from .submit_any_job import SubmitAnyJob
@@ -223,16 +198,19 @@ if typing.TYPE_CHECKING:
     from .submit_image_upscale_job_callback import SubmitImageUpscaleJobCallback
     from .submit_image_upscale_job_callback_events_item import SubmitImageUpscaleJobCallbackEventsItem
     from .submit_image_upscale_job_type import SubmitImageUpscaleJobType
+    from .submit_typed_job import SubmitTypedJob
     from .webhook_endpoint import WebhookEndpoint
 _dynamic_imports: typing.Dict[str, str] = {
     "ApiKey": ".api_key",
     "ApiKeyCreatedBy": ".api_key_created_by",
     "ApiKeyCreatedByRole": ".api_key_created_by_role",
     "ApiKeyDisabledBy": ".api_key_disabled_by",
+    "CaptionBurnJob": ".caption_burn_job",
     "CaptionBurnParams": ".caption_burn_params",
     "CaptionBurnParamsAlignment": ".caption_burn_params_alignment",
     "CaptionBurnParamsLanguage": ".caption_burn_params_language",
     "CaptionBurnParamsPosition": ".caption_burn_params_position",
+    "CaptionsAnimateJob": ".captions_animate_job",
     "CaptionsAnimateParams": ".captions_animate_params",
     "CaptionsAnimateParamsLanguage": ".captions_animate_params_language",
     "CaptionsAnimateParamsMode": ".captions_animate_params_mode",
@@ -248,6 +226,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CaptionsAnimateParamsStylePunctuation": ".captions_animate_params_style_punctuation",
     "CaptionsAnimateParamsStyleStroke": ".captions_animate_params_style_stroke",
     "CaptionsAnimateParamsTranslateTo": ".captions_animate_params_translate_to",
+    "CompressTargetJob": ".compress_target_job",
     "CompressTargetParams": ".compress_target_params",
     "CompressTargetParamsAlpha": ".compress_target_params_alpha",
     "CompressTargetParamsAlphaZero": ".compress_target_params_alpha_zero",
@@ -279,8 +258,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConnectorInput": ".connector_input",
     "ErrorResponse": ".error_response",
     "ErrorResponseError": ".error_response_error",
+    "FfmpegJob": ".ffmpeg_job",
     "FfmpegParams": ".ffmpeg_params",
     "FfmpegParamsCompute": ".ffmpeg_params_compute",
+    "FfprobeJob": ".ffprobe_job",
     "FfprobeParams": ".ffprobe_params",
     "GenModel": ".gen_model",
     "GenModelPriceTier": ".gen_model_price_tier",
@@ -288,6 +269,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GenModelSteps": ".gen_model_steps",
     "GenModelSupports": ".gen_model_supports",
     "GenModelTier": ".gen_model_tier",
+    "ImageEditJob": ".image_edit_job",
     "ImageEditParams": ".image_edit_params",
     "ImageEditParamsEconomy": ".image_edit_params_economy",
     "ImageEditParamsFlux2Klein4B": ".image_edit_params_flux2klein4b",
@@ -301,6 +283,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ImageEditParams_QwenImageEdit2511": ".image_edit_params",
     "ImageEditParams_QwenImageEdit2511Lightning": ".image_edit_params",
     "ImageEditParams_Standard": ".image_edit_params",
+    "ImageGenerateJob": ".image_generate_job",
     "ImageGenerateParams": ".image_generate_params",
     "ImageGenerateParamsEconomy": ".image_generate_params_economy",
     "ImageGenerateParamsErnieImageTurbo": ".image_generate_params_ernie_image_turbo",
@@ -320,6 +303,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ImageGenerateParams_QwenImage2512Lightning": ".image_generate_params",
     "ImageGenerateParams_Standard": ".image_generate_params",
     "ImageGenerateParams_ZImageTurbo": ".image_generate_params",
+    "ImageUpscaleJob": ".image_upscale_job",
     "ImageUpscaleParams": ".image_upscale_params",
     "ImageUpscaleParamsColorCorrection": ".image_upscale_params_color_correction",
     "ImageUpscaleParamsModel": ".image_upscale_params_model",
@@ -331,74 +315,41 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Job": ".job",
     "JobCancelled": ".job_cancelled",
     "JobCancelledCallback": ".job_cancelled_callback",
-    "JobCancelledCallbackStatus": ".job_cancelled_callback_status",
     "JobCancelledCost": ".job_cancelled_cost",
-    "JobCancelledCostCurrency": ".job_cancelled_cost_currency",
     "JobCancelledDeliveriesItem": ".job_cancelled_deliveries_item",
-    "JobCancelledDeliveriesItemReason": ".job_cancelled_deliveries_item_reason",
-    "JobCancelledDeliveriesItemStatus": ".job_cancelled_deliveries_item_status",
-    "JobCancelledOutputCategory": ".job_cancelled_output_category",
     "JobCancelledStepsItem": ".job_cancelled_steps_item",
     "JobComplete": ".job_complete",
     "JobCompleteCallback": ".job_complete_callback",
-    "JobCompleteCallbackStatus": ".job_complete_callback_status",
     "JobCompleteCost": ".job_complete_cost",
-    "JobCompleteCostCurrency": ".job_complete_cost_currency",
     "JobCompleteDeliveriesItem": ".job_complete_deliveries_item",
-    "JobCompleteDeliveriesItemReason": ".job_complete_deliveries_item_reason",
-    "JobCompleteDeliveriesItemStatus": ".job_complete_deliveries_item_status",
     "JobCompleteOutput": ".job_complete_output",
-    "JobCompleteOutputCategory": ".job_complete_output_category",
     "JobCompleteOutputFile": ".job_complete_output_file",
     "JobCompleteOutputFileMeta": ".job_complete_output_file_meta",
-    "JobCompleteOutputFileType": ".job_complete_output_file_type",
     "JobCompleteOutputFilesItem": ".job_complete_output_files_item",
     "JobCompleteOutputFilesItemMeta": ".job_complete_output_files_item_meta",
-    "JobCompleteOutputFilesItemType": ".job_complete_output_files_item_type",
     "JobCompleteStepsItem": ".job_complete_steps_item",
     "JobDispatched": ".job_dispatched",
     "JobDispatchedBootState": ".job_dispatched_boot_state",
     "JobDispatchedCallback": ".job_dispatched_callback",
-    "JobDispatchedCallbackStatus": ".job_dispatched_callback_status",
     "JobDispatchedCost": ".job_dispatched_cost",
-    "JobDispatchedCostCurrency": ".job_dispatched_cost_currency",
     "JobDispatchedDeliveriesItem": ".job_dispatched_deliveries_item",
-    "JobDispatchedDeliveriesItemReason": ".job_dispatched_deliveries_item_reason",
-    "JobDispatchedDeliveriesItemStatus": ".job_dispatched_deliveries_item_status",
-    "JobDispatchedOutputCategory": ".job_dispatched_output_category",
     "JobDispatchedStepsItem": ".job_dispatched_steps_item",
     "JobFailed": ".job_failed",
     "JobFailedCallback": ".job_failed_callback",
-    "JobFailedCallbackStatus": ".job_failed_callback_status",
     "JobFailedCost": ".job_failed_cost",
-    "JobFailedCostCurrency": ".job_failed_cost_currency",
     "JobFailedDeliveriesItem": ".job_failed_deliveries_item",
-    "JobFailedDeliveriesItemReason": ".job_failed_deliveries_item_reason",
-    "JobFailedDeliveriesItemStatus": ".job_failed_deliveries_item_status",
     "JobFailedError": ".job_failed_error",
-    "JobFailedErrorFailedPhase": ".job_failed_error_failed_phase",
-    "JobFailedOutputCategory": ".job_failed_output_category",
     "JobFailedStepsItem": ".job_failed_steps_item",
     "JobRunning": ".job_running",
     "JobRunningCallback": ".job_running_callback",
-    "JobRunningCallbackStatus": ".job_running_callback_status",
     "JobRunningCost": ".job_running_cost",
-    "JobRunningCostCurrency": ".job_running_cost_currency",
     "JobRunningDeliveriesItem": ".job_running_deliveries_item",
-    "JobRunningDeliveriesItemReason": ".job_running_deliveries_item_reason",
-    "JobRunningDeliveriesItemStatus": ".job_running_deliveries_item_status",
-    "JobRunningOutputCategory": ".job_running_output_category",
     "JobRunningStepsItem": ".job_running_steps_item",
     "JobType": ".job_type",
     "JobWaiting": ".job_waiting",
     "JobWaitingCallback": ".job_waiting_callback",
-    "JobWaitingCallbackStatus": ".job_waiting_callback_status",
     "JobWaitingCost": ".job_waiting_cost",
-    "JobWaitingCostCurrency": ".job_waiting_cost_currency",
     "JobWaitingDeliveriesItem": ".job_waiting_deliveries_item",
-    "JobWaitingDeliveriesItemReason": ".job_waiting_deliveries_item_reason",
-    "JobWaitingDeliveriesItemStatus": ".job_waiting_deliveries_item_status",
-    "JobWaitingOutputCategory": ".job_waiting_output_category",
     "JobWaitingStepsItem": ".job_waiting_steps_item",
     "Job_Cancelled": ".job",
     "Job_Complete": ".job",
@@ -442,6 +393,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SubmitImageUpscaleJobCallback": ".submit_image_upscale_job_callback",
     "SubmitImageUpscaleJobCallbackEventsItem": ".submit_image_upscale_job_callback_events_item",
     "SubmitImageUpscaleJobType": ".submit_image_upscale_job_type",
+    "SubmitTypedJob": ".submit_typed_job",
     "WebhookEndpoint": ".webhook_endpoint",
 }
 
@@ -472,10 +424,12 @@ __all__ = [
     "ApiKeyCreatedBy",
     "ApiKeyCreatedByRole",
     "ApiKeyDisabledBy",
+    "CaptionBurnJob",
     "CaptionBurnParams",
     "CaptionBurnParamsAlignment",
     "CaptionBurnParamsLanguage",
     "CaptionBurnParamsPosition",
+    "CaptionsAnimateJob",
     "CaptionsAnimateParams",
     "CaptionsAnimateParamsLanguage",
     "CaptionsAnimateParamsMode",
@@ -491,6 +445,7 @@ __all__ = [
     "CaptionsAnimateParamsStylePunctuation",
     "CaptionsAnimateParamsStyleStroke",
     "CaptionsAnimateParamsTranslateTo",
+    "CompressTargetJob",
     "CompressTargetParams",
     "CompressTargetParamsAlpha",
     "CompressTargetParamsAlphaZero",
@@ -522,8 +477,10 @@ __all__ = [
     "ConnectorInput",
     "ErrorResponse",
     "ErrorResponseError",
+    "FfmpegJob",
     "FfmpegParams",
     "FfmpegParamsCompute",
+    "FfprobeJob",
     "FfprobeParams",
     "GenModel",
     "GenModelPriceTier",
@@ -531,6 +488,7 @@ __all__ = [
     "GenModelSteps",
     "GenModelSupports",
     "GenModelTier",
+    "ImageEditJob",
     "ImageEditParams",
     "ImageEditParamsEconomy",
     "ImageEditParamsFlux2Klein4B",
@@ -544,6 +502,7 @@ __all__ = [
     "ImageEditParams_QwenImageEdit2511",
     "ImageEditParams_QwenImageEdit2511Lightning",
     "ImageEditParams_Standard",
+    "ImageGenerateJob",
     "ImageGenerateParams",
     "ImageGenerateParamsEconomy",
     "ImageGenerateParamsErnieImageTurbo",
@@ -563,6 +522,7 @@ __all__ = [
     "ImageGenerateParams_QwenImage2512Lightning",
     "ImageGenerateParams_Standard",
     "ImageGenerateParams_ZImageTurbo",
+    "ImageUpscaleJob",
     "ImageUpscaleParams",
     "ImageUpscaleParamsColorCorrection",
     "ImageUpscaleParamsModel",
@@ -574,74 +534,41 @@ __all__ = [
     "Job",
     "JobCancelled",
     "JobCancelledCallback",
-    "JobCancelledCallbackStatus",
     "JobCancelledCost",
-    "JobCancelledCostCurrency",
     "JobCancelledDeliveriesItem",
-    "JobCancelledDeliveriesItemReason",
-    "JobCancelledDeliveriesItemStatus",
-    "JobCancelledOutputCategory",
     "JobCancelledStepsItem",
     "JobComplete",
     "JobCompleteCallback",
-    "JobCompleteCallbackStatus",
     "JobCompleteCost",
-    "JobCompleteCostCurrency",
     "JobCompleteDeliveriesItem",
-    "JobCompleteDeliveriesItemReason",
-    "JobCompleteDeliveriesItemStatus",
     "JobCompleteOutput",
-    "JobCompleteOutputCategory",
     "JobCompleteOutputFile",
     "JobCompleteOutputFileMeta",
-    "JobCompleteOutputFileType",
     "JobCompleteOutputFilesItem",
     "JobCompleteOutputFilesItemMeta",
-    "JobCompleteOutputFilesItemType",
     "JobCompleteStepsItem",
     "JobDispatched",
     "JobDispatchedBootState",
     "JobDispatchedCallback",
-    "JobDispatchedCallbackStatus",
     "JobDispatchedCost",
-    "JobDispatchedCostCurrency",
     "JobDispatchedDeliveriesItem",
-    "JobDispatchedDeliveriesItemReason",
-    "JobDispatchedDeliveriesItemStatus",
-    "JobDispatchedOutputCategory",
     "JobDispatchedStepsItem",
     "JobFailed",
     "JobFailedCallback",
-    "JobFailedCallbackStatus",
     "JobFailedCost",
-    "JobFailedCostCurrency",
     "JobFailedDeliveriesItem",
-    "JobFailedDeliveriesItemReason",
-    "JobFailedDeliveriesItemStatus",
     "JobFailedError",
-    "JobFailedErrorFailedPhase",
-    "JobFailedOutputCategory",
     "JobFailedStepsItem",
     "JobRunning",
     "JobRunningCallback",
-    "JobRunningCallbackStatus",
     "JobRunningCost",
-    "JobRunningCostCurrency",
     "JobRunningDeliveriesItem",
-    "JobRunningDeliveriesItemReason",
-    "JobRunningDeliveriesItemStatus",
-    "JobRunningOutputCategory",
     "JobRunningStepsItem",
     "JobType",
     "JobWaiting",
     "JobWaitingCallback",
-    "JobWaitingCallbackStatus",
     "JobWaitingCost",
-    "JobWaitingCostCurrency",
     "JobWaitingDeliveriesItem",
-    "JobWaitingDeliveriesItemReason",
-    "JobWaitingDeliveriesItemStatus",
-    "JobWaitingOutputCategory",
     "JobWaitingStepsItem",
     "Job_Cancelled",
     "Job_Complete",
@@ -685,5 +612,6 @@ __all__ = [
     "SubmitImageUpscaleJobCallback",
     "SubmitImageUpscaleJobCallbackEventsItem",
     "SubmitImageUpscaleJobType",
+    "SubmitTypedJob",
     "WebhookEndpoint",
 ]

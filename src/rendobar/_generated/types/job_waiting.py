@@ -9,7 +9,6 @@ from ..core.serialization import FieldMetadata
 from .job_waiting_callback import JobWaitingCallback
 from .job_waiting_cost import JobWaitingCost
 from .job_waiting_deliveries_item import JobWaitingDeliveriesItem
-from .job_waiting_output_category import JobWaitingOutputCategory
 from .job_waiting_steps_item import JobWaitingStepsItem
 
 
@@ -89,7 +88,7 @@ class JobWaiting(UniversalBaseModel):
     """
 
     output_category: typing_extensions.Annotated[
-        JobWaitingOutputCategory,
+        str,
         FieldMetadata(alias="outputCategory"),
         pydantic.Field(
             alias="outputCategory", description="Output category. Clients should tolerate unknown future values."

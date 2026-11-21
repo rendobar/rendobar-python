@@ -11,35 +11,29 @@ from ..core.serialization import FieldMetadata
 from .job_cancelled_callback import JobCancelledCallback
 from .job_cancelled_cost import JobCancelledCost
 from .job_cancelled_deliveries_item import JobCancelledDeliveriesItem
-from .job_cancelled_output_category import JobCancelledOutputCategory
 from .job_cancelled_steps_item import JobCancelledStepsItem
 from .job_complete_callback import JobCompleteCallback
 from .job_complete_cost import JobCompleteCost
 from .job_complete_deliveries_item import JobCompleteDeliveriesItem
 from .job_complete_output import JobCompleteOutput
-from .job_complete_output_category import JobCompleteOutputCategory
 from .job_complete_steps_item import JobCompleteStepsItem
 from .job_dispatched_boot_state import JobDispatchedBootState
 from .job_dispatched_callback import JobDispatchedCallback
 from .job_dispatched_cost import JobDispatchedCost
 from .job_dispatched_deliveries_item import JobDispatchedDeliveriesItem
-from .job_dispatched_output_category import JobDispatchedOutputCategory
 from .job_dispatched_steps_item import JobDispatchedStepsItem
 from .job_failed_callback import JobFailedCallback
 from .job_failed_cost import JobFailedCost
 from .job_failed_deliveries_item import JobFailedDeliveriesItem
 from .job_failed_error import JobFailedError
-from .job_failed_output_category import JobFailedOutputCategory
 from .job_failed_steps_item import JobFailedStepsItem
 from .job_running_callback import JobRunningCallback
 from .job_running_cost import JobRunningCost
 from .job_running_deliveries_item import JobRunningDeliveriesItem
-from .job_running_output_category import JobRunningOutputCategory
 from .job_running_steps_item import JobRunningStepsItem
 from .job_waiting_callback import JobWaitingCallback
 from .job_waiting_cost import JobWaitingCost
 from .job_waiting_deliveries_item import JobWaitingDeliveriesItem
-from .job_waiting_output_category import JobWaitingOutputCategory
 from .job_waiting_steps_item import JobWaitingStepsItem
 
 
@@ -62,7 +56,7 @@ class Job_Waiting(UniversalBaseModel):
     params: typing.Dict[str, typing.Any]
     cost: typing.Optional[JobWaitingCost] = None
     output_category: typing_extensions.Annotated[
-        JobWaitingOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobWaitingStepsItem]
     logs_available: typing_extensions.Annotated[
@@ -128,7 +122,7 @@ class Job_Dispatched(UniversalBaseModel):
     params: typing.Dict[str, typing.Any]
     cost: typing.Optional[JobDispatchedCost] = None
     output_category: typing_extensions.Annotated[
-        JobDispatchedOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobDispatchedStepsItem]
     logs_available: typing_extensions.Annotated[
@@ -199,7 +193,7 @@ class Job_Running(UniversalBaseModel):
     params: typing.Dict[str, typing.Any]
     cost: typing.Optional[JobRunningCost] = None
     output_category: typing_extensions.Annotated[
-        JobRunningOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobRunningStepsItem]
     logs_available: typing_extensions.Annotated[
@@ -267,7 +261,7 @@ class Job_Complete(UniversalBaseModel):
     params: typing.Dict[str, typing.Any]
     cost: typing.Optional[JobCompleteCost] = None
     output_category: typing_extensions.Annotated[
-        JobCompleteOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobCompleteStepsItem]
     logs_available: typing_extensions.Annotated[
@@ -334,7 +328,7 @@ class Job_Failed(UniversalBaseModel):
     params: typing.Dict[str, typing.Any]
     cost: typing.Optional[JobFailedCost] = None
     output_category: typing_extensions.Annotated[
-        JobFailedOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobFailedStepsItem]
     logs_available: typing_extensions.Annotated[
@@ -401,7 +395,7 @@ class Job_Cancelled(UniversalBaseModel):
     params: typing.Dict[str, typing.Any]
     cost: typing.Optional[JobCancelledCost] = None
     output_category: typing_extensions.Annotated[
-        JobCancelledOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobCancelledStepsItem]
     logs_available: typing_extensions.Annotated[

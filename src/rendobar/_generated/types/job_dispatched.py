@@ -10,7 +10,6 @@ from .job_dispatched_boot_state import JobDispatchedBootState
 from .job_dispatched_callback import JobDispatchedCallback
 from .job_dispatched_cost import JobDispatchedCost
 from .job_dispatched_deliveries_item import JobDispatchedDeliveriesItem
-from .job_dispatched_output_category import JobDispatchedOutputCategory
 from .job_dispatched_steps_item import JobDispatchedStepsItem
 
 
@@ -90,7 +89,7 @@ class JobDispatched(UniversalBaseModel):
     """
 
     output_category: typing_extensions.Annotated[
-        JobDispatchedOutputCategory,
+        str,
         FieldMetadata(alias="outputCategory"),
         pydantic.Field(
             alias="outputCategory", description="Output category. Clients should tolerate unknown future values."

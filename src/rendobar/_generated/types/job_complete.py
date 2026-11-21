@@ -10,7 +10,6 @@ from .job_complete_callback import JobCompleteCallback
 from .job_complete_cost import JobCompleteCost
 from .job_complete_deliveries_item import JobCompleteDeliveriesItem
 from .job_complete_output import JobCompleteOutput
-from .job_complete_output_category import JobCompleteOutputCategory
 from .job_complete_steps_item import JobCompleteStepsItem
 
 
@@ -90,7 +89,7 @@ class JobComplete(UniversalBaseModel):
     """
 
     output_category: typing_extensions.Annotated[
-        JobCompleteOutputCategory,
+        str,
         FieldMetadata(alias="outputCategory"),
         pydantic.Field(
             alias="outputCategory", description="Output category. Clients should tolerate unknown future values."

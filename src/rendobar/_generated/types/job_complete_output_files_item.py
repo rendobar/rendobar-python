@@ -5,7 +5,6 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .job_complete_output_files_item_meta import JobCompleteOutputFilesItemMeta
-from .job_complete_output_files_item_type import JobCompleteOutputFilesItemType
 
 
 class JobCompleteOutputFilesItem(UniversalBaseModel):
@@ -19,7 +18,7 @@ class JobCompleteOutputFilesItem(UniversalBaseModel):
     File path within the job output (relative). For an ffmpeg job, the name the command wrote.
     """
 
-    type: JobCompleteOutputFilesItemType = pydantic.Field()
+    type: str = pydantic.Field()
     """
     File type, derived from the extension. OPEN enum — tolerate unknown future values.
     """

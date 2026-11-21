@@ -5,7 +5,7 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawAssetsClient, RawAssetsClient
-from .types.complete_asset_upload_request_parts_item import CompleteAssetUploadRequestPartsItem
+from .requests.complete_asset_upload_request_parts_item import CompleteAssetUploadRequestPartsItemParams
 from .types.complete_asset_upload_response import CompleteAssetUploadResponse
 from .types.create_asset_request_lifecycle import CreateAssetRequestLifecycle
 from .types.create_asset_response import CreateAssetResponse
@@ -264,7 +264,7 @@ class AssetsClient:
         self,
         id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CompleteAssetUploadResponse:
         """
@@ -275,7 +275,7 @@ class AssetsClient:
         id : str
             Asset ID
 
-        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]
@@ -679,7 +679,7 @@ class AsyncAssetsClient:
         self,
         id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CompleteAssetUploadResponse:
         """
@@ -690,7 +690,7 @@ class AsyncAssetsClient:
         id : str
             Asset ID
 
-        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]

@@ -10,7 +10,6 @@ from .job_failed_callback import JobFailedCallback
 from .job_failed_cost import JobFailedCost
 from .job_failed_deliveries_item import JobFailedDeliveriesItem
 from .job_failed_error import JobFailedError
-from .job_failed_output_category import JobFailedOutputCategory
 from .job_failed_steps_item import JobFailedStepsItem
 
 
@@ -90,7 +89,7 @@ class JobFailed(UniversalBaseModel):
     """
 
     output_category: typing_extensions.Annotated[
-        JobFailedOutputCategory,
+        str,
         FieldMetadata(alias="outputCategory"),
         pydantic.Field(
             alias="outputCategory", description="Output category. Clients should tolerate unknown future values."

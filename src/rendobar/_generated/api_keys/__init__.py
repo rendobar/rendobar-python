@@ -17,16 +17,34 @@ if typing.TYPE_CHECKING:
         RevokeApiKeyResponseData,
         UpdateApiKeyResponse,
     )
+    from .requests import (
+        CreateApiKeyResponseDataCreatedByParams,
+        CreateApiKeyResponseDataDisabledByParams,
+        CreateApiKeyResponseDataParams,
+        CreateApiKeyResponseParams,
+        ListApiKeysResponseParams,
+        RevokeApiKeyResponseDataParams,
+        RevokeApiKeyResponseParams,
+        UpdateApiKeyResponseParams,
+    )
 _dynamic_imports: typing.Dict[str, str] = {
     "CreateApiKeyResponse": ".types",
     "CreateApiKeyResponseData": ".types",
     "CreateApiKeyResponseDataCreatedBy": ".types",
+    "CreateApiKeyResponseDataCreatedByParams": ".requests",
     "CreateApiKeyResponseDataCreatedByRole": ".types",
     "CreateApiKeyResponseDataDisabledBy": ".types",
+    "CreateApiKeyResponseDataDisabledByParams": ".requests",
+    "CreateApiKeyResponseDataParams": ".requests",
+    "CreateApiKeyResponseParams": ".requests",
     "ListApiKeysResponse": ".types",
+    "ListApiKeysResponseParams": ".requests",
     "RevokeApiKeyResponse": ".types",
     "RevokeApiKeyResponseData": ".types",
+    "RevokeApiKeyResponseDataParams": ".requests",
+    "RevokeApiKeyResponseParams": ".requests",
     "UpdateApiKeyResponse": ".types",
+    "UpdateApiKeyResponseParams": ".requests",
 }
 
 
@@ -55,10 +73,18 @@ __all__ = [
     "CreateApiKeyResponse",
     "CreateApiKeyResponseData",
     "CreateApiKeyResponseDataCreatedBy",
+    "CreateApiKeyResponseDataCreatedByParams",
     "CreateApiKeyResponseDataCreatedByRole",
     "CreateApiKeyResponseDataDisabledBy",
+    "CreateApiKeyResponseDataDisabledByParams",
+    "CreateApiKeyResponseDataParams",
+    "CreateApiKeyResponseParams",
     "ListApiKeysResponse",
+    "ListApiKeysResponseParams",
     "RevokeApiKeyResponse",
     "RevokeApiKeyResponseData",
+    "RevokeApiKeyResponseDataParams",
+    "RevokeApiKeyResponseParams",
     "UpdateApiKeyResponse",
+    "UpdateApiKeyResponseParams",
 ]
