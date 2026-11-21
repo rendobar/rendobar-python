@@ -37,5 +37,8 @@ packages = ["src/rendobar"]
 # The generator writes tests for its own package layout. They are not ours and never ship.
 exclude = ["src/rendobar/_generated/tests"]
 
+[tool.hatch.build.targets.sdist]
+exclude = ["src/rendobar/_generated/tests"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
