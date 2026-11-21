@@ -1,5 +1,5 @@
 {
-  "description": "HMAC-SHA256 over `${timestamp}.${body}`, hex, prefixed sha256=. Every SDK's verifier must agree with every case at now = timestamp.",
+  "description": "HMAC-SHA256 over `${timestamp}.${body}`, hex, prefixed sha256=. Every SDK's verifier must agree with every case at now = timestamp. A case with `notFor` lists the SDKs that skip it (see SCENARIOS.md).",
   "secret": "whsec_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "timestamp": 1700000000,
   "body": "{\"version\":\"1\",\"event\":\"job.completed\",\"data\":{\"jobId\":\"job_1\"}}",
@@ -81,6 +81,47 @@
         "x-rendobar-timestamp": "1700000000"
       },
       "expect": false
+    },
+    {
+      "name": "bare hex signature without the sha256= prefix",
+      "headers": {
+        "x-rendobar-signature": "05a0d9f3e63f3fc5b68eb4ebd979740f48f5691163cab276e801c69dbf141cf1",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": false,
+      "notFor": [
+        "typescript"
+      ],
+      "note": "The prefix is required. The published TypeScript SDK accepts bare hex and skips this case."
+    },
+    {
+      "name": "whitespace-only secret",
+      "headers": {
+        "x-rendobar-signature": "sha256=4a37894ee231797c805cec4f4b0cf339f7b589544be3f8b9c9ab457d70c42ae6",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "secret": "   ",
+      "expect": false,
+      "note": "Signed with three spaces as the key, so a verifier that accepts a blank secret returns true. Every SDK must return false."
+    },
+    {
+      "name": "timestamp 301 s in the future",
+      "now": 1699999699,
+      "headers": {
+        "x-rendobar-signature": "sha256=05a0d9f3e63f3fc5b68eb4ebd979740f48f5691163cab276e801c69dbf141cf1",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": false
+    },
+    {
+      "name": "timestamp exactly 300 s old",
+      "now": 1700000300,
+      "headers": {
+        "x-rendobar-signature": "sha256=05a0d9f3e63f3fc5b68eb4ebd979740f48f5691163cab276e801c69dbf141cf1",
+        "x-rendobar-timestamp": "1700000000"
+      },
+      "expect": true,
+      "note": "The tolerance is inclusive: 300 s either way verifies, 301 s does not."
     }
   ]
 }
