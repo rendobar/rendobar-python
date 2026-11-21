@@ -95,6 +95,30 @@ def handle_rendobar_webhook(raw_body: bytes, headers: dict) -> int:
 
 Pass the raw body exactly as received. It checks the signature, rejects deliveries older than 5 minutes, and accepts the previous secret during a rotation.
 
+## AI agents
+
+Give an agent Rendobar's four tools (`list_job_types`, `run_job`, `get_job`, `probe_media`), the same ones as the Rendobar MCP server. Failures come back to the model as data, so one bad call does not end the run.
+
+```bash
+pip install "rendobar[langchain]"   # or "rendobar[crewai]"
+```
+
+```python
+from langchain.agents import create_agent
+from rendobar.agents.langchain import rendobar_tools
+
+agent = create_agent(model, tools=rendobar_tools())  # model: any LangChain chat model
+```
+
+```python
+from crewai import Agent
+from rendobar.agents.crewai import rendobar_tools
+
+editor = Agent(role="Video editor", goal="Cut and caption clips", backstory="Edits for social", tools=rendobar_tools())
+```
+
+Frameworks that speak MCP (the OpenAI Agents SDK, the Claude Agent SDK) can connect to `https://api.rendobar.com/mcp` with no package.
+
 ## Let your AI assistant do it
 
 Paste this one line into Claude, ChatGPT, or Cursor and the assistant reads the integration playbook and wires Rendobar into your codebase. Your API key stays in your env file, never in the chat.

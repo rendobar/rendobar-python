@@ -7,7 +7,7 @@ For coding agents changing this SDK. Users of the SDK want the README.
 - Hand-written code is everything else in `src/rendobar/`: `_client.py`,
   `_async_client.py`, `_errors.py`, `webhooks.py`. Keep sync and async in step:
   shared logic lives in `_client.py` helpers (`build_submit`, `WaitClock`, ...).
-- Method names match `@rendobar/sdk` (`jobs.create/get/list/list_all/wait/run/cancel/download/types`).
+- Method names match `@rendobar/sdk` (`jobs.create/get/list/list_all/wait/run/cancel/download/types/schema`).
   Do not rename one without renaming it there.
 - Behaviour is defined by the shared conformance scenarios
   (`tests/test_conformance.py`, from rendobar/openapi `conformance/SCENARIOS.md`).
@@ -15,4 +15,11 @@ For coding agents changing this SDK. Users of the SDK want the README.
 - Webhook verification must agree with `tests/fixtures/webhook-vectors.json`.
 - Discover job types with `rb.jobs.types()` (live registry). Never hardcode the list.
 
-Checks: `pytest`, `pyright`.
+- `src/rendobar/agents/`: `_core.py` holds the four agent tools; `langchain.py`
+  and `crewai.py` only wrap them. Tools return errors as data, never raise.
+  The adapters need the extras (`.[langchain,crewai]`), which the CI `agents` job installs.
+- The public API is `rendobar.__all__`. CI runs `griffe check` against the last
+  release tag, so removing or changing anything exported fails the build.
+- The deny-list scan is `.openapi/scripts/deny_list.py`, shared by every public repo.
+
+Checks: `pytest`, and `pyright` with the extras installed.

@@ -81,6 +81,10 @@ class AsyncJobs:
         """Every live job type. Public: needs no API key."""
         return list((await self._client._call("GET", "/jobs/types", self._raw.list_job_types)).data)
 
+    async def schema(self, type: str) -> Any:
+        """One job type's params: `fields`, `inputs` and the full `json_schema`. Public: needs no API key."""
+        return (await self._client._call("GET", f"/jobs/types/{type}/schema", lambda: self._raw.get_job_type_schema(type))).data
+
     async def create(
         self,
         type: str,

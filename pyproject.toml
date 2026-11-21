@@ -22,11 +22,14 @@ dependencies = ["httpx>=0.27", "pydantic>=2.6", "typing_extensions>=4.9"]
 
 [project.urls]
 Homepage = "https://rendobar.com"
-Documentation = "https://rendobar.com/docs/sdks/python"
+Documentation = "https://github.com/rendobar/rendobar-python#readme"
 Source = "https://github.com/rendobar/rendobar-python"
 Issues = "https://github.com/rendobar/rendobar-python/issues"
 
 [project.optional-dependencies]
+# Agent framework adapters (rendobar.agents.*). Floors are the oldest versions tested.
+langchain = ["langchain-core>=1.7,<2"]
+crewai = ["crewai>=1.15,<2"]
 dev = ["pytest>=8", "pyright>=1.1.380"]
 
 [tool.hatch.build.targets.wheel]

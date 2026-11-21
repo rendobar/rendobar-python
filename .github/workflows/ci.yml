@@ -17,6 +17,8 @@ jobs:
         python: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # the breaking-change check compares with the last release tag
       - uses: actions/checkout@v4
         with:
           repository: rendobar/openapi
@@ -30,12 +32,40 @@ jobs:
           for i in $(seq 1 20); do curl -sf -X POST http://127.0.0.1:4100/__reset && break; sleep 0.5; done
       - name: Tests (conformance scenarios, webhook vectors, README)
         run: uv run --with-editable . --with pytest python -m pytest -q
-      - name: Types
+      - name: Breaking-change check against the last release
         if: matrix.python == '3.13'
-        run: uv run --with-editable . --with pytest --with pyright pyright
+        run: |
+          last=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          if [ -z "$last" ]; then echo "No release yet, nothing to compare with."; exit 0; fi
+          uvx griffe@2.4.1 check rendobar -s src -a "$last"
       - name: Public-surface deny-list
         if: matrix.python == '3.13'
-        run: python3 scripts/deny_list.py
+        run: python3 -I .openapi/scripts/deny_list.py
       - name: Build
         if: matrix.python == '3.13'
         run: uv build
+  agents:
+    # The agent adapters and the full type check, with the optional frameworks
+    # installed. Separate from the matrix so a plain install stays the common path.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: rendobar/openapi
+          path: .openapi
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - name: Start the conformance mock
+        run: |
+          python3 -I .openapi/conformance/mock_server.py .openapi/openapi.json 4100 requests.jsonl &
+          for i in $(seq 1 20); do curl -sf -X POST http://127.0.0.1:4100/__reset && break; sleep 0.5; done
+      - name: Install with the agent extras
+        run: |
+          uv venv
+          uv pip install -e ".[langchain,crewai]" pytest pyright
+      - name: Adapter tests (LangChain, CrewAI)
+        run: .venv/bin/python -m pytest -q tests/test_agents.py tests/test_agents_frameworks.py
+      - name: Types
+        run: .venv/bin/pyright --pythonpath .venv/bin/python
