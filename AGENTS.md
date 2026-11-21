@@ -6,7 +6,11 @@ For coding agents changing this SDK. Users of the SDK want the README.
   published spec). Never edit it. Regenerate: `cd fern && fern generate --local --group python --force`.
 - Hand-written code is everything else in `src/rendobar/`: `_client.py`,
   `_async_client.py`, `_errors.py`, `webhooks.py`. Keep sync and async in step:
-  shared logic lives in `_client.py` helpers (`build_submit`, `WaitClock`, ...).
+  everything that is not I/O lives in `_client.py` helpers (`core_options`,
+  `retry_delay`, `build_submit`, `WaitPoll`, `one_job`, `job_page`, ...); the
+  async client only awaits and sleeps.
+- The core is built with `max_retries=0`. Retries belong to `_call` (429, 5xx,
+  connection failures only); never re-enable the core's, it retries 409 too.
 - Method names match `@rendobar/sdk` (`jobs.create/get/list/list_all/wait/run/cancel/download/types/schema`).
   Do not rename one without renaming it there.
 - Behaviour is defined by the shared conformance scenarios

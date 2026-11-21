@@ -28,3 +28,12 @@ def test_quickstart_path_output_file_url_exists() -> None:
     output = _field_type(JobComplete, "output")
     file = _field_type(output, "file")
     assert "url" in typing.get_type_hints(file)
+
+
+def test_every_error_the_readme_names_is_exported() -> None:
+    import rendobar
+
+    named = set(re.findall(r"`([A-Za-z]+Error)`", README))
+    assert {"APIConnectionError", "APITimeoutError", "JobFailedError", "ConflictError"} <= named
+    for name in named:
+        assert name in rendobar.__all__ and issubclass(getattr(rendobar, name), rendobar.RendobarError), name
