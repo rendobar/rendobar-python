@@ -173,13 +173,28 @@ Everything the SDK raises is a `RendobarError` with a `code`:
 | `APITimeoutError` (an `APIConnectionError`) | the request took longer than the client's `timeout` |
 | `ResponseValidationError` | a response this SDK version cannot read (`body` holds it) |
 | `JobFailedError` | `jobs.run()`, or `jobs.wait(throw_on_failure=True)`, saw the job fail or be cancelled. `code` is the job's own error code and `job` the job |
-| `WaitTimeoutError` | `jobs.wait()` gave up. The job may still finish |
+| `WaitTimeoutError` | `jobs.wait()` gave up. The job may still finish. `job_id`, `last_status` and `job` (the last job read) are set |
+
+A 400, 402 or 403 that lists what is wrong also has `problems`: each one's `path` (such as `("params", "command")`), `message` and, on a plan refusal, `upgrade_to` (the plan that allows it).
+
+```python
+from rendobar import BadRequestError, Rendobar
+
+rb = Rendobar()
+try:
+    rb.jobs.create("ffmpeg", {})
+except BadRequestError as err:
+    for problem in err.problems:
+        print(".".join(map(str, problem.path)), problem.message)
+```
 
 ## Retries and idempotency
 
-Only 429, 5xx and a connection that could not be made are retried, twice by default (`max_retries`), honouring `Retry-After` (up to 60 seconds, a longer one raises `RateLimitError` with `retry_after` set) and backing off exponentially otherwise. Everything else raises at once: a 409 conflict, any other 4xx, and a request that timed out after reaching the API.
+Only 429, 500, 502, 503, 504 and a connection that could not be made are retried, twice by default (`max_retries`). The client honours `Retry-After` (seconds or an HTTP date) up to 60 seconds, and a longer one raises the error with `retry_after` set. Without one, it backs off exponentially from half a second, with jitter. A retry that would sleep past the end of a `jobs.wait()` raises instead. Everything else raises at once: a 409 conflict, a 501, any other 4xx, and a request that timed out after reaching the API.
 
 Retrying a submit never creates a second job. With no `idempotency_key`, `jobs.create()` generates one for that call and sends it on every retry, so the API returns the job the first attempt created. Pass your own key, such as an order id, to make separate calls safe to repeat. A repeat with the same key and the same params returns the first job as a `JobReplayed`. A repeat with the same key and different params raises `ConflictError` (409, code `CONFLICT`). Keys never expire.
+
+When a submit fails in a way that may still have created the job (no answer, a timeout, or a 429 or 5xx after the last retry), the error's `idempotency_key` holds the key that was sent. Submit again with it to get that job, not a second one. `generate_idempotency_key()` makes keys of the same kind for your own use.
 
 ## Webhooks
 
@@ -201,10 +216,10 @@ Rendobar signs each delivery with these headers:
 | Header | Value |
 |---|---|
 | `X-Rendobar-Timestamp` | when Rendobar sent it, in Unix seconds |
-| `X-Rendobar-Signature` | `sha256=` and the hex HMAC-SHA256 of `"<timestamp>.<raw body>"`, keyed with your webhook secret |
+| `X-Rendobar-Signature` | `sha256=` and the hex HMAC-SHA256 of `"<timestamp>.<raw body>"`, keyed with your webhook secret. A signature without the `sha256=` prefix does not verify |
 | `X-Rendobar-Signature-Previous` | during a secret rotation, the same signature made with the previous secret |
 
-`verify()` recomputes the signature and compares it in constant time. It accepts either signature header, so a receiver holding the old or the new secret verifies during a rotation. It rejects a timestamp more than 5 minutes from now (`tolerance_seconds=300`). A per-job callback sent with `"verify": True` carries the same headers, signed with your callback signing secret.
+`verify()` recomputes the signature and compares it in constant time. It accepts either signature header, so a receiver holding the old or the new secret verifies during a rotation. It rejects a timestamp more than 300 seconds from now (`tolerance_seconds`) and a blank secret. A per-job callback sent with `"verify": True` carries the same headers, signed with your callback signing secret.
 
 ## AI agents
 
