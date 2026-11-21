@@ -20,7 +20,8 @@ MOCK = os.environ.get("RENDOBAR_MOCK", "http://127.0.0.1:4100")
 def test_every_python_block_runs_as_a_script(block: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """Each block, pasted into a file on its own, runs: against the conformance mock instead of the API."""
     for extra in ("langchain", "crewai"):
-        if f"from {extra}" in block and importlib.util.find_spec(extra) is None:
+        imports_it = re.search(rf"^from (rendobar\.agents\.)?{extra}\b", block, flags=re.M)
+        if imports_it and importlib.util.find_spec(extra) is None:
             pytest.skip(f"needs the {extra} extra")
     # The blocks use the default base_url. Point the default, not the blocks, at the mock.
     for client in (Rendobar, AsyncRendobar):
