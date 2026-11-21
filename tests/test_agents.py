@@ -42,7 +42,28 @@ def test_run_job_without_wait_returns_the_created_job() -> None:
 
 def test_a_missing_job_is_data_not_an_exception() -> None:
     result = tools(Rendobar("k", base_url=MOCK))["get_job"].run(id="job_404")
-    assert result["error"]["code"] == "NOT_FOUND" and result["error"]["request_id"].startswith("req_")
+    error = result["error"]
+    assert error["code"] == "NOT_FOUND" and error["request_id"].startswith("req_")
+    # The code and request id are fields of their own, never repeated inside the message.
+    assert "NOT_FOUND" not in error["message"] and error["request_id"] not in error["message"]
+
+
+def test_get_job_and_run_job_report_an_api_error_the_same_way() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        body = {"error": {"code": "FORBIDDEN", "message": "This key cannot read jobs"}}
+        return httpx.Response(403, json=body, headers={"x-request-id": "req_same"})
+
+    client = Rendobar("k", base_url=MOCK, max_retries=0)
+    tap(client, httpx.MockTransport(refuse))
+    expected = {"error": {"code": "FORBIDDEN", "message": "This key cannot read jobs", "request_id": "req_same"}}
+    assert tools(client)["get_job"].run(id="job_x") == expected
+    assert tools(client)["run_job"].run(type="ffprobe", params={"command": "https://x/a.mp4"}) == expected
+
+
+def test_a_missing_key_is_not_offered_as_a_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("RENDOBAR_API_KEY", raising=False)
+    result = tools(Rendobar(base_url=MOCK))["run_job"].run(type="ffprobe", params={"command": "https://x/a.mp4"})
+    assert result["error"]["code"] == "MISSING_API_KEY" and "idempotency_key" not in result
 
 
 class _Down(httpx.HTTPTransport):

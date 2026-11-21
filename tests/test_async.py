@@ -10,7 +10,7 @@ import urllib.request
 import httpx
 import pytest
 
-from rendobar import APITimeoutError, AsyncRendobar, ConflictError, InternalServerError, JobFailedError, NotFoundError, UnknownJob
+from rendobar import APITimeoutError, AsyncRendobar, ConflictError, InternalServerError, JobFailed, JobFailedError, NotFoundError, UnknownJob
 
 MOCK = os.environ.get("RENDOBAR_MOCK", "http://127.0.0.1:4100")
 
@@ -88,9 +88,9 @@ def test_async_run_and_wait() -> None:
             seen: list = []                                                        # C16
             job = await rb.jobs.run("ffprobe", {"command": "https://x/a.mp4"}, interval=0.05, on_progress=lambda j: seen.append(j.status))
             assert seen == ["running", "complete"]
-            assert job.status == "complete" and job.output.file.url.startswith("https://")
+            assert job.status == "complete" and job.output.file is not None and job.output.file.url.startswith("https://")
             with pytest.raises(JobFailedError) as info:                            # C17
                 await rb.jobs.wait("job_failed", throw_on_failure=True)
-            assert info.value.code == info.value.job.error.code and info.value.code
+            assert isinstance(info.value.job, JobFailed) and info.value.code == info.value.job.error.code and info.value.code
 
     asyncio.run(scenarios())

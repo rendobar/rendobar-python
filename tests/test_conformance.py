@@ -21,6 +21,7 @@ from rendobar import (
     APITimeoutError,
     ConflictError,
     InternalServerError,
+    JobFailed,
     JobFailedError,
     NotFoundError,
     Rendobar,
@@ -179,7 +180,7 @@ def test_c17_wait_raises_the_failed_jobs_error_code(rb: Rendobar) -> None:
     with pytest.raises(JobFailedError) as info:
         rb.jobs.wait("job_failed", throw_on_failure=True)
     assert isinstance(info.value, RendobarError)
-    assert info.value.code == info.value.job.error.code and info.value.code
+    assert isinstance(info.value.job, JobFailed) and info.value.code == info.value.job.error.code and info.value.code
     assert info.value.job_id == "job_failed" and info.value.status == "failed"
 
 

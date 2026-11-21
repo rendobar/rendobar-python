@@ -30,8 +30,9 @@ from typing import Any, Callable, Dict, List, Optional, Type
 
 from pydantic import BaseModel, Field
 
-from .._client import Rendobar, generate_idempotency_key
+from .._client import Rendobar, SomeJob, UnknownJob, generate_idempotency_key
 from .._errors import APIConnectionError, RendobarError, WaitTimeoutError
+from .._models import JobComplete, JobFailed
 
 
 class ListJobTypesInput(BaseModel):
@@ -74,24 +75,33 @@ def _plain(value: Any) -> Any:
     return value
 
 
-def summarize(job: Any) -> Dict[str, Any]:
+def summarize(job: SomeJob) -> Dict[str, Any]:
     """What an agent needs from a job, and nothing it would have to wade through."""
-    out: Dict[str, Any] = {"id": job.id, "type": getattr(job, "type", None), "status": job.status}
-    if job.status == "complete":
+    out: Dict[str, Any] = {"id": job.id, "type": job.type, "status": job.status}
+    if isinstance(job, JobComplete):
         output = job.output
         out["url"] = output.file.url if output.file is not None else (output.files[0].url if output.files else None)
         out["files"] = [{"url": f.url, "type": str(f.type), "path": f.path, "size": f.size} for f in output.files]
         if output.data is not None:
             out["data"] = _plain(output.data)
-    if job.status == "failed":
+    if isinstance(job, JobFailed):
         out["error"] = {"code": job.error.code, "message": job.error.message}
-    cost = getattr(job, "cost", None)
-    if cost is not None:
-        out["cost"] = cost.formatted
+    if not isinstance(job, UnknownJob) and job.cost is not None:
+        out["cost"] = job.cost.formatted
     return out
 
 
 _GET_JOB_HINT = "Call get_job with this id."
+
+
+def _error_of(e: BaseException) -> Dict[str, Any]:
+    """`{"code", "message"}` plus `request_id` when the API sent one. The message never repeats the other two."""
+    if isinstance(e, RendobarError):
+        out: Dict[str, Any] = {"code": e.code, "message": e.message}
+        if e.request_id:
+            out["request_id"] = e.request_id
+        return out
+    return {"code": "REQUEST_FAILED", "message": str(e).rstrip(".") or type(e).__name__}
 
 
 def _guarded(fn: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
@@ -99,23 +109,22 @@ def _guarded(fn: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
     try:
         return fn()
     except WaitTimeoutError as e:
-        return {"id": e.job_id, "status": e.last_status, "error": {"code": e.code, "message": e.message}, "hint": _GET_JOB_HINT}
-    except APIConnectionError as e:
-        return {"error": {"code": e.code, "message": f"{e.message.rstrip('.')}. The call can be retried."}}
-    except RendobarError as e:
-        return {"error": {"code": e.code, "message": str(e), "request_id": e.request_id}}
+        return {"id": e.job_id, "status": e.last_status, "error": _error_of(e), "hint": _GET_JOB_HINT}
     except Exception as e:  # noqa: BLE001 (a dropped connection must not end the agent's loop)
-        message = str(e).rstrip(".") or type(e).__name__
-        return {"error": {"code": "REQUEST_FAILED", "message": f"{message}. The call can be retried."}}
+        error = _error_of(e)
+        if isinstance(e, APIConnectionError) or not isinstance(e, RendobarError):
+            error["message"] = f"{error['message'].rstrip('.')}. The call can be retried."
+        return {"error": error}
 
 
-def _error_of(e: BaseException) -> Dict[str, Any]:
-    if isinstance(e, RendobarError):
-        out: Dict[str, Any] = {"code": e.code, "message": e.message}
-        if e.request_id:
-            out["request_id"] = e.request_id
-        return out
-    return {"code": "REQUEST_FAILED", "message": str(e).rstrip(".") or type(e).__name__}
+def _refused(e: BaseException) -> bool:
+    """The API (or the client, for a missing key) refused the submit: no job exists, and repeating it cannot help.
+
+    A 429 is "later", not "wrong", and a 5xx or a lost connection may hide a created job.
+    """
+    if not isinstance(e, RendobarError) or isinstance(e, APIConnectionError):
+        return False
+    return e.status_code is None or (e.status_code < 500 and e.status_code != 429)
 
 
 def _create_then_wait(rb: Rendobar, type: str, params: Dict[str, Any], inputs: Optional[Dict[str, Any]],
@@ -126,8 +135,7 @@ def _create_then_wait(rb: Rendobar, type: str, params: Dict[str, Any], inputs: O
         created = rb.jobs.create(type, params, inputs, idempotency_key=key)
     except Exception as e:  # noqa: BLE001 (see the module docstring)
         error = _error_of(e)
-        # The API refused the job: nothing was created, fix the call. A 429 is "later", not "wrong".
-        if isinstance(e, RendobarError) and e.status_code is not None and e.status_code < 500 and e.status_code != 429:
+        if _refused(e):  # nothing was created: fix the call
             return {"error": error}
         # A lost response may hide a created job: the same key makes the retry return it, not a second one.
         error["message"] = f"{error['message']}. The call can be retried with this idempotency_key."

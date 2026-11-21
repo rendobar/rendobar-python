@@ -19,12 +19,13 @@ from __future__ import annotations
 
 import email.utils
 import time
-from typing import Any, Dict, Mapping, Optional, Type
+from typing import Any, Dict, Mapping, Optional, Type, Union
 
 import httpx
 
 from ._generated.core.api_error import ApiError as _GeneratedApiError
 from ._generated.core.parse_error import ParsingError as _GeneratedParsingError
+from ._models import JobCancelled, JobFailed
 
 REQUEST_ID_HEADER = "x-request-id"
 
@@ -60,7 +61,11 @@ class BadRequestError(RendobarError):
 
 
 class AuthenticationError(RendobarError):
-    """401: missing, invalid or expired API key."""
+    """401: invalid or expired API key.
+
+    Also raised before any request when the client has no key at all (code
+    `MISSING_API_KEY`, `status_code` None): see `missing_api_key`.
+    """
 
 
 class InsufficientCreditsError(RendobarError):
@@ -98,6 +103,14 @@ _BY_STATUS: Dict[int, Type[RendobarError]] = {
 }
 
 
+def missing_api_key() -> AuthenticationError:
+    """The error for a call that needs a key on a client that has none, raised before anything is sent."""
+    return AuthenticationError(
+        "No API key. Pass Rendobar(api_key=...) or set the RENDOBAR_API_KEY environment variable.",
+        code="MISSING_API_KEY",
+    )
+
+
 class APIConnectionError(RendobarError):
     """The request got no response: the connection failed or dropped. Connection failures are retried first."""
 
@@ -127,14 +140,15 @@ class JobFailedError(RendobarError):
     `code` is the job's own error code (`JOB_CANCELLED` for a cancelled job), `job` the job itself.
     """
 
-    def __init__(self, job: Any) -> None:
-        error = getattr(job, "error", None)
-        detail = getattr(error, "message", None)
-        code = getattr(error, "code", None) or ("JOB_CANCELLED" if job.status == "cancelled" else "JOB_FAILED")
-        super().__init__(f"Job {job.id} ended with status {job.status!r}" + (f": {detail}" if detail else "."), code=str(code))
-        self.job = job
-        self.job_id = job.id
-        self.status = job.status
+    def __init__(self, job: Union[JobFailed, JobCancelled]) -> None:
+        if isinstance(job, JobFailed):
+            code, detail = job.error.code or "JOB_FAILED", job.error.message
+        else:
+            code, detail = "JOB_CANCELLED", ""
+        super().__init__(f"Job {job.id} ended with status {job.status!r}" + (f": {detail}" if detail else "."), code=code)
+        self.job: Union[JobFailed, JobCancelled] = job
+        self.job_id: str = job.id
+        self.status: str = job.status
 
     def __str__(self) -> str:
         return self.message
@@ -145,7 +159,7 @@ class WaitTimeoutError(RendobarError):
 
     def __init__(self, job_id: str, last_status: str, timeout: float) -> None:
         super().__init__(
-            f"Job {job_id} did not finish within {timeout:.0f}s (last status: {last_status}). It may still complete.",
+            f"Job {job_id} did not finish within {format_seconds(timeout)} (last status: {last_status}). It may still complete.",
             code="WAIT_TIMEOUT",
         )
         self.job_id = job_id
@@ -154,6 +168,11 @@ class WaitTimeoutError(RendobarError):
 
     def __str__(self) -> str:
         return self.message
+
+
+def format_seconds(seconds: float) -> str:
+    """`0.5` -> "0.5s", `2.0` -> "2s", `420.4` -> "420s": whole seconds from 10 up, three significant digits below."""
+    return f"{seconds:.0f}s" if seconds >= 10 else f"{seconds:.3g}s"
 
 
 def parse_retry_after(value: Optional[str], *, now: Optional[float] = None) -> Optional[float]:

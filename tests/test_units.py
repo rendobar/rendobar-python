@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import typing
 from typing import Any, Callable, Dict, List, Optional
 
 import httpx
@@ -16,15 +17,23 @@ from rendobar import (
     APIConnectionError,
     APITimeoutError,
     AsyncRendobar,
+    AuthenticationError,
     ConflictError,
+    JobCancelled,
+    JobComplete,
+    JobDispatched,
+    JobError,
+    JobFailed,
     JobFailedError,
+    JobRunning,
+    JobWaiting,
     Rendobar,
     RendobarError,
     ResponseValidationError,
     UnknownJob,
     WaitTimeoutError,
 )
-from rendobar._client import WaitClock, WaitPoll, retry_delay, split_run_options
+from rendobar._client import SomeJob, WaitClock, WaitPoll, retry_delay
 from rendobar._generated.core.api_error import ApiError
 from rendobar._generated.core.parse_error import ParsingError
 
@@ -37,12 +46,16 @@ class FakeClock:
         return self.now
 
 
-class Job:
-    def __init__(self, status: str, timeout_ms: Optional[int] = None, job_id: str = "job_1") -> None:
-        self.id = job_id
-        self.status = status
-        self.timeout_ms = timeout_ms
-        self.error = None
+_BY_STATUS = {"waiting": JobWaiting, "dispatched": JobDispatched, "running": JobRunning,
+              "complete": JobComplete, "failed": JobFailed, "cancelled": JobCancelled}
+
+
+def model(status: str, timeout_ms: Any = None) -> SomeJob:
+    """A job with only the fields the wait logic reads (model_construct skips validation)."""
+    fields: Dict[str, Any] = {"id": "job_1", "status": status, "timeout_ms": timeout_ms}
+    if status == "failed":
+        fields["error"] = JobError(code="FFMPEG_ERROR", message="exit 1", retryable=False)
+    return _BY_STATUS[status].model_construct(**fields)
 
 
 # ── WaitClock ─────────────────────────────────────────────────────────
@@ -52,7 +65,7 @@ def test_default_bound_is_five_minutes_from_the_start_even_while_queued() -> Non
     wait = WaitClock(None, clock=clock)
     for _ in range(10):
         clock.now += 60
-        wait.observe(Job("waiting"))
+        wait.observe(model("waiting"))
     assert wait.deadline == 1000 + 300  # queued polls never slide the bound
     assert wait.remaining() < 0
 
@@ -61,7 +74,7 @@ def test_budget_is_adopted_from_the_poll_that_reports_it() -> None:
     clock = FakeClock()
     wait = WaitClock(None, clock=clock)
     clock.now += 250  # the job sat in the queue for 250 s
-    wait.observe(Job("running", timeout_ms=600_000))
+    wait.observe(model("running", timeout_ms=600_000))
     assert wait.deadline == 1250 + 600 + 120  # now + budget + grace, not start + budget + grace
 
 
@@ -69,30 +82,30 @@ def test_budget_adoption_never_shortens_the_default_bound() -> None:
     clock = FakeClock()
     wait = WaitClock(None, clock=clock)
     clock.now += 10
-    wait.observe(Job("running", timeout_ms=1))
+    wait.observe(model("running", timeout_ms=1))
     assert wait.deadline == 1000 + 300
 
 
 def test_budget_is_adopted_once() -> None:
     clock = FakeClock()
     wait = WaitClock(None, clock=clock)
-    wait.observe(Job("running", timeout_ms=600_000))
+    wait.observe(model("running", timeout_ms=600_000))
     first = wait.deadline
     clock.now += 500
-    wait.observe(Job("running", timeout_ms=600_000))
+    wait.observe(model("running", timeout_ms=600_000))
     assert wait.deadline == first
 
 
 def test_explicit_timeout_ignores_the_budget() -> None:
     clock = FakeClock()
     wait = WaitClock(30, clock=clock)
-    wait.observe(Job("running", timeout_ms=600_000))
+    wait.observe(model("running", timeout_ms=600_000))
     assert wait.deadline == 1030 and wait.total() == 30
 
 
 def test_a_boolean_budget_is_not_a_number() -> None:
     wait = WaitClock(None, clock=FakeClock())
-    wait.observe(Job("running", timeout_ms=True))  # type: ignore[arg-type]
+    wait.observe(model("running", timeout_ms=True))
     assert not wait.adopted
 
 
@@ -107,26 +120,32 @@ def poll(clock: FakeClock, **kw: Any) -> WaitPoll:
 def test_poll_backs_off_to_the_max_interval() -> None:
     clock = FakeClock()
     p = poll(clock)
-    pauses = [p.step(Job("running")) for _ in range(6)]
+    pauses = [p.pause(model("running")) for _ in range(6)]
     assert pauses == [2.0, 3.0, 4.5, 6.75, 10.0, 10.0]
 
 
 def test_poll_never_sleeps_past_the_deadline() -> None:
     clock = FakeClock()
     p = poll(clock, timeout=1.0)
-    assert p.step(Job("running")) == 1.0
+    assert p.pause(model("running")) == 1.0
 
 
-def test_poll_returns_on_a_terminal_status() -> None:
+def test_poll_returns_the_job_on_a_terminal_status() -> None:
     p = poll(FakeClock(), throw_on_failure=True)
-    assert p.step(Job("complete")) is None
+    done = model("complete")
+    assert p.finished(done) is done
+    assert p.finished(model("running")) is None
 
 
 def test_poll_raises_on_failure_when_asked() -> None:
     with pytest.raises(JobFailedError) as info:
-        poll(FakeClock(), throw_on_failure=True).step(Job("cancelled"))
+        poll(FakeClock(), throw_on_failure=True).finished(model("cancelled"))
     assert info.value.code == "JOB_CANCELLED"
-    assert poll(FakeClock()).step(Job("failed")) is None
+    with pytest.raises(JobFailedError) as failed:
+        poll(FakeClock(), throw_on_failure=True).finished(model("failed"))
+    assert failed.value.code == "FFMPEG_ERROR" and str(failed.value) == "Job job_1 ended with status 'failed': exit 1"
+    job = model("failed")
+    assert poll(FakeClock()).finished(job) is job
 
 
 def test_poll_times_out_with_the_last_status() -> None:
@@ -134,18 +153,21 @@ def test_poll_times_out_with_the_last_status() -> None:
     p = poll(clock)
     clock.now += 301
     with pytest.raises(WaitTimeoutError) as info:
-        p.step(Job("waiting"))
+        p.pause(model("waiting"))
     assert info.value.last_status == "waiting" and isinstance(info.value, RendobarError)
     assert info.value.code == "WAIT_TIMEOUT"
 
 
 def test_an_unknown_status_is_not_terminal() -> None:
-    assert poll(FakeClock()).step(UnknownJob({"id": "job_1", "status": "paused"})) == 2.0
+    p = poll(FakeClock())
+    job = UnknownJob({"id": "job_1", "status": "paused"})
+    assert p.finished(job) is None and p.pause(job) == 2.0
 
 
-def test_split_run_options() -> None:
-    create, wait = split_run_options({"label": "a", "timeout": 5, "on_progress": print, "idempotency_key": "k"})
-    assert create == {"label": "a", "idempotency_key": "k"} and wait == {"timeout": 5, "on_progress": print}
+@pytest.mark.parametrize("seconds, shown", [(0.5, "0.5s"), (0.25, "0.25s"), (2.0, "2s"), (9.5, "9.5s"), (300.0, "300s"), (420.4, "420s")])
+def test_the_wait_timeout_message_shows_sub_second_bounds(seconds: float, shown: str) -> None:
+    err = WaitTimeoutError("job_1", "running", seconds)
+    assert f"within {shown} " in str(err) and err.timeout == seconds
 
 
 # ── retry_delay ───────────────────────────────────────────────────────
@@ -247,7 +269,7 @@ PAGES = {
 
 def check_page(jobs: List[Any]) -> None:
     assert [j.id for j in jobs] == ["job_1", "job_2", "job_3"]
-    assert [type(j).__name__ for j in jobs] == ["Job_Running", "UnknownJob", "Job_Waiting"]
+    assert [type(j).__name__ for j in jobs] == ["JobRunning", "UnknownJob", "JobWaiting"]
     assert jobs[1].status == "paused" and jobs[1].raw["brandNewField"] == 1
 
 
@@ -367,3 +389,52 @@ def test_submit_retries_reuse_one_idempotency_key() -> None:
 
     asyncio.run(async_client(handle).jobs.create("ffprobe", {"command": "x"}))
     assert len(keys) == 2 and keys[0] == keys[1]
+
+
+# ── the API key ───────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("key", [None, "", "   "])
+def test_no_key_raises_locally_before_any_request(monkeypatch: pytest.MonkeyPatch, key: Optional[str]) -> None:
+    monkeypatch.delenv("RENDOBAR_API_KEY", raising=False)
+    sent: List[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request.url.path)
+        return httpx.Response(200, json={"data": []})
+
+    rb = Rendobar(key, base_url="https://api.test")
+    _install(rb._core._client_wrapper.httpx_client.httpx_client, handle)  # noqa: SLF001
+    with pytest.raises(AuthenticationError) as info:
+        rb.jobs.get("job_1")
+    assert info.value.code == "MISSING_API_KEY" and info.value.status_code is None
+    assert "RENDOBAR_API_KEY" in str(info.value)
+    rb.jobs.types()  # public: needs no key
+    assert sent == ["/jobs/types"]
+
+    arb = AsyncRendobar(key, base_url="https://api.test")
+    with pytest.raises(AuthenticationError):
+        asyncio.run(arb.jobs.run("ffprobe", {"command": "x"}))
+
+
+def test_an_empty_env_key_is_missing_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RENDOBAR_API_KEY", "")
+    with pytest.raises(AuthenticationError, match="RENDOBAR_API_KEY"):
+        Rendobar(base_url="https://api.test").account.capabilities()
+
+
+# ── public model names ────────────────────────────────────────────────
+
+def test_models_carry_their_public_names() -> None:
+    import pickle
+
+    import rendobar
+    from rendobar._models import PUBLIC_MODELS
+
+    for name, cls in PUBLIC_MODELS.items():
+        assert getattr(rendobar, name) is cls and name in rendobar.__all__
+        assert cls.__name__ == name and cls.__qualname__ == name
+        assert typing.get_type_hints(cls)  # annotations still resolve in the generated module
+    created = sync_client(routes({"POST /jobs": (201, {"data": {"id": "job_9", "status": "waiting"}})})).jobs.create("ffprobe")
+    assert type(created).__name__ == "JobCreated" and repr(created).startswith("JobCreated(")
+    running = sync_client(routes({"GET /jobs/job_1": (200, {"data": job("job_1", "running")})})).jobs.get("job_1")
+    assert isinstance(running, rendobar.JobRunning) and pickle.loads(pickle.dumps(running)) == running
