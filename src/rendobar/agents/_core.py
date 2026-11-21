@@ -13,6 +13,13 @@ so a new job type reaches every agent with no release. Every failure comes back
 as data (``{"error": {"code", "message"}}``): a raised exception would end the
 agent's whole loop over one bad call.
 
+A job is billed once it exists, so ``run_job`` and ``probe_media`` create first
+and wait second. A failure while waiting comes back with the job's ``id`` and a
+hint to call ``get_job``, never an invitation to run it again. Only a failure
+before any job exists says the call can be retried, and then with the same
+``idempotency_key``, so even a submit whose response was lost cannot become a
+second job.
+
 Each framework adapter (``rendobar.agents.langchain``, ``rendobar.agents.crewai``)
 wraps these and adds nothing else.
 """
@@ -23,8 +30,8 @@ from typing import Any, Callable, Dict, List, Optional, Type
 
 from pydantic import BaseModel, Field
 
-from .._client import Rendobar
-from .._errors import RendobarError, WaitTimeoutError
+from .._client import Rendobar, generate_idempotency_key
+from .._errors import APIConnectionError, RendobarError, WaitTimeoutError
 
 
 class ListJobTypesInput(BaseModel):
@@ -36,6 +43,10 @@ class RunJobInput(BaseModel):
     params: Dict[str, Any] = Field(default_factory=dict, description="Params for this job type, per its schema")
     inputs: Optional[Dict[str, Any]] = Field(default=None, description="Named input files, as URLs")
     wait: bool = Field(default=True, description="Wait for the job to finish. False returns the created job at once")
+    idempotency_key: Optional[str] = Field(
+        default=None,
+        description="Reuse the key a failed run_job returned to retry it without creating a second job. Omit on a first call",
+    )
 
 
 class GetJobInput(BaseModel):
@@ -80,17 +91,53 @@ def summarize(job: Any) -> Dict[str, Any]:
     return out
 
 
+_GET_JOB_HINT = "Call get_job with this id."
+
+
 def _guarded(fn: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
-    """Every kind of failure as data the model can act on, never a raised exception."""
+    """Every kind of failure as data the model can act on, never a raised exception. For calls that create nothing."""
     try:
         return fn()
     except WaitTimeoutError as e:
-        return {"id": e.job_id, "status": e.last_status, "error": {"code": "WAIT_TIMEOUT", "message": f"{e} Call get_job with this id later."}}
+        return {"id": e.job_id, "status": e.last_status, "error": {"code": e.code, "message": e.message}, "hint": _GET_JOB_HINT}
+    except APIConnectionError as e:
+        return {"error": {"code": e.code, "message": f"{e.message.rstrip('.')}. The call can be retried."}}
     except RendobarError as e:
         return {"error": {"code": e.code, "message": str(e), "request_id": e.request_id}}
     except Exception as e:  # noqa: BLE001 (a dropped connection must not end the agent's loop)
         message = str(e).rstrip(".") or type(e).__name__
         return {"error": {"code": "REQUEST_FAILED", "message": f"{message}. The call can be retried."}}
+
+
+def _error_of(e: BaseException) -> Dict[str, Any]:
+    if isinstance(e, RendobarError):
+        out: Dict[str, Any] = {"code": e.code, "message": e.message}
+        if e.request_id:
+            out["request_id"] = e.request_id
+        return out
+    return {"code": "REQUEST_FAILED", "message": str(e).rstrip(".") or type(e).__name__}
+
+
+def _create_then_wait(rb: Rendobar, type: str, params: Dict[str, Any], inputs: Optional[Dict[str, Any]],
+                      *, wait: bool, idempotency_key: Optional[str]) -> Dict[str, Any]:
+    """Create the job, then (optionally) wait for it, reporting each phase's failure for what it is."""
+    key = idempotency_key or generate_idempotency_key()
+    try:
+        created = rb.jobs.create(type, params, inputs, idempotency_key=key)
+    except Exception as e:  # noqa: BLE001 (see the module docstring)
+        error = _error_of(e)
+        if isinstance(e, RendobarError) and e.status_code is not None and e.status_code < 500:
+            return {"error": error}  # the API refused the job: nothing was created, fix the call
+        # A lost response may hide a created job: the same key makes the retry return it, not a second one.
+        error["message"] = f"{error['message']}. The call can be retried with this idempotency_key."
+        return {"error": error, "idempotency_key": key}
+    if not wait:
+        return {"id": created.id, "status": created.status}
+    try:
+        return summarize(rb.jobs.wait(created.id, throw_on_failure=False))
+    except Exception as e:  # noqa: BLE001
+        status = e.last_status if isinstance(e, WaitTimeoutError) else created.status
+        return {"id": created.id, "status": status, "error": _error_of(e), "hint": _GET_JOB_HINT}
 
 
 def tool_definitions(client: Optional[Rendobar] = None, *, app: str = "agents") -> List[ToolDefinition]:
@@ -110,20 +157,15 @@ def tool_definitions(client: Optional[Rendobar] = None, *, app: str = "agents") 
 
         return _guarded(go)
 
-    def run_job(type: str, params: Optional[Dict[str, Any]] = None, inputs: Optional[Dict[str, Any]] = None, wait: bool = True) -> Dict[str, Any]:
-        def go() -> Dict[str, Any]:
-            if not wait:
-                created = rb.jobs.create(type, params or {}, inputs)
-                return {"id": created.id, "status": created.status}
-            return summarize(rb.jobs.run(type, params or {}, inputs, throw_on_failure=False))
-
-        return _guarded(go)
+    def run_job(type: str, params: Optional[Dict[str, Any]] = None, inputs: Optional[Dict[str, Any]] = None,
+                wait: bool = True, idempotency_key: Optional[str] = None) -> Dict[str, Any]:
+        return _create_then_wait(rb, type, params or {}, inputs, wait=wait, idempotency_key=idempotency_key)
 
     def get_job(id: str) -> Dict[str, Any]:
         return _guarded(lambda: summarize(rb.jobs.get(id)))
 
     def probe_media(url: str) -> Dict[str, Any]:
-        return _guarded(lambda: summarize(rb.jobs.run("ffprobe", {"command": url}, throw_on_failure=False)))
+        return _create_then_wait(rb, "ffprobe", {"command": url}, None, wait=True, idempotency_key=None)
 
     return [
         ToolDefinition(
@@ -134,7 +176,7 @@ def tool_definitions(client: Optional[Rendobar] = None, *, app: str = "agents") 
         ),
         ToolDefinition(
             "run_job",
-            "Run a Rendobar media job and return its result: status, output URL, files and data. Waits until the job finishes unless `wait` is false. Get valid `type` values and params from list_job_types first. URLs in params or inputs must be public or signed.",
+            "Run a Rendobar media job and return its result: status, output URL, files and data. Waits until the job finishes unless `wait` is false. Get valid `type` values and params from list_job_types first. URLs in params or inputs must be public or signed. If the result has an `id`, the job exists and is billed: follow it with get_job, do not run it again.",
             RunJobInput,
             run_job,
         ),

@@ -4,6 +4,7 @@ Every failure must come back as data: a raised exception would end the agent's l
 """
 from __future__ import annotations
 
+import json
 import os
 import urllib.request
 
@@ -49,8 +50,72 @@ class _Down(httpx.HTTPTransport):
         raise httpx.ConnectError("connection refused", request=request)
 
 
+def tap(client: Rendobar, transport: httpx.BaseTransport) -> None:
+    client._core._client_wrapper.httpx_client.httpx_client._transport = transport  # noqa: SLF001 (test-only tap)
+
+
 def test_a_dropped_connection_is_data_not_an_exception() -> None:
     client = Rendobar("k", base_url=MOCK, max_retries=0)
-    client._core._client_wrapper.httpx_client.httpx_client._transport = _Down()  # noqa: SLF001 (test-only tap)
+    tap(client, _Down())
     result = tools(client)["get_job"].run(id="job_x")
-    assert result["error"]["code"] == "REQUEST_FAILED" and result["error"]["message"].endswith("The call can be retried.")
+    assert result["error"]["code"] == "CONNECTION_ERROR" and result["error"]["message"].endswith("The call can be retried.")
+
+
+class _SubmitOnly(httpx.HTTPTransport):
+    """Submits reach the mock; every poll afterwards fails to connect."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.bodies: list = []
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/jobs":
+            self.bodies.append(json.loads(request.content))
+            return super().handle_request(request)
+        raise httpx.ConnectError("connection refused", request=request)
+
+
+def test_run_job_waits_and_returns_the_output() -> None:
+    result = tools(Rendobar("k", base_url=MOCK))["run_job"].run(type="ffprobe", params={"command": "https://x/a.mp4"})
+    assert result["status"] == "complete" and result["url"].startswith("https://") and "error" not in result
+
+
+def test_a_failure_after_the_job_exists_points_to_get_job_not_a_retry() -> None:
+    client = Rendobar("k", base_url=MOCK, max_retries=0)
+    tap(client, _SubmitOnly())
+    result = tools(client)["run_job"].run(type="ffprobe", params={"command": "https://x/a.mp4"})
+    assert result["id"].startswith("job_") and result["status"] == "waiting"
+    assert result["error"]["code"] == "CONNECTION_ERROR"
+    assert result["hint"] == "Call get_job with this id."
+    assert "retried" not in json.dumps(result)
+
+
+def test_probe_media_after_the_job_exists_points_to_get_job() -> None:
+    client = Rendobar("k", base_url=MOCK, max_retries=0)
+    tap(client, _SubmitOnly())
+    result = tools(client)["probe_media"].run(url="https://x/a.mp4")
+    assert result["id"].startswith("job_") and result["hint"] == "Call get_job with this id."
+    assert "retried" not in json.dumps(result)
+
+
+def test_a_failed_submit_may_be_retried_with_the_same_key() -> None:
+    client = Rendobar("k", base_url=MOCK, max_retries=0)
+    tap(client, _Down())
+    first = tools(client)["run_job"].run(type="ffprobe", params={"command": "https://x/a.mp4"})
+    assert "id" not in first and first["idempotency_key"].startswith("sdk_")
+    assert first["error"]["message"].endswith("The call can be retried with this idempotency_key.")
+    recorder = _SubmitOnly()
+    retry_client = Rendobar("k", base_url=MOCK, max_retries=0)
+    tap(retry_client, recorder)
+    tools(retry_client)["run_job"].run(type="ffprobe", params={"command": "https://x/a.mp4"}, wait=False, idempotency_key=first["idempotency_key"])
+    assert recorder.bodies[0]["idempotencyKey"] == first["idempotency_key"]
+
+
+def test_a_refused_submit_is_not_offered_as_a_retry() -> None:
+    def refuse(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": {"code": "VALIDATION_ERROR", "message": "params.command is required"}})
+
+    client = Rendobar("k", base_url=MOCK, max_retries=0)
+    tap(client, httpx.MockTransport(refuse))
+    result = tools(client)["run_job"].run(type="ffprobe", params={})
+    assert result == {"error": {"code": "VALIDATION_ERROR", "message": "params.command is required"}}
