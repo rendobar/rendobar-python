@@ -119,3 +119,13 @@ def test_a_refused_submit_is_not_offered_as_a_retry() -> None:
     tap(client, httpx.MockTransport(refuse))
     result = tools(client)["run_job"].run(type="ffprobe", params={})
     assert result == {"error": {"code": "VALIDATION_ERROR", "message": "params.command is required"}}
+
+
+def test_a_rate_limited_submit_may_be_retried_with_its_key() -> None:
+    def limited(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"error": {"code": "RATE_LIMITED", "message": "Too many requests"}})
+
+    client = Rendobar("k", base_url=MOCK, max_retries=0)
+    tap(client, httpx.MockTransport(limited))
+    result = tools(client)["run_job"].run(type="ffprobe", params={"command": "https://x/a.mp4"})
+    assert result["idempotency_key"].startswith("sdk_") and result["error"]["code"] == "RATE_LIMITED"

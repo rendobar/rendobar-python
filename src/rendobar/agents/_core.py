@@ -126,8 +126,9 @@ def _create_then_wait(rb: Rendobar, type: str, params: Dict[str, Any], inputs: O
         created = rb.jobs.create(type, params, inputs, idempotency_key=key)
     except Exception as e:  # noqa: BLE001 (see the module docstring)
         error = _error_of(e)
-        if isinstance(e, RendobarError) and e.status_code is not None and e.status_code < 500:
-            return {"error": error}  # the API refused the job: nothing was created, fix the call
+        # The API refused the job: nothing was created, fix the call. A 429 is "later", not "wrong".
+        if isinstance(e, RendobarError) and e.status_code is not None and e.status_code < 500 and e.status_code != 429:
+            return {"error": error}
         # A lost response may hide a created job: the same key makes the retry return it, not a second one.
         error["message"] = f"{error['message']}. The call can be retried with this idempotency_key."
         return {"error": error, "idempotency_key": key}
