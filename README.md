@@ -103,12 +103,14 @@ from rendobar import Rendobar, UntypedJob
 rb = Rendobar()
 rb.jobs.create({"type": "ffprobe", "params": {"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"}}, label="probe")
 
-# A job type newer than your installed SDK: UntypedJob is the one way to submit it.
+# A job type the SDK does not type: UntypedJob is the one way to submit it.
 # It skips the type check, so the API is the first to see a mistake.
 rb.jobs.create(UntypedJob("captions.translate", {"language": "de"}))
 ```
 
-`rb.jobs.schema(type)` describes a job type's params at run time. The typed dicts come from the API spec, so a new job type gets its own type in the next release of this SDK.
+`UntypedJob` covers two cases: a job type newer than your installed SDK, and `compose`. Compose params nest timelines, tracks and effects that the spec does not name one by one, so the SDK leaves them untyped rather than ship generated names that change with every spec revision. `rb.jobs.schema("compose")` describes them, and the API validates every compose submit.
+
+`rb.jobs.schema(type)` describes any job type's params at run time. The typed dicts come from the API spec, so a new job type gets its own type in the next release of this SDK.
 
 ## Job options
 
@@ -137,8 +139,8 @@ Every method returns a typed result, so your editor completes fields and your ty
 | Call | Returns |
 |---|---|
 | `jobs.run()` | `JobComplete` (with `throw_on_failure=False`: `JobComplete`, `JobFailed` or `JobCancelled`) |
-| `jobs.wait()` | `JobComplete`, `JobFailed` or `JobCancelled` (with `throw_on_failure=True`: `JobComplete`) |
-| `jobs.create()` | `JobCreated`, or `JobReplayed` when the idempotency key was used before |
+| `jobs.wait()` | `JobComplete`, `JobFailed`, `JobCancelled`, or an `UnknownJob` that ended with a status newer than the SDK (with `throw_on_failure=True`: `JobComplete`) |
+| `jobs.create()` | `JobCreated`, `JobCompletedOnSubmit` for a job that finished during the request, or `JobReplayed` when the idempotency key was used before |
 | `jobs.get()`, `jobs.list()`, `jobs.list_all()` | `Job`: one of `JobWaiting`, `JobDispatched`, `JobRunning`, `JobComplete`, `JobFailed`, `JobCancelled` |
 | `jobs.cancel()` | `JobCancellation` (`id` and `status`) |
 | `jobs.types()`, `jobs.schema()` | a list of `JobType`, a `JobTypeSchema` |
@@ -157,7 +159,23 @@ elif isinstance(job, JobFailed):
     print(job.error.code, job.error.message)
 ```
 
-These names are aliases of the models generated from the API spec. `isinstance()` and annotations work with them, and `type(job).__name__` and `repr(job)` use them. Your editor's hovers and pyright's messages show the generated class name instead, such as `Job_Complete` for `JobComplete`, `SubmitJobResponseDataUrl` for `JobCreated` and `CancelJobResponseData` for `JobCancellation`. Nested models, such as the items of `job.output.files`, have only their generated names.
+The models are generated from the API spec. Most are named components there, such as `JobCreated`, `JobCost`, `JobOutput`, `OutputFile`, `JobStep`, `JobDelivery`, `JobError` and `FfprobeResult`, and your editor shows those names. The six job variants are the exception: the generator inlines them into the `Job` union. `isinstance()`, annotations, `type(job).__name__` and `repr(job)` use their public names, but hovers and pyright's messages show the generated one, such as `Job_Complete` for `JobComplete`.
+
+Counts, bytes, nanodollars and Unix-millisecond timestamps are `int`.
+
+A job type with a typed result reads it with `output_data()`. Today that is ffprobe, with `FfprobeResult`:
+
+```python
+from rendobar import FfprobeResult, Rendobar, output_data
+
+rb = Rendobar()
+probe = rb.jobs.run({"type": "ffprobe", "params": {"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"}})
+result = output_data(probe, FfprobeResult)
+if result.summary is not None:
+    print(result.summary)
+```
+
+`output_data()` raises `ResponseValidationError` when the data is not that shape. Each job type the spec gives a result type gets one the same way.
 
 `jobs.list()` takes `status` as one of the six job statuses (`JobStatus`), `limit` (1 or more) and `offset` (0 or more).
 
@@ -174,7 +192,7 @@ if isinstance(job, JobComplete) and job.cost is not None:
 
 `jobs.download(job_id, to)` streams a completed job's output file to a path or to a binary file you opened, and returns the bytes written. It never holds the file in memory. A connection that breaks mid-file raises at once rather than retrying, and a file the call created is removed.
 
-A job whose status is newer than your installed SDK comes back as `UnknownJob` with `id`, `status` and `raw`, rather than raising. That holds for every call that returns jobs (`get`, `list`, `list_all`, `create`, `cancel`, `wait`): in a list, only the job with the new status is an `UnknownJob`, the rest of the page is typed as usual. `jobs.wait()` treats a status it does not know as not finished, so a wait on one ends at its timeout with a `WaitTimeoutError` that carries the job.
+A job whose status is newer than your installed SDK comes back as `UnknownJob` with `id`, `status` and `raw`, rather than raising. That holds for every call that returns jobs (`get`, `list`, `list_all`, `create`, `cancel`, `wait`): in a list, only the job with the new status is an `UnknownJob`, the rest of the page is typed as usual. Every job says whether it has ended (`terminal`), so `jobs.wait()` also stops on a status it does not know when that job is terminal, and returns it as an `UnknownJob`. `jobs.run()` raises `JobFailedError` (code `JOB_ENDED`) for it, since only `JobComplete` counts as success. A status that is not terminal is polled until the timeout.
 
 ## Errors
 
@@ -235,7 +253,7 @@ import os
 from typing import Mapping
 
 from rendobar import WebhookSignatureError
-from rendobar.webhooks import JobCompletedEvent, JobFailedEvent, parse
+from rendobar.webhooks import JobCompletedWebhookEvent, JobFailedWebhookEvent, parse
 
 
 def handle_rendobar_webhook(raw_body: bytes, headers: Mapping[str, str]) -> int:
@@ -243,14 +261,14 @@ def handle_rendobar_webhook(raw_body: bytes, headers: Mapping[str, str]) -> int:
         event = parse(raw_body, headers, os.environ["RENDOBAR_WEBHOOK_SECRET"])
     except WebhookSignatureError:
         return 401
-    if isinstance(event, JobCompletedEvent):
+    if isinstance(event, JobCompletedWebhookEvent):
         print(event.data.job_id, [file.url for file in event.data.output.files])
-    elif isinstance(event, JobFailedEvent):
+    elif isinstance(event, JobFailedWebhookEvent):
         print(event.data.job_id, event.data.error.code)
     return 200  # acknowledge every genuine delivery, including events you do not handle
 ```
 
-`parse()` checks the signature, then returns the event typed by its name: `JobCreatedEvent`, `JobStartedEvent`, `JobCompletedEvent`, `JobFailedEvent`, `JobCancelledEvent`, `JobDeliverySucceededEvent`, `JobDeliveryFailedEvent`, `JobDeliveriesSettledEvent`, `BalanceLowEvent`, `BalanceDepletedEvent` or `TestEvent`. An event, or an envelope version, that your SDK does not know comes back as `UnknownWebhookEvent` with the body in `raw`, never as an exception, so a new event cannot break your handler. `verify()` is the signature check alone, as a bool, if you read the body yourself.
+`parse()` checks the signature, then returns the event typed by its name: `JobCreatedWebhookEvent`, `JobStartedWebhookEvent`, `JobCompletedWebhookEvent`, `JobFailedWebhookEvent`, `JobCancelledWebhookEvent`, `JobDeliverySucceededWebhookEvent`, `JobDeliveryFailedWebhookEvent`, `JobDeliveriesSettledWebhookEvent`, `BalanceLowWebhookEvent`, `BalanceDepletedWebhookEvent` or `TestWebhookEvent`. An event, or an envelope version, that your SDK does not know comes back as `UnknownWebhookEvent` with the body in `raw`, never as an exception, so a new event cannot break your handler. `verify()` is the signature check alone, as a bool, if you read the body yourself.
 
 Pass the raw body exactly as received. Parsing and re-serialising the JSON first changes the bytes, and the signature no longer matches. An empty secret never verifies, so read it with `os.environ["RENDOBAR_WEBHOOK_SECRET"]` and let a missing one fail at startup.
 
