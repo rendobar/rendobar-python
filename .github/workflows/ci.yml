@@ -27,9 +27,16 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Start the conformance mock
+        # The mock script and deny-list come from rendobar/openapi; the spec it serves is
+        # fern/openapi.json, the one this core was generated from, so a newer published
+        # spec cannot fail CI before its regeneration PR exists.
         run: |
-          python3 -I .openapi/conformance/mock_server.py .openapi/openapi.json 4100 requests.jsonl &
-          for i in $(seq 1 20); do curl -sf -X POST http://127.0.0.1:4100/__reset && break; sleep 0.5; done
+          python3 -I .openapi/conformance/mock_server.py fern/openapi.json 4100 requests.jsonl > mock.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -sf -X POST http://127.0.0.1:4100/__reset > /dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          echo "The conformance mock did not come up:"; cat mock.log; exit 1
       - name: Tests (conformance scenarios, webhook vectors, README)
         run: uv run --with-editable . --with pytest python -m pytest -q
       - name: Breaking-change check against the last release
@@ -58,14 +65,21 @@ jobs:
         with:
           python-version: "3.12"
       - name: Start the conformance mock
+        # The mock script and deny-list come from rendobar/openapi; the spec it serves is
+        # fern/openapi.json, the one this core was generated from, so a newer published
+        # spec cannot fail CI before its regeneration PR exists.
         run: |
-          python3 -I .openapi/conformance/mock_server.py .openapi/openapi.json 4100 requests.jsonl &
-          for i in $(seq 1 20); do curl -sf -X POST http://127.0.0.1:4100/__reset && break; sleep 0.5; done
+          python3 -I .openapi/conformance/mock_server.py fern/openapi.json 4100 requests.jsonl > mock.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -sf -X POST http://127.0.0.1:4100/__reset > /dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          echo "The conformance mock did not come up:"; cat mock.log; exit 1
       - name: Install with the agent extras
         run: |
           uv venv
           uv pip install -e ".[langchain,crewai]" pytest pyright "fastapi>=0.115" "django>=5.2" django-stubs
-      - name: Adapter and example tests (LangChain, CrewAI, FastAPI, Django)
-        run: .venv/bin/python -m pytest -q tests/test_agents.py tests/test_agents_frameworks.py tests/test_examples.py
+      - name: Full suite with the adapters and examples (LangChain, CrewAI, FastAPI, Django)
+        run: .venv/bin/python -m pytest -q
       - name: Types
         run: .venv/bin/pyright --pythonpath .venv/bin/python

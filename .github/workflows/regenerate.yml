@@ -1,7 +1,8 @@
 name: regenerate
 # Pulls the published spec from production every hour. Nothing happens unless it
 # changed. The SDK only ever sees a spec that is already live, so it can never
-# ship a method the API does not serve yet.
+# ship a method the API does not serve yet. A regeneration opens a PR and stops
+# there: a human reviews and merges it.
 on:
   schedule:
     - cron: "17 * * * *"
@@ -26,24 +27,58 @@ jobs:
           python3 -c "import json;json.dump(json.load(open('/tmp/live.json')),open('/tmp/live.norm.json','w'),indent=2,sort_keys=True)"
           python3 -c "import json;json.dump(json.load(open('fern/openapi.json')),open('/tmp/ours.norm.json','w'),indent=2,sort_keys=True)"
           if cmp -s /tmp/live.norm.json /tmp/ours.norm.json; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Check the change for breaking API differences
+        # Before the copy below: fern/openapi.json is still the spec this core was generated from.
+        id: breaking
+        if: steps.spec.outputs.changed == 'true'
+        run: |
+          set +e
+          docker run --rm -v "$PWD:/a" -v /tmp:/t tufin/oasdiff:v1.38.0 breaking /a/fern/openapi.json /t/live.json --fail-on ERR > /tmp/oasdiff.txt 2>&1
+          code=$?
+          set -e
+          cat /tmp/oasdiff.txt
+          if [ "$code" -eq 0 ]; then
+            echo "breaking=false" >> "$GITHUB_OUTPUT"
+          elif [ "$code" -eq 1 ]; then
+            echo "breaking=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "oasdiff could not compare the specs (exit $code)."; exit "$code"
+          fi
       - name: Regenerate the core
         if: steps.spec.outputs.changed == 'true'
         run: |
           cp /tmp/live.json fern/openapi.json
           cd fern && npx -y fern-api@5.224.0 generate --local --group python --force
           # The generator also writes tests for its own layout. They do not apply here and must not ship.
-          git -C .. rm -rq --ignore-unmatch src/rendobar/_generated/tests
+          rm -r ../src/rendobar/_generated/tests || true
+      - name: Write the PR text
+        id: pr
+        if: steps.spec.outputs.changed == 'true'
+        env:
+          BREAKING: ${{ steps.breaking.outputs.breaking }}
+        run: |
+          {
+            if [ "$BREAKING" = "true" ]; then
+              echo "**BREAKING SPEC CHANGE.** oasdiff found breaking differences between the spec this core was generated from and the published one. A human decides whether and how this ships (an additive path first; see the SDK versioning rules)."
+              echo
+              echo '```'
+              cat /tmp/oasdiff.txt
+              echo '```'
+              echo
+            fi
+            echo "The published OpenAPI document changed. CI runs the conformance scenarios. A human reviews and merges this PR: it never merges itself."
+          } > /tmp/pr-body.md
+          if [ "$BREAKING" = "true" ]; then
+            echo "title=fix: regenerate from the published spec (BREAKING SPEC CHANGE)" >> "$GITHUB_OUTPUT"
+          else
+            echo "title=fix: regenerate from the published spec" >> "$GITHUB_OUTPUT"
+          fi
       - name: Open the regeneration PR
         if: steps.spec.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.REGEN_TOKEN }}  # a token that triggers CI on the PR (GITHUB_TOKEN would not)
           branch: regenerate/spec
-          commit-message: "feat: regenerate from the published spec"
-          title: "feat: regenerate from the published spec"
-          body: "The published OpenAPI document changed. CI runs the conformance scenarios; the PR merges itself when they pass."
-      - name: Merge when green
-        if: steps.spec.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.REGEN_TOKEN }}
-        run: gh pr merge regenerate/spec --auto --squash || true
+          commit-message: "fix: regenerate from the published spec"
+          title: ${{ steps.pr.outputs.title }}
+          body-path: /tmp/pr-body.md
