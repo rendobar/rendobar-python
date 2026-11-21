@@ -57,6 +57,8 @@ def sync_client(rb: Rendobar) -> None:
     if isinstance(got, JobFailed):
         assert_type(got.error.code, str)
 
+    rb.jobs.list(status="complete")
+    rb.jobs.list(status="done")  # pyright: ignore[reportArgumentType]  (not a job status)
     page = rb.jobs.list()
     assert_type(page.data, List[Union[Job, UnknownJob]])
     assert_type(page.meta, PageMeta)

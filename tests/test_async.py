@@ -71,7 +71,7 @@ def test_async_retries_and_errors() -> None:
                 await rb.jobs.get("job_409")
             assert len(recorder.requests) == 1
         assert rb._core._client_wrapper.httpx_client.httpx_client.is_closed  # noqa: SLF001
-        fast = AsyncRendobar("k", base_url=MOCK, timeout=2.0, max_retries=0)       # C08
+        fast = AsyncRendobar("rb_k", base_url=MOCK, timeout=2.0, max_retries=0)       # C08
         started = time.monotonic()
         with pytest.raises(APITimeoutError):
             await fast.jobs.get("job_slow")

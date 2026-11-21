@@ -29,10 +29,14 @@ from ._client import (
     core_options,
     job_page,
     one_job,
+    JobStatus,
+    page_window,
+    path_segment,
+    require_key,
     resolve_api_key,
     retry_delay,
 )
-from ._errors import ResponseValidationError, missing_api_key, to_public
+from ._errors import ResponseValidationError, to_public
 from ._generated.client import AsyncGeneratedClient
 from ._models import AccountCapabilities, JobCancellation, JobComplete, JobCreated, JobReplayed, JobType, JobTypeSchema
 
@@ -58,9 +62,8 @@ class AsyncRendobar:
         app: Optional[str] = None,
         on_deprecation: Optional[Callable[[DeprecationNotice], None]] = None,
     ) -> None:
-        key = resolve_api_key(api_key)
-        self._core = AsyncGeneratedClient(**core_options(key, base_url=base_url, timeout=timeout, app=app))
-        self._has_key = key is not None
+        self._api_key = resolve_api_key(api_key)
+        self._core = AsyncGeneratedClient(**core_options(self._api_key, base_url=base_url, timeout=timeout, app=app))
         self._max_retries = max_retries
         self._deprecations = _Deprecations(on_deprecation)
         self.jobs = AsyncJobs(self)
@@ -81,8 +84,8 @@ class AsyncRendobar:
 
     async def _call(self, method: str, path: str, fn: Callable[[], Awaitable[Response[T]]], *, public: bool = False) -> T:
         """One API call, with the same retries and errors as `Rendobar._call`."""
-        if not public and not self._has_key:
-            raise missing_api_key()
+        if not public:
+            require_key(self._api_key)
         attempt = 0
         while True:
             try:
@@ -111,7 +114,7 @@ class AsyncJobs:
 
     async def schema(self, type: str) -> JobTypeSchema:
         """One job type's params: `fields`, `inputs` and the full `json_schema`. Public: needs no API key."""
-        return (await self._client._call("GET", f"/jobs/types/{type}/schema", lambda: self._raw.get_job_type_schema(type), public=True)).data
+        return (await self._client._call("GET", f"/jobs/types/{type}/schema", lambda: self._raw.get_job_type_schema(path_segment("type", type)), public=True)).data
 
     async def _job(self, method: str, path: str, fn: Callable[[], Awaitable[Response[Envelope[T]]]]) -> Union[T, UnknownJob]:
         try:
@@ -156,10 +159,14 @@ class AsyncJobs:
 
     async def get(self, job_id: str) -> SomeJob:
         """The job now. A status newer than this SDK comes back as `UnknownJob`."""
-        return await self._job("GET", f"/jobs/{job_id}", lambda: self._raw.get_job(job_id))
+        return await self._job("GET", f"/jobs/{job_id}", lambda: self._raw.get_job(path_segment("job_id", job_id)))
 
-    async def list(self, *, status: Optional[str] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
-        """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page."""
+    async def list(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
+        """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page.
+
+        `limit` is the page size (1 or more, the API sets the maximum) and `offset` the jobs to skip.
+        """
+        page_window(limit, offset)
         try:
             res = await self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(status=status, type=type, limit=limit, offset=offset))
         except ResponseValidationError as err:
@@ -167,7 +174,7 @@ class AsyncJobs:
         jobs: List[SomeJob] = list(res.data)
         return Page(jobs, res.meta)
 
-    async def list_all(self, *, status: Optional[str] = None, type: Optional[str] = None, page_size: int = 100) -> AsyncIterator[SomeJob]:
+    async def list_all(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, page_size: int = 100) -> AsyncIterator[SomeJob]:
         """Every matching job, fetching pages as you iterate."""
         offset = 0
         while True:
@@ -180,12 +187,12 @@ class AsyncJobs:
 
     async def cancel(self, job_id: str) -> Union[JobCancellation, UnknownJob]:
         """Cancel a job that has not finished."""
-        return await self._job("POST", f"/jobs/{job_id}/cancel", lambda: self._raw.cancel_job(job_id))
+        return await self._job("POST", f"/jobs/{job_id}/cancel", lambda: self._raw.cancel_job(path_segment("job_id", job_id)))
 
     async def download(self, job_id: str) -> bytes:
         """The output file of a completed job, as bytes."""
         async def fetch() -> _Fetched:
-            async with self._raw.download_job_output(job_id) as response:
+            async with self._raw.download_job_output(path_segment("job_id", job_id)) as response:
                 return _Fetched(response.headers, b"".join([chunk async for chunk in response.data]))
 
         return await self._client._call("GET", f"/jobs/{job_id}/download", fetch)

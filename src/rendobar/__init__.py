@@ -5,7 +5,7 @@
     job = rb.jobs.run(type="ffprobe", params={"command": "https://example.com/a.mp4"})
 """
 from ._async_client import AsyncAccount, AsyncJobs, AsyncRendobar
-from ._client import Account, DeprecationNotice, Jobs, Page, Rendobar, RendobarDeprecationWarning, UnknownJob, generate_idempotency_key
+from ._client import Account, DeprecationNotice, Jobs, JobStatus, Page, Rendobar, RendobarDeprecationWarning, UnknownJob, generate_idempotency_key
 from ._errors import (
     APIConnectionError,
     APITimeoutError,
@@ -14,6 +14,7 @@ from ._errors import (
     ConflictError,
     InsufficientCreditsError,
     InternalServerError,
+    InvalidArgumentError,
     JobFailedError,
     NotFoundError,
     PermissionDeniedError,
@@ -49,9 +50,9 @@ __all__ = [
     "Rendobar", "AsyncRendobar", "Jobs", "AsyncJobs", "Account", "AsyncAccount", "Page", "UnknownJob", "DeprecationNotice", "RendobarDeprecationWarning", "generate_idempotency_key",
     "RendobarError", "BadRequestError", "AuthenticationError", "InsufficientCreditsError",
     "PermissionDeniedError", "NotFoundError", "ConflictError", "RateLimitError", "InternalServerError",
-    "APIConnectionError", "APITimeoutError", "ResponseValidationError",
+    "APIConnectionError", "APITimeoutError", "ResponseValidationError", "InvalidArgumentError",
     "JobFailedError", "WaitTimeoutError", "__version__",
-    "Job", "JobWaiting", "JobDispatched", "JobRunning", "JobComplete", "JobFailed", "JobCancelled", "JobError",
+    "Job", "JobWaiting", "JobDispatched", "JobRunning", "JobComplete", "JobFailed", "JobCancelled", "JobError", "JobStatus",
     "JobCreated", "JobReplayed", "JobCancellation", "JobType", "JobTypeSchema", "JobTypeInputs", "PageMeta",
     "AccountCapabilities", "AccountPlan", "AccountLimits", "AccountFeatures",
 ]

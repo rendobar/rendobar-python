@@ -34,12 +34,21 @@ import secrets
 import time
 import warnings
 from types import TracebackType
-from typing import Any, Callable, Dict, Iterator, List, Literal, Mapping, Optional, Protocol, Sequence, Tuple, Type, TypeVar, Union, overload
+from typing import Any, Callable, Dict, Iterator, List, Literal, Mapping, Optional, Protocol, Sequence, Tuple, Type, TypeVar, Union, get_args, overload
 
 import httpx
 import pydantic
 
-from ._errors import JobFailedError, ResponseValidationError, WaitTimeoutError, missing_api_key, normalize, parse_retry_after, to_public
+from ._errors import (
+    InvalidArgumentError,
+    JobFailedError,
+    ResponseValidationError,
+    WaitTimeoutError,
+    api_key_error,
+    normalize,
+    parse_retry_after,
+    to_public,
+)
 from ._generated.client import GeneratedClient
 from ._generated.core.api_error import ApiError as _GeneratedApiError
 from ._generated.core.parse_error import ParsingError as _GeneratedParsingError
@@ -62,7 +71,8 @@ from ._models import (
 from ._version import __version__
 
 DEFAULT_BASE_URL = "https://api.rendobar.com"
-KNOWN_STATUSES = frozenset({"waiting", "dispatched", "running", "complete", "failed", "cancelled"})
+JobStatus = Literal["waiting", "dispatched", "running", "complete", "failed", "cancelled"]  # every status this SDK knows
+KNOWN_STATUSES = frozenset(get_args(JobStatus))
 _DEFAULT_WAIT_TIMEOUT = 300.0  # seconds, until the job reports its own budget
 _WAIT_GRACE = 120.0  # headroom past the job's budget for upload and callback
 _APP_NAME = re.compile(r"^[A-Za-z0-9._+-]{1,32}$")
@@ -127,6 +137,9 @@ class Page:
 
     def __len__(self) -> int:
         return len(self.data)
+
+    def __repr__(self) -> str:
+        return f"Page({len(self.data)} jobs, total={self.meta.total}, page={self.meta.page}, limit={self.meta.limit})"
 
 
 def generate_idempotency_key() -> str:
@@ -209,7 +222,10 @@ def build_submit(
         body["callback"] = dict(callback)
     if force_async is not None:
         body["forceAsync"] = force_async
-    return SubmitAnyJob.model_validate(body)  # the untyped variant: valid for every job type
+    try:
+        return SubmitAnyJob.model_validate(body)  # the untyped variant: valid for every job type
+    except pydantic.ValidationError as err:
+        raise InvalidArgumentError(f"The job cannot be submitted: {err}") from None
 
 
 def _is_newer_job(raw: Any) -> bool:
@@ -346,18 +362,45 @@ class WaitPoll:
 
 
 def resolve_api_key(api_key: Optional[str]) -> Optional[str]:
-    """The key to send: `api_key`, else RENDOBAR_API_KEY. None when that is missing, empty or blank."""
-    key = api_key if api_key is not None else os.environ.get("RENDOBAR_API_KEY")
-    return key if key is not None and key.strip() else None
+    """The client's key: `api_key`, else RENDOBAR_API_KEY, as given. `api_key_error` says whether it can be used."""
+    return api_key if api_key is not None else os.environ.get("RENDOBAR_API_KEY")
+
+
+def require_key(key: Optional[str]) -> None:
+    """Raises the AuthenticationError for a call that needs a key when `key` is missing or not a Rendobar key."""
+    problem = api_key_error(key)
+    if problem is not None:
+        raise problem
+
+
+_PATH_SEGMENT = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def path_segment(name: str, value: str) -> str:
+    """`value` when it is safe as one URL path segment (a job id, a job type), else InvalidArgumentError."""
+    if not isinstance(value, str) or not _PATH_SEGMENT.match(value) or value in (".", ".."):
+        raise InvalidArgumentError(f"{name} must be letters, digits, '.', '_' or '-', such as job_abc123. Got {value!r}.")
+    return value
+
+
+def page_window(limit: Optional[int], offset: Optional[int]) -> None:
+    """InvalidArgumentError for a page size below 1 or a negative offset. The API sets the maximum."""
+    if limit is not None and limit < 1:
+        raise InvalidArgumentError(f"limit must be 1 or more. Got {limit}.")
+    if offset is not None and offset < 0:
+        raise InvalidArgumentError(f"offset must be 0 or more. Got {offset}.")
 
 
 def core_options(key: Optional[str], *, base_url: str, timeout: float, app: Optional[str]) -> Dict[str, Any]:
-    """The generated core's constructor kwargs, shared by both clients. Its own retries are off: `_call` owns them."""
+    """The generated core's constructor kwargs, shared by both clients. Its own retries are off: `_call` owns them.
+
+    A key `api_key_error` refuses is not sent at all: public calls then go out without one.
+    """
     if app is not None and not _APP_NAME.match(app):
-        raise ValueError('"app" must be 1-32 letters, digits or . _ + -')
+        raise InvalidArgumentError('"app" must be 1-32 letters, digits or . _ + -')
     return {
         "base_url": base_url,
-        "token": key,
+        "token": key if api_key_error(key) is None else None,
         "headers": {"X-Rendobar-Client": _client_header(app)},
         "timeout": timeout,
         "max_retries": 0,
@@ -432,9 +475,8 @@ class Rendobar:
         app: Optional[str] = None,
         on_deprecation: Optional[Callable[[DeprecationNotice], None]] = None,
     ) -> None:
-        key = resolve_api_key(api_key)
-        self._core = GeneratedClient(**core_options(key, base_url=base_url, timeout=timeout, app=app))
-        self._has_key = key is not None
+        self._api_key = resolve_api_key(api_key)
+        self._core = GeneratedClient(**core_options(self._api_key, base_url=base_url, timeout=timeout, app=app))
         self._max_retries = max_retries
         self._deprecations = _Deprecations(on_deprecation)
         self.jobs = Jobs(self)
@@ -460,8 +502,8 @@ class Rendobar:
 
         A call that needs a key (every one but `public`) raises at once when the client has none.
         """
-        if not public and not self._has_key:
-            raise missing_api_key()
+        if not public:
+            require_key(self._api_key)
         attempt = 0
         while True:
             try:
@@ -490,7 +532,7 @@ class Jobs:
 
     def schema(self, type: str) -> JobTypeSchema:
         """One job type's params: `fields`, `inputs` and the full `json_schema`. Public: needs no API key."""
-        return self._client._call("GET", f"/jobs/types/{type}/schema", lambda: self._raw.get_job_type_schema(type), public=True).data
+        return self._client._call("GET", f"/jobs/types/{type}/schema", lambda: self._raw.get_job_type_schema(path_segment("type", type)), public=True).data
 
     def _job(self, method: str, path: str, fn: Callable[[], Response[Envelope[T]]]) -> Union[T, UnknownJob]:
         try:
@@ -539,10 +581,14 @@ class Jobs:
         Narrow with isinstance to read what only one status has, such as
         `output` on `JobComplete` and `error` on `JobFailed`.
         """
-        return self._job("GET", f"/jobs/{job_id}", lambda: self._raw.get_job(job_id))
+        return self._job("GET", f"/jobs/{job_id}", lambda: self._raw.get_job(path_segment("job_id", job_id)))
 
-    def list(self, *, status: Optional[str] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
-        """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page."""
+    def list(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
+        """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page.
+
+        `limit` is the page size (1 or more, the API sets the maximum) and `offset` the jobs to skip.
+        """
+        page_window(limit, offset)
         try:
             res = self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(status=status, type=type, limit=limit, offset=offset))
         except ResponseValidationError as err:
@@ -550,7 +596,7 @@ class Jobs:
         jobs: List[SomeJob] = list(res.data)
         return Page(jobs, res.meta)
 
-    def list_all(self, *, status: Optional[str] = None, type: Optional[str] = None, page_size: int = 100) -> Iterator[SomeJob]:
+    def list_all(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, page_size: int = 100) -> Iterator[SomeJob]:
         """Every matching job, fetching pages as you iterate."""
         offset = 0
         while True:
@@ -562,12 +608,12 @@ class Jobs:
 
     def cancel(self, job_id: str) -> Union[JobCancellation, UnknownJob]:
         """Cancel a job that has not finished."""
-        return self._job("POST", f"/jobs/{job_id}/cancel", lambda: self._raw.cancel_job(job_id))
+        return self._job("POST", f"/jobs/{job_id}/cancel", lambda: self._raw.cancel_job(path_segment("job_id", job_id)))
 
     def download(self, job_id: str) -> bytes:
         """The output file of a completed job, as bytes."""
         def fetch() -> _Fetched:
-            with self._raw.download_job_output(job_id) as response:
+            with self._raw.download_job_output(path_segment("job_id", job_id)) as response:
                 return _Fetched(response.headers, b"".join(response.data))
 
         return self._client._call("GET", f"/jobs/{job_id}/download", fetch)

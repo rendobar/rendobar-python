@@ -9,6 +9,7 @@ the case you handle, or `RendobarError` for all of them.
     ├── BadRequestError (400), AuthenticationError (401), InsufficientCreditsError (402),
     │   PermissionDeniedError (403), NotFoundError (404), ConflictError (409),
     │   RateLimitError (429), InternalServerError (5xx)
+    ├── InvalidArgumentError        a bad argument, caught before any request (also a ValueError)
     ├── APIConnectionError          the request did not get a response
     │   └── APITimeoutError         it timed out
     ├── ResponseValidationError     a response this SDK version cannot read
@@ -63,8 +64,9 @@ class BadRequestError(RendobarError):
 class AuthenticationError(RendobarError):
     """401: invalid or expired API key.
 
-    Also raised before any request when the client has no key at all (code
-    `MISSING_API_KEY`, `status_code` None): see `missing_api_key`.
+    Also raised before any request, with `status_code` None, when the client
+    has no key (code `MISSING_API_KEY`) or a key that is not a Rendobar key
+    (code `INVALID_API_KEY`): see `api_key_error`.
     """
 
 
@@ -103,12 +105,32 @@ _BY_STATUS: Dict[int, Type[RendobarError]] = {
 }
 
 
-def missing_api_key() -> AuthenticationError:
-    """The error for a call that needs a key on a client that has none, raised before anything is sent."""
-    return AuthenticationError(
-        "No API key. Pass Rendobar(api_key=...) or set the RENDOBAR_API_KEY environment variable.",
-        code="MISSING_API_KEY",
-    )
+def api_key_error(key: Optional[str]) -> Optional[AuthenticationError]:
+    """Why `key` cannot authenticate, found before anything is sent: missing or blank, or not a Rendobar key. None when it may.
+
+    Every Rendobar API key starts with `rb_`, so anything else would only earn the API's 401.
+    """
+    if key is None or not key.strip():
+        return AuthenticationError(
+            "No API key. Pass Rendobar(api_key=...) or set the RENDOBAR_API_KEY environment variable.",
+            code="MISSING_API_KEY",
+        )
+    if not key.startswith("rb_"):
+        return AuthenticationError(
+            "This is not a Rendobar API key: keys start with rb_. Check the api_key you passed or RENDOBAR_API_KEY.",
+            code="INVALID_API_KEY",
+        )
+    return None
+
+
+class InvalidArgumentError(RendobarError, ValueError):
+    """An argument the SDK refuses before sending any request, such as a job id with a `/` in it or `limit=0`.
+
+    `code` is `INVALID_ARGUMENT`. Also a ValueError, so code that catches ValueError keeps working.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, code="INVALID_ARGUMENT")
 
 
 class APIConnectionError(RendobarError):

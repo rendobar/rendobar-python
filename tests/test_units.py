@@ -19,6 +19,7 @@ from rendobar import (
     AsyncRendobar,
     AuthenticationError,
     ConflictError,
+    InvalidArgumentError,
     JobCancelled,
     JobComplete,
     JobDispatched,
@@ -244,13 +245,13 @@ def _install(http: Any, handler: Handler) -> None:
 
 
 def sync_client(handler: Handler, **kw: Any) -> Rendobar:
-    client = Rendobar("k", base_url="https://api.test", **kw)
+    client = Rendobar("rb_k", base_url="https://api.test", **kw)
     _install(client._core._client_wrapper.httpx_client.httpx_client, handler)  # noqa: SLF001
     return client
 
 
 def async_client(handler: Handler, **kw: Any) -> AsyncRendobar:
-    client = AsyncRendobar("k", base_url="https://api.test", **kw)
+    client = AsyncRendobar("rb_k", base_url="https://api.test", **kw)
     _install(client._core._client_wrapper.httpx_client.httpx_client, handler)  # noqa: SLF001
     return client
 
@@ -438,3 +439,60 @@ def test_models_carry_their_public_names() -> None:
     assert type(created).__name__ == "JobCreated" and repr(created).startswith("JobCreated(")
     running = sync_client(routes({"GET /jobs/job_1": (200, {"data": job("job_1", "running")})})).jobs.get("job_1")
     assert isinstance(running, rendobar.JobRunning) and pickle.loads(pickle.dumps(running)) == running
+
+
+@pytest.mark.parametrize("key", ["k", "sk_live_123", "Bearer rb_x"])
+def test_a_key_that_is_not_a_rendobar_key_raises_locally_and_is_never_sent(key: str) -> None:
+    sent: List[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, json={"data": []})
+
+    rb = Rendobar(key, base_url="https://api.test")
+    _install(rb._core._client_wrapper.httpx_client.httpx_client, handle)  # noqa: SLF001
+    with pytest.raises(AuthenticationError) as info:
+        rb.jobs.get("job_1")
+    assert info.value.code == "INVALID_API_KEY" and "rb_" in str(info.value)
+    rb.jobs.types()
+    assert [r.url.path for r in sent] == ["/jobs/types"] and "Authorization" not in sent[0].headers
+
+
+# ── arguments refused before any request ──────────────────────────────
+
+def refuse_all(request: httpx.Request) -> httpx.Response:
+    raise AssertionError(f"no request should be sent, got {request.url}")
+
+
+@pytest.mark.parametrize("job_id", ["../../etc", "..", ".", "", "job_1/cancel", "job_1?x=1", "job 1"])
+def test_an_unsafe_job_id_is_an_invalid_argument(job_id: str) -> None:
+    rb = sync_client(refuse_all)
+    for call in (rb.jobs.get, rb.jobs.cancel, rb.jobs.download, rb.jobs.wait, rb.jobs.schema):
+        with pytest.raises(InvalidArgumentError) as info:
+            call(job_id)
+        assert isinstance(info.value, RendobarError) and isinstance(info.value, ValueError)
+        assert info.value.code == "INVALID_ARGUMENT" and info.value.status_code is None
+    with pytest.raises(InvalidArgumentError):
+        asyncio.run(async_client(refuse_all).jobs.get(job_id))
+
+
+@pytest.mark.parametrize("limit, offset", [(0, None), (-1, None), (None, -1)])
+def test_a_page_window_below_its_minimum_is_an_invalid_argument(limit: Optional[int], offset: Optional[int]) -> None:
+    with pytest.raises(InvalidArgumentError):
+        sync_client(refuse_all).jobs.list(limit=limit, offset=offset)
+    with pytest.raises(InvalidArgumentError):
+        asyncio.run(async_client(refuse_all).jobs.list(limit=limit, offset=offset))
+    with pytest.raises(InvalidArgumentError):
+        list(sync_client(refuse_all).jobs.list_all(page_size=0))
+
+
+def test_other_client_side_problems_are_invalid_arguments_too() -> None:
+    with pytest.raises(InvalidArgumentError):
+        Rendobar("rb_k", app="has spaces")
+    with pytest.raises(InvalidArgumentError):
+        sync_client(refuse_all).jobs.create(123)  # type: ignore[arg-type]
+
+
+def test_a_page_prints_its_size_and_window() -> None:
+    page = sync_client(routes(PAGES)).jobs.list()
+    assert repr(page) == "Page(3 jobs, total=3, page=1, limit=50)"

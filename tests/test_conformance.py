@@ -104,7 +104,7 @@ def test_c07_retries_503_then_raises(rb: Rendobar) -> None:
 
 
 def test_c08_timeout() -> None:
-    fast = Rendobar("k", base_url=MOCK, timeout=2.0, max_retries=0)
+    fast = Rendobar("rb_k", base_url=MOCK, timeout=2.0, max_retries=0)
     started = time.monotonic()
     with pytest.raises(APITimeoutError) as info:
         fast.jobs.get("job_slow")
@@ -149,7 +149,7 @@ def test_c13_retried_submit_creates_one_job(rb: Rendobar) -> None:
 
 def test_c14_deprecated_endpoint_reported_once() -> None:
     notices = []
-    client = Rendobar("k", base_url=MOCK, on_deprecation=notices.append)
+    client = Rendobar("rb_k", base_url=MOCK, on_deprecation=notices.append)
     client.jobs.get("job_x")  # current endpoint: silent
     assert notices == []
     # No public Python method maps to a deprecated route; call one through the
@@ -197,7 +197,7 @@ def test_c18_conflict_is_not_retried(rb: Rendobar) -> None:
 
 
 def test_default_deprecation_warning_is_a_python_warning() -> None:
-    client = Rendobar("k", base_url=MOCK)
+    client = Rendobar("rb_k", base_url=MOCK)
     raw = client._core.billing.with_raw_response  # noqa: SLF001
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
@@ -208,7 +208,7 @@ def test_default_deprecation_warning_is_a_python_warning() -> None:
 
 def test_deprecation_warning_is_shown_under_default_filters() -> None:
     script = (
-        "import sys; from rendobar import Rendobar; c = Rendobar('k', base_url=sys.argv[1]); "
+        "import sys; from rendobar import Rendobar; c = Rendobar('rb_k', base_url=sys.argv[1]); "
         "c._call('POST', '/billing/checkout/pro', c._core.billing.with_raw_response.create_pro_checkout)"
     )
     env = {k: v for k, v in os.environ.items() if k != "PYTHONWARNINGS"}
@@ -217,6 +217,6 @@ def test_deprecation_warning_is_shown_under_default_filters() -> None:
 
 
 def test_close_and_context_manager() -> None:
-    with Rendobar("k", base_url=MOCK) as client:
+    with Rendobar("rb_k", base_url=MOCK) as client:
         assert client.jobs.get("job_x").id == "job_x"
     assert client._core._client_wrapper.httpx_client.httpx_client.is_closed  # noqa: SLF001
