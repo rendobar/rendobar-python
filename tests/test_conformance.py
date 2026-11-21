@@ -19,15 +19,21 @@ import pytest
 
 from rendobar import (
     APITimeoutError,
+    AuthenticationError,
     ConflictError,
     InternalServerError,
+    InvalidArgumentError,
+    JobCancelled,
+    JobCreated,
     JobFailed,
     JobFailedError,
+    JobReplayed,
     NotFoundError,
     Rendobar,
     RendobarDeprecationWarning,
     RendobarError,
     UnknownJob,
+    WaitTimeoutError,
     __version__,
 )
 
@@ -220,3 +226,170 @@ def test_close_and_context_manager() -> None:
     with Rendobar("rb_k", base_url=MOCK) as client:
         assert client.jobs.get("job_x").id == "job_x"
     assert client._core._client_wrapper.httpx_client.httpx_client.is_closed  # noqa: SLF001
+
+
+# ── C19-C39: the cross-SDK behaviour standard ─────────────────────────
+# Scenarios that need mock features newer than rendobar/openapi main skip
+# until the mock serves them (it answers GET /__requests).
+
+@pytest.fixture
+def parity_mock() -> None:
+    try:
+        urllib.request.urlopen(f"{MOCK}/__requests", timeout=5)
+    except Exception:  # noqa: BLE001 (an older mock answers 404)
+        pytest.skip("needs the parity mock (GET /__requests)")
+
+
+def requests_seen() -> list:
+    return json.load(urllib.request.urlopen(f"{MOCK}/__requests", timeout=5))["data"]
+
+
+def created_count() -> int:
+    return json.load(urllib.request.urlopen(f"{MOCK}/__created", timeout=5))["data"]["count"]
+
+
+def test_c19_no_key_fails_locally(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("RENDOBAR_API_KEY", raising=False)
+    client = Rendobar(base_url=MOCK)
+    recorder = recording(client)
+    with pytest.raises(AuthenticationError) as info:
+        client.jobs.get("job_x")
+    message = str(info.value)
+    assert info.value.code == "MISSING_API_KEY" and "RENDOBAR_API_KEY" in message and "api_key" in message
+    assert recorder.requests == []
+
+
+def test_c20_a_key_without_rb_fails_locally() -> None:
+    client = Rendobar("sk_x", base_url=MOCK)
+    recorder = recording(client)
+    with pytest.raises(AuthenticationError) as info:
+        client.jobs.get("job_x")
+    assert info.value.code == "INVALID_API_KEY" and recorder.requests == []
+
+
+def test_c21_a_trailing_slash_never_doubles_the_path() -> None:
+    client = Rendobar("rb_conformance", base_url=f"{MOCK}/")
+    recorder = recording(client)
+    client.jobs.get("job_x")
+    assert [r.url.raw_path for r in recorder.requests] == [b"/jobs/job_x"]
+
+
+def test_c22_a_cut_off_submit_carries_the_key_and_resubmits_to_the_same_job(parity_mock: None) -> None:
+    reset("?stall_submit=1")
+    client = Rendobar("rb_conformance", base_url=MOCK, timeout=2.0)
+    with pytest.raises(APITimeoutError) as info:
+        client.jobs.create("ffprobe", {"command": "https://x/a.mp4"})
+    key = info.value.idempotency_key
+    assert key is not None and key.startswith("sdk_")
+    again = client.jobs.create("ffprobe", {"command": "https://x/a.mp4"}, idempotency_key=key)
+    assert isinstance(again, JobReplayed) and created_count() == 1
+
+
+def test_c23_same_key_different_params_is_a_conflict_after_one_request(parity_mock: None, rb: Rendobar) -> None:
+    rb.jobs.create("ffprobe", {"command": "https://x/a.mp4"}, idempotency_key="order-23")
+    before = len(requests_seen())
+    with pytest.raises(ConflictError) as info:
+        rb.jobs.create("ffprobe", {"command": "https://x/b.mp4"}, idempotency_key="order-23")
+    assert info.value.code == "CONFLICT" and len(requests_seen()) == before + 1
+
+
+def test_c24_same_key_same_params_replays_the_job(rb: Rendobar) -> None:
+    first = rb.jobs.create("ffprobe", {"command": "https://x/a.mp4"}, idempotency_key="order-24")
+    second = rb.jobs.create("ffprobe", {"command": "https://x/a.mp4"}, idempotency_key="order-24")
+    assert isinstance(first, JobCreated) and isinstance(second, JobReplayed) and second.id == first.id
+
+
+def test_c25_a_503_retry_after_is_honoured(parity_mock: None, rb: Rendobar) -> None:
+    started = time.monotonic()
+    assert rb.jobs.get("job_503_ra").id == "job_503_ra"
+    assert 0.9 <= time.monotonic() - started < 3
+
+
+def test_c26_a_long_retry_after_is_raised_after_one_request(parity_mock: None, rb: Rendobar) -> None:
+    with pytest.raises(RendobarError) as info:
+        rb.jobs.get("job_ra_long")
+    assert info.value.retry_after == 3600 and len(requests_seen()) == 1
+
+
+def test_c27_an_http_date_retry_after_is_honoured(parity_mock: None, rb: Rendobar) -> None:
+    started = time.monotonic()
+    assert rb.jobs.get("job_ra_date").id == "job_ra_date"
+    assert 0.5 <= time.monotonic() - started < 4 and len(requests_seen()) == 2
+
+
+def test_c28_a_501_is_not_retried(parity_mock: None, rb: Rendobar) -> None:
+    with pytest.raises(RendobarError) as info:
+        rb.jobs.get("job_501")
+    assert info.value.status_code == 501 and len(requests_seen()) == 1
+
+
+def test_c29_list_all_follows_the_rows_returned(parity_mock: None, rb: Rendobar) -> None:
+    assert len(list(rb.jobs.list_all(page_size=500))) == 120
+    queries = [r["query"] for r in requests_seen() if r["path"] == "/jobs"]
+    assert len(queries) == 2 and "offset=0" in queries[0] and "offset=100" in queries[1]
+
+
+def test_c30_a_phantom_total_does_not_loop(parity_mock: None, rb: Rendobar) -> None:
+    reset("?phantom_total=1")
+    assert len(list(rb.jobs.list_all())) == 60
+
+
+def test_c31_a_bad_page_window_fails_locally(rb: Rendobar) -> None:
+    recorder = recording(rb)
+    with pytest.raises(InvalidArgumentError):
+        rb.jobs.list(limit=0)
+    with pytest.raises(InvalidArgumentError):
+        rb.jobs.list(offset=-1)
+    assert recorder.requests == []
+
+
+@pytest.mark.parametrize("job_id", ["", "a/b", ".."])
+def test_c32_an_unsafe_id_fails_locally(rb: Rendobar, job_id: str) -> None:
+    recorder = recording(rb)
+    with pytest.raises(InvalidArgumentError):
+        rb.jobs.get(job_id)
+    assert recorder.requests == []
+
+
+def test_c33_an_invalid_submit_exposes_its_problems(parity_mock: None, rb: Rendobar) -> None:
+    with pytest.raises(RendobarError) as info:
+        rb.jobs.create("no_such_type", {})
+    problems = info.value.problems
+    assert info.value.code == "VALIDATION_ERROR" and problems and problems[0].path == ("type",) and problems[0].message
+
+
+def test_c34_a_wait_timeout_carries_the_last_job(parity_mock: None, rb: Rendobar) -> None:
+    with pytest.raises(WaitTimeoutError) as info:
+        rb.jobs.wait("job_stuck", timeout=3, interval=0.5)
+    assert info.value.job_id == "job_stuck" and info.value.last_status == "running"
+    assert info.value.job.id == "job_stuck" and info.value.job.status == "running"
+
+
+def test_c35_wait_returns_a_cancelled_job_and_run_raises(parity_mock: None, rb: Rendobar) -> None:
+    assert isinstance(rb.jobs.wait("job_cancelled"), JobCancelled)
+    reset("?cancel_created=1")
+    with pytest.raises(JobFailedError) as info:
+        rb.jobs.run("ffprobe", {"command": "https://x/a.mp4"}, interval=0.05)
+    assert info.value.code == "JOB_CANCELLED" and isinstance(info.value.job, JobCancelled)
+
+
+def test_c36_a_timed_out_request_is_sent_once() -> None:
+    client = Rendobar("rb_conformance", base_url=MOCK, timeout=2.0)
+    recorder = recording(client)
+    with pytest.raises(APITimeoutError):
+        client.jobs.get("job_slow")
+    assert len(recorder.requests) == 1
+
+
+def test_c37_waiting_on_a_newer_status_times_out_without_crashing(rb: Rendobar) -> None:
+    with pytest.raises(WaitTimeoutError) as info:
+        rb.jobs.wait("job_future", timeout=3, interval=0.5)
+    assert info.value.last_status == "paused" and isinstance(info.value.job, UnknownJob)
+
+
+def test_c38_the_client_header_names_the_package_version_runtime_and_app() -> None:
+    client = Rendobar("rb_conformance", base_url=MOCK, app="conformance")
+    recorder = recording(client)
+    client.jobs.get("job_x")
+    header = recorder.requests[0].headers["X-Rendobar-Client"]
+    assert header.startswith(f"python/{__version__} (python/") and header.endswith("; app/conformance)")
