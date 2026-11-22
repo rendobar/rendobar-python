@@ -23,8 +23,9 @@ from typing import TYPE_CHECKING, Callable, Dict, Generator, List, Literal, Mapp
 import httpx
 import pydantic
 
-from ._errors import InvalidArgumentError, RendobarError, as_list, as_mapping, is_text, to_public
+from ._errors import InvalidArgumentError, RendobarError, as_mapping, is_text, to_public
 from ._generated.core.request_options import RequestOptions
+from ._generated.types.create_asset_answer import CreateAssetAnswer, CreateAssetAnswer_Deduplicated, CreateAssetAnswer_Presigned
 from ._generated.core.serialization import convert_and_respect_annotation_metadata
 from ._models import PageMeta
 from ._plumbing import Page, empty, listed, one, page_window, paged, path_segment, text, texts, union, unread, whole
@@ -234,8 +235,8 @@ class UploadPlan:
     parts: List[Part]
 
 
-def _int(value: object) -> Optional[int]:
-    return value if isinstance(value, int) and not isinstance(value, bool) else None
+# What POST /assets answers, told apart by `status`: 200 deduplicated, 201 presigned or multipart.
+_UPLOAD_INIT: "pydantic.TypeAdapter[CreateAssetAnswer]" = pydantic.TypeAdapter(CreateAssetAnswer)
 
 
 def upload_plan(response: httpx.Response, size: int) -> UploadPlan:
@@ -244,31 +245,25 @@ def upload_plan(response: httpx.Response, size: int) -> UploadPlan:
         decoded: object = response.json()
     except ValueError:
         decoded = response.text
-    init = as_mapping(decoded)
-    status = init.get("status") if init is not None else None
-    upload = as_mapping(init.get("upload")) if init is not None else None
     try:
-        asset = Asset.model_validate(init.get("data") if init is not None else None)
+        init = _UPLOAD_INIT.validate_python(decoded)
+        # One public Asset for every answer: read from the body, not from each variant's own data class.
+        body = as_mapping(decoded)
+        asset = Asset.model_validate(body.get("data") if body is not None else None)
     except pydantic.ValidationError:
         raise unread(response, decoded) from None
-    if status == "deduplicated":
+    if isinstance(init, CreateAssetAnswer_Deduplicated):
         return UploadPlan(asset, "deduplicated", [])
-    if status == "presigned" and upload is not None and isinstance(upload.get("url"), str):
-        return UploadPlan(asset, "presigned", [Part(1, 0, size, str(upload["url"]))])
-    part_size = _int(upload.get("partSize")) if upload is not None else None
-    listed_parts = as_list(upload.get("parts")) if upload is not None else None
-    if status == "multipart" and part_size is not None and part_size > 0 and listed_parts is not None:
-        parts: List[Part] = []
-        for item in listed_parts:
-            part = as_mapping(item)
-            number = _int(part.get("partNumber")) if part is not None else None
-            url = part.get("url") if part is not None else None
-            if number is None or number < 1 or not isinstance(url, str):
-                raise unread(response, decoded)
-            start = (number - 1) * part_size
-            parts.append(Part(number, start, max(0, min(part_size, size - start)), url))
-        return UploadPlan(asset, "multipart", parts)
-    raise unread(response, decoded)
+    if isinstance(init, CreateAssetAnswer_Presigned):
+        return UploadPlan(asset, "presigned", [Part(1, 0, size, init.upload.url)])
+    part_size = init.upload.part_size
+    if part_size < 1 or any(item.part_number < 1 for item in init.upload.parts):
+        raise unread(response, decoded)
+    parts: List[Part] = []
+    for item in init.upload.parts:
+        start = (item.part_number - 1) * part_size
+        parts.append(Part(item.part_number, start, max(0, min(part_size, size - start)), item.url))
+    return UploadPlan(asset, "multipart", parts)
 
 
 def upload_failed(status: int) -> RendobarError:

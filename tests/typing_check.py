@@ -216,7 +216,9 @@ def resources(rb: Rendobar) -> None:
     rb.webhooks.create(name="hook", url="https://example.com/h", subscribed_events=["job.teleported"])  # type: ignore[list-item]
     assert_type(rb.webhooks.list(), Page[WebhookEndpoint, ListMeta])
     assert_type(rb.webhooks.update(created.id, active=False), WebhookEndpoint)
-    assert_type(rb.webhooks.test(created.id), WebhookTestResult)
+    tested = rb.webhooks.test(created.id)
+    assert_type(tested, WebhookTestResult)
+    assert_type(tested.status_code, Optional[int])
     deliveries = rb.webhooks.list_deliveries(endpoint_id=created.id, status="failed")
     assert_type(deliveries.data, List[WebhookDelivery])
     assert_type(rb.webhooks.delete(created.id), None)
