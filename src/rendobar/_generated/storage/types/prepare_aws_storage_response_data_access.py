@@ -2,4 +2,4 @@
 
 import typing
 
-PrepareAwsStorageResponseDataAccess = typing.Literal["read"]
+PrepareAwsStorageResponseDataAccess = typing.Union[typing.Literal["read"], str]

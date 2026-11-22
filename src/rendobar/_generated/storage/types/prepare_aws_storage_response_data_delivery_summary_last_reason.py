@@ -2,4 +2,4 @@
 
 import typing
 
-PrepareAwsStorageResponseDataDeliverySummaryLastReason = typing.Literal["destination_denied", "signature_mismatch", "bucket_not_found", "object_too_large", "already_exists", "destination_unavailable", "not_deliverable"]
+PrepareAwsStorageResponseDataDeliverySummaryLastReason = typing.Union[typing.Literal["destination_denied", "signature_mismatch", "bucket_not_found", "object_too_large", "already_exists", "destination_unavailable", "not_deliverable"], str]

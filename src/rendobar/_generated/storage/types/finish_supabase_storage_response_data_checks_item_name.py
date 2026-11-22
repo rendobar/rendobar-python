@@ -2,4 +2,4 @@
 
 import typing
 
-FinishSupabaseStorageResponseDataChecksItemName = typing.Literal["write", "read", "delete", "list"]
+FinishSupabaseStorageResponseDataChecksItemName = typing.Union[typing.Literal["write", "read", "delete", "list"], str]

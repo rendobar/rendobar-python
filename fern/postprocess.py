@@ -11,10 +11,13 @@ rewrites only type annotations in the generated model modules, never logic:
 - `Any` in a model or request TypedDict becomes `object`, so reading a
   free-form value (`job.params`, `job.output.data`) makes you narrow it first.
 
-Which enums a response can carry is derived from the SDK itself: every
+Which enums a response can carry is derived from the generated code itself:
+every response model (a module named for a response, `*_response*.py`), every
 generated model module the hand-written layer imports, and every module those
 import in turn. Nothing here lists a type by name, so a regeneration needs no
-edit.
+edit. The rewrite is a fixed point: an enum already rewritten is rewritten
+again to match, so a model that starts or stops being reachable from a response
+is reopened or closed without a fresh `fern generate`.
 
 Usage: python fern/postprocess.py [--check]
 """
@@ -27,6 +30,9 @@ ROOT = Path(__file__).resolve().parent.parent / "src" / "rendobar"
 GENERATED = ROOT / "_generated"
 ENUM = re.compile(r"=\s*typing\.Union\[\s*typing\.Literal\[(?P<values>.*?)\],\s*typing\.Any,?\s*\]", re.S)
 ANY = re.compile(r"\btyping\.Any\b")
+# Module-level enum aliases this script wrote before, closed or open, one line each.
+CLOSED = re.compile(r"^(?P<name>\w+) = typing\.Literal\[(?P<values>[^\n]*)\]$", re.M)
+OPENED = re.compile(r"^(?P<name>\w+) = typing\.Union\[typing\.Literal\[(?P<values>[^\n]*)\], str\]$", re.M)
 
 
 def is_model(path: Path) -> bool:
@@ -57,9 +63,11 @@ def imports(path: Path) -> set:
 
 
 def response_modules() -> set:
-    """Model modules a response can reach: what the hand-written layer imports from _generated, transitively."""
+    """Model modules a response can reach: every response model and what the hand-written layer imports, transitively."""
     hand = [p for p in ROOT.rglob("*.py") if GENERATED not in p.parents]
-    todo = [m for p in hand for m in imports(p) if ".requests." not in m and ".types." in m]
+    # A request enum the hand-written layer names (such as a list filter) stays closed: it is not a response.
+    todo = [m for p in hand for m in imports(p) if ".requests." not in m and ".types." in m and "_request_" not in m]
+    todo += [module_of(p) for p in GENERATED.rglob("*_response*.py") if is_model(p) and "requests" not in p.parts]
     seen = set()
     while todo:
         name = todo.pop()
@@ -79,7 +87,13 @@ def rewrite(path: Path, open_to_new: bool) -> str:
         values = " ".join(match.group("values").split()).rstrip(",")
         return f"= typing.Union[typing.Literal[{values}], str]" if open_to_new else f"= typing.Literal[{values}]"
 
-    return ANY.sub("object", ENUM.sub(enum, text))
+    def alias(match: "re.Match[str]") -> str:
+        name, values = match.group("name"), match.group("values")
+        return f"{name} = typing.Union[typing.Literal[{values}], str]" if open_to_new else f"{name} = typing.Literal[{values}]"
+
+    text = ENUM.sub(enum, text)
+    text = (CLOSED if open_to_new else OPENED).sub(alias, text)
+    return ANY.sub("object", text)
 
 
 def main() -> None:

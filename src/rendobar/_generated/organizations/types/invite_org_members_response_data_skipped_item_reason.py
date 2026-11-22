@@ -2,4 +2,4 @@
 
 import typing
 
-InviteOrgMembersResponseDataSkippedItemReason = typing.Literal["member", "pending", "invalid"]
+InviteOrgMembersResponseDataSkippedItemReason = typing.Union[typing.Literal["member", "pending", "invalid"], str]

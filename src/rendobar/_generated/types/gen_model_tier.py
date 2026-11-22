@@ -2,4 +2,4 @@
 
 import typing
 
-GenModelTier = typing.Literal["economy", "standard", "premium"]
+GenModelTier = typing.Union[typing.Literal["economy", "standard", "premium"], str]

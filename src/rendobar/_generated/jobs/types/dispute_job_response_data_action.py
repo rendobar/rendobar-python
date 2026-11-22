@@ -2,4 +2,4 @@
 
 import typing
 
-DisputeJobResponseDataAction = typing.Literal["flagged"]
+DisputeJobResponseDataAction = typing.Union[typing.Literal["flagged"], str]

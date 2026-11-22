@@ -2,4 +2,4 @@
 
 import typing
 
-GenModelPriceTier = typing.Literal["$", "$$", "$$$", "$$$$"]
+GenModelPriceTier = typing.Union[typing.Literal["$", "$$", "$$$", "$$$$"], str]

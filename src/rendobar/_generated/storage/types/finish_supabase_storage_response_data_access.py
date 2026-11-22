@@ -2,4 +2,4 @@
 
 import typing
 
-FinishSupabaseStorageResponseDataAccess = typing.Literal["read"]
+FinishSupabaseStorageResponseDataAccess = typing.Union[typing.Literal["read"], str]

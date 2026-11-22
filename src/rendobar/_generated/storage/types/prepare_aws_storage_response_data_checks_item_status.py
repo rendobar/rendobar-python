@@ -2,4 +2,4 @@
 
 import typing
 
-PrepareAwsStorageResponseDataChecksItemStatus = typing.Literal["passed", "failed", "skipped"]
+PrepareAwsStorageResponseDataChecksItemStatus = typing.Union[typing.Literal["passed", "failed", "skipped"], str]

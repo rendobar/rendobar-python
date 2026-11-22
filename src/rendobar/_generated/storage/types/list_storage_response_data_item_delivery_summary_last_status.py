@@ -2,4 +2,4 @@
 
 import typing
 
-ListStorageResponseDataItemDeliverySummaryLastStatus = typing.Literal["delivered", "failed"]
+ListStorageResponseDataItemDeliverySummaryLastStatus = typing.Union[typing.Literal["delivered", "failed"], str]

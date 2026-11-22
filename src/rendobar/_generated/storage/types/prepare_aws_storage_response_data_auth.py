@@ -2,4 +2,4 @@
 
 import typing
 
-PrepareAwsStorageResponseDataAuth = typing.Literal["role"]
+PrepareAwsStorageResponseDataAuth = typing.Union[typing.Literal["role"], str]

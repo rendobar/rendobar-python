@@ -2,4 +2,4 @@
 
 import typing
 
-ListComposeEffectsResponseDataEffectsItemParamsValueMeasuredAgainst = typing.Literal["width", "height"]
+ListComposeEffectsResponseDataEffectsItemParamsValueMeasuredAgainst = typing.Union[typing.Literal["width", "height"], str]

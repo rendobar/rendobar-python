@@ -2,4 +2,4 @@
 
 import typing
 
-FinishSupabaseStorageResponseDataOnConflict = typing.Literal["suffix", "replace"]
+FinishSupabaseStorageResponseDataOnConflict = typing.Union[typing.Literal["suffix", "replace"], str]

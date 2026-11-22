@@ -2,4 +2,4 @@
 
 import typing
 
-PrepareAwsStorageResponseDataOnConflict = typing.Literal["suffix", "replace"]
+PrepareAwsStorageResponseDataOnConflict = typing.Union[typing.Literal["suffix", "replace"], str]

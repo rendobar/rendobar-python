@@ -2,4 +2,4 @@
 
 import typing
 
-ListComposeEffectsResponseDataEffectsItemGroup = typing.Literal["color", "stylize", "layers", "sound"]
+ListComposeEffectsResponseDataEffectsItemGroup = typing.Union[typing.Literal["color", "stylize", "layers", "sound"], str]

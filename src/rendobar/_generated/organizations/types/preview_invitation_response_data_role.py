@@ -2,4 +2,4 @@
 
 import typing
 
-PreviewInvitationResponseDataRole = typing.Literal["owner", "admin", "member"]
+PreviewInvitationResponseDataRole = typing.Union[typing.Literal["owner", "admin", "member"], str]

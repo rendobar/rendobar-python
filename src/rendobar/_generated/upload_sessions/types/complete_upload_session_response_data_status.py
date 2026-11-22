@@ -2,4 +2,4 @@
 
 import typing
 
-CompleteUploadSessionResponseDataStatus = typing.Literal["done"]
+CompleteUploadSessionResponseDataStatus = typing.Union[typing.Literal["done"], str]

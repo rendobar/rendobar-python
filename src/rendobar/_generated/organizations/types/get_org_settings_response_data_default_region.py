@@ -2,4 +2,4 @@
 
 import typing
 
-GetOrgSettingsResponseDataDefaultRegion = typing.Literal["auto", "us-east-1", "eu-central-1"]
+GetOrgSettingsResponseDataDefaultRegion = typing.Union[typing.Literal["auto", "us-east-1", "eu-central-1"], str]

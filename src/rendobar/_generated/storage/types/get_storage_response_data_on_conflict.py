@@ -2,4 +2,4 @@
 
 import typing
 
-GetStorageResponseDataOnConflict = typing.Literal["suffix", "replace"]
+GetStorageResponseDataOnConflict = typing.Union[typing.Literal["suffix", "replace"], str]

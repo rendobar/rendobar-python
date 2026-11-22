@@ -2,4 +2,4 @@
 
 import typing
 
-FinishSupabaseStorageResponseDataJurisdiction = typing.Literal["eu", "fedramp", "us"]
+FinishSupabaseStorageResponseDataJurisdiction = typing.Union[typing.Literal["eu", "fedramp", "us"], str]

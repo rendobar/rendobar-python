@@ -2,4 +2,4 @@
 
 import typing
 
-ListNotificationsResponseDataItemSeverity = typing.Literal["info", "success", "warning", "error"]
+ListNotificationsResponseDataItemSeverity = typing.Union[typing.Literal["info", "success", "warning", "error"], str]

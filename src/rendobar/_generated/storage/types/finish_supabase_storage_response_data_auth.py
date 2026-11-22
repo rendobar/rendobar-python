@@ -2,4 +2,4 @@
 
 import typing
 
-FinishSupabaseStorageResponseDataAuth = typing.Literal["role"]
+FinishSupabaseStorageResponseDataAuth = typing.Union[typing.Literal["role"], str]

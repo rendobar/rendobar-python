@@ -2,4 +2,4 @@
 
 import typing
 
-ListStorageResponseDataItemAuth = typing.Literal["role"]
+ListStorageResponseDataItemAuth = typing.Union[typing.Literal["role"], str]

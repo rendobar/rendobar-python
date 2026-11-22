@@ -2,4 +2,4 @@
 
 import typing
 
-LookUpS3BucketResponseDataState = typing.Literal["found", "free", "unknown"]
+LookUpS3BucketResponseDataState = typing.Union[typing.Literal["found", "free", "unknown"], str]
