@@ -3,8 +3,8 @@
     RENDOBAR_API_KEY=rb_... python main.py
 
 Idempotency keys make a resubmit return the same job, and a key reused with a
-different body is refused. Then it pages through jobs, times out a wait, cancels
-a job, and triggers the errors a worker meets.
+different body is refused. Then it reads a finished job's logs, pages through
+jobs, times out a wait, cancels a job, and triggers the errors a worker meets.
 """
 from __future__ import annotations
 
@@ -127,6 +127,14 @@ def submit_batch(rb: Rendobar) -> None:
         print(f"job {done.id}: {done.status}")
         if not isinstance(done, JobComplete):
             fail(f"job {done.id} ended {done.status}")
+
+    # What a finished job did, step by step.
+    logs = rb.jobs.logs(jobs[0].id)
+    print(f"job {jobs[0].id} wrote {len(logs)} log lines")
+    if not logs or not all(line.message and line.timestamp > 0 for line in logs):
+        fail(f"logs of {jobs[0].id}: {logs!r}")
+    for line in logs[:3]:
+        print(f"  {line.level} {line.event}: {line.message}")
 
 
 def page_through(rb: Rendobar) -> None:

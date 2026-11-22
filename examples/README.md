@@ -7,24 +7,29 @@ folder is a project of its own: copy it, `pip install rendobar`, set
 | Project | What it does | SDK calls |
 |---|---|---|
 | [`quickstart`](quickstart) | Probes a public video and prints its duration, resolution and codecs | `jobs.run` (ffprobe), `output_data(job, FfprobeResult)` |
-| [`upload-process-download`](upload-process-download) | Trims and scales a video with ffmpeg, then streams the output to disk | `jobs.create` with typed params, `jobs.wait`, `jobs.download` |
-| [`batch-worker`](batch-worker) | Submits jobs with idempotency keys, resubmits one (same job back), reuses a key with a different body (409), pages through jobs, times out a wait, cancels a job, and triggers the errors a worker meets | `generate_idempotency_key`, `jobs.create`, `JobReplayed`, `jobs.list_all`, `jobs.wait`, `jobs.cancel`, every error class |
-| [`webhook-receiver`](webhook-receiver) | An `http.server` receiver that verifies each delivery and handles it by its typed event, with a branch for events newer than the SDK | `rendobar.webhooks.parse`, the typed events, `UnknownWebhookEvent` |
-| [`account-admin`](account-admin) | Reads the workspace's plan limits and features, lists job types, and reads one type's params | `account.capabilities`, `jobs.types`, `jobs.schema` |
+| [`upload-process-download`](upload-process-download) | Uploads `fixtures/clip.mp4`, trims and scales it with ffmpeg reading `asset://<id>`, streams the output to disk, then lists, reads and deletes the asset | `uploads.create`, `jobs.create` with typed params, `jobs.wait`, `jobs.download`, `assets.list`, `assets.get`, `assets.delete` |
+| [`batch-worker`](batch-worker) | Submits jobs with idempotency keys, resubmits one (same job back), reuses a key with a different body (409), reads a job's logs, pages through jobs, times out a wait, cancels a job, and triggers the errors a worker meets | `generate_idempotency_key`, `jobs.create`, `JobReplayed`, `jobs.logs`, `jobs.list_all`, `jobs.wait`, `jobs.cancel`, every error class |
+| [`webhook-receiver`](webhook-receiver) | Creates a webhook endpoint, reads, lists and updates it, sends it a test event, reads and retries that delivery, rotates its secret and deletes it. Then an `http.server` receiver verifies deliveries signed with that secret and handles each typed event, with a branch for events newer than the SDK | `webhooks.create`, `get`, `list`, `update`, `test`, `list_deliveries`, `retry_delivery`, `rotate_secret`, `delete`, `rendobar.webhooks.parse`, `UnknownWebhookEvent` |
+| [`account-admin`](account-admin) | Reads the workspace, its plan limits, billing state, usage, transactions and invoices, lists API keys and tries to create one, flips an org setting and restores it, reads notifications, and reads one job type's params | `orgs.current`, `orgs.list`, `account.capabilities`, `billing.state`, `billing.usage`, `billing.usage_by_client`, `billing.transactions`, `billing.history`, `api_keys.list`, `api_keys.create`, `api_keys.revoke`, `orgs.get_settings`, `orgs.update_settings`, `notifications.list`, `notifications.mark_read`, `jobs.types`, `jobs.schema` |
 
 `fastapi_app.py` and `django_views.py` show the same submit and webhook in
 those frameworks (`tests/test_examples.py` runs them).
 
-## What this SDK does not have yet
+Every project deletes what it created (the asset, the webhook endpoint, a new
+API key) and restores the org setting it changed, also when a step fails.
 
-The examples use only what the SDK has, so some steps other Rendobar SDKs show
-are left out here:
+## What the examples leave out
 
-- Uploads and assets: `upload-process-download` takes a public URL instead of a local file, and has no asset list, get or delete.
-- Webhook endpoint management (create, list, update, rotate the secret, test, deliveries): `webhook-receiver` checks the receiver with deliveries it signs itself, plus the shared test vectors.
-- Job logs: `batch-worker` does not read them.
-- Billing, API keys and organization settings: `account-admin` reads capabilities and job types only.
-- Realtime progress: there is no realtime client, so there is no `realtime-progress` project.
+- Realtime progress: this SDK has no realtime client, so there is no `realtime-progress` project.
+- Creating an API key needs the `keys:write` scope, which no API key holds. With an API key, `account-admin` prints a `SKIP` for that step. An OAuth access token runs it.
+- Steps that spend money or change the workspace for good never run: checkout, subscription changes, payment methods, creating or deleting an organization, and member invites.
+
+`fixtures/clip.mp4` is a 2 second, 320x240 test pattern with a tone, 18 KB:
+
+```bash
+ffmpeg -f lavfi -i testsrc=d=2:s=320x240:r=24 -f lavfi -i sine=d=2 -shortest \
+  -c:v libx264 -preset veryslow -crf 30 -pix_fmt yuv420p -c:a aac -b:a 32k -movflags +faststart clip.mp4
+```
 
 ## Running them all
 
@@ -44,7 +49,7 @@ python examples/run.py --mode mock
 The mock answers with data synthesized from the spec, so a few checks cannot
 hold there. Those print `SKIP (mock: <why>)` and still run in live mode.
 
-Live mode runs real jobs, about six small ones per run, and needs a key and a
+Live mode runs six small, real jobs per run, and needs a key and a
 URL. Point it at staging:
 
 ```bash

@@ -1,10 +1,16 @@
 """A webhook receiver on the standard library: verify each delivery, then handle it by its typed event.
 
     RENDOBAR_WEBHOOK_SECRET=whsec_... PORT=8000 python main.py    # serve
-    python main.py --self-test                                     # sign sample deliveries and check the answers
+    RENDOBAR_API_KEY=rb_... python main.py --self-test             # manage an endpoint, then test the receiver
 
 Answer 2xx to every genuine delivery, including events you do not handle, so
 Rendobar does not retry it. Answer 401 to anything not signed with your secret.
+
+The self-test creates a real webhook endpoint, reads, lists and updates it,
+sends it a test event, reads and retries that delivery, rotates its secret and
+deletes it (also when a step fails). Rendobar cannot reach a local server, so
+the receiver is then proven with deliveries signed by that endpoint's real
+secret, the way Rendobar signs them.
 """
 from __future__ import annotations
 
@@ -21,7 +27,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Callable, Dict, List, NoReturn, Optional, Tuple
 
-from rendobar import RendobarError, WebhookSignatureError
+from rendobar import Rendobar, RendobarError, WebhookSignatureError
 from rendobar.webhooks import (
     JobCompletedWebhookEvent,
     JobFailedWebhookEvent,
@@ -93,8 +99,61 @@ def post(url: str, body: bytes, headers: Dict[str, str]) -> int:
         return err.code
 
 
+MOCK = os.environ.get("RENDOBAR_EXAMPLES_MODE") == "mock"
+
+
+def manage_endpoint(rb: Rendobar) -> str:
+    """Create, read, list, update, test and rotate an endpoint, then delete it. Returns its last signing secret."""
+    name = f"example-{secrets.token_hex(4)}"
+    endpoint = rb.webhooks.create(name=name, url="https://example.com/rendobar-webhooks",
+                                  subscribed_events=["job.completed", "job.failed"])
+    secret = endpoint.signing_secret  # plaintext only here and on rotate: store it
+    print(f"created endpoint {endpoint.id}")
+    if not secret:
+        fail("create returned no signing secret")
+    try:
+        if rb.webhooks.get(endpoint.id).id != endpoint.id:
+            fail("get returned another endpoint")
+        listed = rb.webhooks.list()
+        if not any(each.id == endpoint.id for each in listed) or listed.meta.total < 1:
+            fail(f"the new endpoint is not listed: {listed!r}")
+        updated = rb.webhooks.update(endpoint.id, name=f"{name}-renamed")
+        if MOCK:
+            print("SKIP (mock: update does not echo the new name)")
+        elif updated.name != f"{name}-renamed":
+            fail(f"update left the name {updated.name!r}")
+
+        # A test event. Rendobar records the delivery whether or not the URL answered.
+        test = rb.webhooks.test(endpoint.id)
+        print(f"test delivery: delivered {test.delivered}, status {test.status_code}, {test.response_time_ms} ms")
+        deliveries = rb.webhooks.list_deliveries(endpoint_id=endpoint.id, limit=5)
+        if not deliveries.data:
+            fail("the test delivery was not recorded")
+        delivery = deliveries.data[0]
+        if not MOCK and delivery.endpoint_id != endpoint.id:
+            fail(f"delivery {delivery.id} belongs to {delivery.endpoint_id}")
+        retried = rb.webhooks.retry_delivery(delivery.id)
+        print(f"retried delivery {retried.id}: {retried.status}")
+        if retried.id != delivery.id:
+            fail(f"retry answered for {retried.id}")
+
+        # Rotate. For 24 hours deliveries carry both signatures, so a receiver can switch.
+        rotated = rb.webhooks.rotate_secret(endpoint.id)
+        if MOCK:
+            print("SKIP (mock: rotate returns the same secret)")
+        elif rotated.signing_secret == secret:
+            fail("rotate kept the old secret")
+        return rotated.signing_secret
+    finally:
+        rb.webhooks.delete(endpoint.id)
+        if not MOCK and any(each.id == endpoint.id for each in rb.webhooks.list()):
+            fail("the endpoint is still listed after delete")
+        print(f"deleted endpoint {endpoint.id}")
+
+
 def self_test() -> None:
-    secret = f"whsec_{secrets.token_hex(32)}"
+    with Rendobar(base_url=os.environ.get("RENDOBAR_API_URL", "https://api.rendobar.com"), app="example-webhook-receiver") as rb:
+        secret = manage_endpoint(rb)
     timing = {"createdAt": 1731000000000, "dispatchedAt": 1731000000100, "startedAt": 1731000000200}
     completed = envelope("job.completed", {
         "jobId": "job_example", "jobType": "ffmpeg", "status": "complete",
