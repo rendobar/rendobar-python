@@ -33,7 +33,7 @@ from pydantic import BaseModel, Field
 
 from .._client import Rendobar, generate_idempotency_key
 from .._errors import APIConnectionError, RendobarError, WaitTimeoutError, as_list
-from .._models import JobComplete, JobFailed, SomeJob, SubmitJob, UnknownJob, UntypedJob
+from .._models import JobComplete, JobFailed, JobInput, SomeJob, SubmitJob, UnknownJob, UntypedJob
 
 
 class ListJobTypesInput(BaseModel):
@@ -43,7 +43,7 @@ class ListJobTypesInput(BaseModel):
 class RunJobInput(BaseModel):
     type: str = Field(description="Job type, from list_job_types")
     params: Dict[str, object] = Field(default_factory=dict, description="Params for this job type, per its schema")
-    inputs: Optional[Dict[str, object]] = Field(default=None, description="Named input files, as URLs")
+    inputs: Optional[Dict[str, JobInput]] = Field(default=None, description="Named input files: a URL, a list of URLs, {\"content\": text} or {\"job\": job_id}")
     wait: bool = Field(default=True, description="Wait for the job to finish. False returns the created job at once")
     idempotency_key: Optional[str] = Field(
         default=None,
@@ -168,7 +168,7 @@ def tool_definitions(client: Optional[Rendobar] = None, *, app: str = "agents") 
 
         return _guarded(go)
 
-    def run_job(type: str, params: Optional[Dict[str, object]] = None, inputs: Optional[Dict[str, object]] = None,
+    def run_job(type: str, params: Optional[Dict[str, object]] = None, inputs: Optional[Dict[str, JobInput]] = None,
                 wait: bool = True, idempotency_key: Optional[str] = None) -> Dict[str, object]:
         # The model picks the type at run time, so this is the untyped submit by design.
         return _create_then_wait(rb, UntypedJob(type, params or {}, inputs or {}), wait=wait, idempotency_key=idempotency_key)

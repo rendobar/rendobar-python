@@ -35,7 +35,7 @@ import hmac
 import json
 import math
 import time
-from typing import Dict, Mapping, Optional, Sequence, Union, cast
+from typing import Dict, Literal, Mapping, Optional, Sequence, Union, cast, get_args, get_type_hints
 
 import pydantic
 
@@ -72,7 +72,7 @@ from ._models import publish
 
 __all__ = [
     "parse", "verify", "DEFAULT_TOLERANCE_SECONDS", "WebhookSignatureError",
-    "WebhookEvent", "KnownWebhookEvent", "UnknownWebhookEvent",
+    "WebhookEvent", "KnownWebhookEvent", "UnknownWebhookEvent", "UnknownReason",
     "JobCreatedWebhookEvent", "JobStartedWebhookEvent", "JobCompletedWebhookEvent", "JobFailedWebhookEvent",
     "JobCancelledWebhookEvent", "JobDeliverySucceededWebhookEvent", "JobDeliveryFailedWebhookEvent",
     "JobDeliveriesSettledWebhookEvent", "BalanceLowWebhookEvent", "BalanceDepletedWebhookEvent", "TestWebhookEvent",
@@ -186,20 +186,28 @@ KnownWebhookEvent = Union[
 ]
 
 
-class UnknownWebhookEvent:
-    """A genuine delivery this SDK version cannot type: a new event, a new envelope version, or a payload that changed.
+# Why parse() could not type a genuine delivery.
+UnknownReason = Literal["unknown_event", "unknown_version", "invalid_payload"]
 
-    `raw` holds the body as sent. Handle the events you know and let this one through.
+
+class UnknownWebhookEvent:
+    """A genuine delivery this SDK version cannot type. `raw` holds the body as sent.
+
+    `reason` says why: `unknown_event` (an event newer than this SDK),
+    `unknown_version` (a new envelope version) or `invalid_payload` (a known
+    event whose payload this SDK cannot read). Handle the events you know and
+    let this one through.
     """
 
-    def __init__(self, raw: Mapping[str, object]) -> None:
+    def __init__(self, raw: Mapping[str, object], reason: UnknownReason) -> None:
         self.raw: Dict[str, object] = dict(raw)
+        self.reason: UnknownReason = reason
         event, version = raw.get("event"), raw.get("version")
         self.event: str = event if isinstance(event, str) else ""
         self.version: str = version if isinstance(version, str) else ""
 
     def __repr__(self) -> str:
-        return f"UnknownWebhookEvent(event={self.event!r}, version={self.version!r})"
+        return f"UnknownWebhookEvent(event={self.event!r}, version={self.version!r}, reason={self.reason!r})"
 
 
 # What parse() returns. Check with isinstance; anything this SDK cannot type is an UnknownWebhookEvent.
@@ -207,6 +215,8 @@ WebhookEvent = Union[KnownWebhookEvent, UnknownWebhookEvent]
 
 _EVENTS: pydantic.TypeAdapter[KnownWebhookEvent] = pydantic.TypeAdapter(WebhookPayload)
 _VERSION = "1"  # the envelope version these models describe
+# Every event name the generated union types, read from its variants.
+_KNOWN_EVENTS = frozenset(str(get_args(get_type_hints(variant)["event"])[0]) for variant in get_args(KnownWebhookEvent))
 
 
 def parse(
@@ -235,8 +245,10 @@ def parse(
     if envelope is None:
         raise RendobarError("The delivery is signed but its body is not a JSON object.", code="INVALID_RESPONSE")
     if envelope.get("version") != _VERSION:
-        return UnknownWebhookEvent(envelope)
+        return UnknownWebhookEvent(envelope, "unknown_version")
+    if envelope.get("event") not in _KNOWN_EVENTS:
+        return UnknownWebhookEvent(envelope, "unknown_event")
     try:
         return _EVENTS.validate_python(envelope)
     except pydantic.ValidationError:
-        return UnknownWebhookEvent(envelope)
+        return UnknownWebhookEvent(envelope, "invalid_payload")

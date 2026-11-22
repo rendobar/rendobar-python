@@ -114,14 +114,15 @@ def test_parse_types_failed_balance_and_test_events() -> None:
     assert isinstance(ping, webhooks.TestWebhookEvent) and ping.data.endpoint_id == "whe_1"
 
 
-@pytest.mark.parametrize("body", [
-    envelope("job.teleported", {"jobId": "job_1"}),           # a new event
-    envelope("job.completed", COMPLETED, version="2"),       # a new envelope version
-    envelope("job.completed", {"jobId": "job_1"}),           # a known event whose payload changed
+@pytest.mark.parametrize("body, reason", [
+    (envelope("job.teleported", {"jobId": "job_1"}), "unknown_event"),
+    (envelope("job.completed", COMPLETED, version="2"), "unknown_version"),
+    (envelope("job.completed", {"jobId": "job_1"}), "invalid_payload"),
 ])
-def test_what_the_sdk_cannot_type_is_an_unknown_event_never_an_error(body: dict) -> None:
+def test_what_the_sdk_cannot_type_is_an_unknown_event_never_an_error(body: Dict[str, object], reason: str) -> None:
     event = parse(*signed(body), SECRET, now=NOW)
     assert isinstance(event, UnknownWebhookEvent) and event.raw == body and event.event == body["event"]
+    assert event.reason == reason
 
 
 def test_a_bad_signature_raises() -> None:

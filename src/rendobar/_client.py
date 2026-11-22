@@ -52,6 +52,8 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    get_args,
+    get_type_hints,
     overload,
 )
 
@@ -79,6 +81,8 @@ from ._errors import (
 from ._generated.client import GeneratedClient
 from ._generated.core.api_error import ApiError as _GeneratedApiError
 from ._generated.core.parse_error import ParsingError as _GeneratedParsingError
+from ._generated.core.request_options import RequestOptions
+from ._generated.core.serialization import convert_and_respect_annotation_metadata
 from ._generated.jobs.requests.submit_job_request import SubmitJobRequestParams
 from ._generated.types.job import Job as _Job
 from ._models import (
@@ -264,6 +268,18 @@ def _job_fields(job: object) -> Dict[str, object]:
     return out
 
 
+def _variants() -> Dict[str, Type[object]]:
+    """Each typed job's TypedDict by its `type`, read from the generated union so a new job type needs no edit."""
+    out: Dict[str, Type[object]] = {}
+    for variant in get_args(SubmitJob):
+        kinds = get_args(get_type_hints(variant)["type"])
+        out[str(kinds[0])] = variant
+    return out
+
+
+_VARIANTS = _variants()
+
+
 def submit_body(
     job: Union[SubmitJob, UntypedJob],
     *,
@@ -272,13 +288,24 @@ def submit_body(
     destinations: Optional[List[str]],
     callback: Optional[Callback],
     force_async: Optional[bool],
-) -> SubmitJobRequestParams:
-    """The submit body. `idempotency_key` is the caller's, or one `generate_idempotency_key()` made for this call."""
+) -> Dict[str, object]:
+    """The submit body exactly as sent, in the API's field names.
+
+    A typed job is serialised by its own job type's TypedDict (snake_case keys
+    to the wire's camelCase). An UntypedJob's params and inputs go as given:
+    the SDK knows nothing about them, so it renames nothing. `idempotency_key`
+    is the caller's, or one `generate_idempotency_key()` made for this call.
+    """
     if isinstance(job, UntypedJob):
         body = _job_fields({"type": job.type, "params": job.params, "inputs": job.inputs})
     else:
-        body = _job_fields(job)
-    body["idempotency_key"] = idempotency_key
+        fields = _job_fields(job)
+        variant = _VARIANTS.get(str(fields["type"]))
+        if variant is None:
+            raise InvalidArgumentError(f"{fields['type']!r} is not a job type this SDK types. Submit it as UntypedJob({fields['type']!r}, params).")
+        converted: object = convert_and_respect_annotation_metadata(object_=fields, annotation=variant, direction="write")
+        body = _job_fields(converted)
+    body["idempotencyKey"] = idempotency_key
     if label is not None:
         if not is_text(label):
             raise InvalidArgumentError(f"label must be a string. Got {type(label).__name__}.")
@@ -296,10 +323,23 @@ def submit_body(
     if force_async is not None:
         if force_async is not True and force_async is not False:
             raise InvalidArgumentError(f"force_async must be True or False. Got {force_async!r}.")
-        body["force_async"] = force_async
-    # The fields were checked above. The core serialises this dict by the union's annotations
-    # (snake_case to the wire's camelCase); a TypedDict union cannot be built from a dict without a cast.
-    return cast(SubmitJobRequestParams, body)
+        body["forceAsync"] = force_async
+    return body
+
+
+# The core's submit_job serialises its `request` through the whole submit union, which renames
+# any key that matches a field of any job type. The SDK sends its own body instead, as the
+# request's extra body parameters, over an empty request that the union leaves empty.
+_EMPTY_REQUEST = cast(SubmitJobRequestParams, {})  # an empty dict serialises to nothing; it is never read
+
+
+def status_filter(status: Optional[str]) -> RequestOptions:
+    """The `status` filter of jobs.list(), sent as a query parameter of its own so a status newer than this SDK passes too."""
+    return RequestOptions(additional_query_parameters={"status": status}) if status is not None else RequestOptions()
+
+
+def submit_options(body: Dict[str, object]) -> RequestOptions:
+    return RequestOptions(additional_body_parameters=body)
 
 
 _PATH_SEGMENT = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -407,16 +447,40 @@ def output_data(job: JobComplete, model: Type[Model]) -> Model:
         probe = rb.jobs.run({"type": "ffprobe", "params": {"command": url}})
         result = output_data(probe, FfprobeResult)
 
-    Raises ResponseValidationError when the data is not that shape (such as a
-    result type that belongs to another job type). Unknown fields are kept.
+    Unknown fields are kept. An optional field holding a variant newer than
+    this SDK (such as an ffprobe summary of a new `kind`) is read as None, and
+    its value is kept in `result.model_extra["unknown_<field>"]`, so the rest of
+    the result stays typed. Raises ResponseValidationError when the data is
+    not that shape at all (such as a result type of another job type).
     """
+    data = job.output.data
     try:
-        return model.model_validate(job.output.data)
-    except pydantic.ValidationError:
+        return model.model_validate(data)
+    except pydantic.ValidationError as err:
+        fields = as_mapping(data)
+        newer = _newer_variants(err, model)
+        if fields is not None and newer:
+            kept = {key: value for key, value in fields.items() if key not in newer}
+            kept.update({f"unknown_{key}": fields[key] for key in newer})
+            try:
+                return model.model_validate(kept)
+            except pydantic.ValidationError:
+                pass
         raise ResponseValidationError(
             f"Job {job.id} ({job.type}) has output data that is not a {model.__name__}.",
-            status_code=None, body=job.output.data,
+            status_code=None, body=data,
         ) from None
+
+
+def _newer_variants(err: pydantic.ValidationError, model: Type[pydantic.BaseModel]) -> Set[str]:
+    """The optional top-level fields that failed only because their union variant is unknown to this SDK."""
+    optional = {field.alias or name for name, field in model.model_fields.items() if not field.is_required()}
+    failed: Dict[str, Set[str]] = {}
+    for problem in err.errors():
+        where = problem["loc"]
+        if where and isinstance(where[0], str):
+            failed.setdefault(where[0], set()).add(problem["type"] if len(where) == 1 else "nested")
+    return {key for key, kinds in failed.items() if kinds == {"union_tag_invalid"} and key in optional}
 
 
 def one_job(err: ResponseValidationError) -> UnknownJob:
@@ -694,7 +758,9 @@ class Rendobar:
         on_deprecation: Optional[Callable[[DeprecationNotice], None]] = None,
     ) -> None:
         self._api_key = resolve_api_key(api_key)
-        self._core = GeneratedClient(**core_options(self._api_key, base_url=base_url, timeout=timeout, app=app))
+        options = core_options(self._api_key, base_url=base_url, timeout=timeout, app=app)
+        self._http = httpx.Client(timeout=timeout, follow_redirects=True)  # owned here, so close() needs no core internals
+        self._core = GeneratedClient(**options, httpx_client=self._http)
         self._max_retries = max_retries
         self._closed = False
         self._deprecations = _Deprecations(on_deprecation)
@@ -704,7 +770,7 @@ class Rendobar:
     def close(self) -> None:
         """Close the underlying HTTP connections. Every call after raises RendobarError (code `CLIENT_CLOSED`)."""
         self._closed = True
-        self._core._client_wrapper.httpx_client.httpx_client.close()
+        self._http.close()
 
     def __enter__(self) -> Rendobar:
         return self
@@ -800,7 +866,7 @@ class Jobs:
         request = submit_body(job, idempotency_key=key, label=label, destinations=destinations,
                               callback=callback, force_async=force_async)
         def submit() -> _Fetched[Submitted]:
-            sent = self._raw.submit_job(request=request)
+            sent = self._raw.submit_job(request=_EMPTY_REQUEST, request_options=submit_options(request))
             return _Fetched(sent.headers, submitted(sent.response))
 
         try:
@@ -821,7 +887,7 @@ class Jobs:
         safe = path_segment("job_id", job_id)
         return self._job("GET", f"/jobs/{safe}", lambda: self._raw.get_job(safe), deadline)
 
-    def list(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
+    def list(self, *, status: Union[JobStatus, str, None] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
         """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page.
 
         `limit` is the page size (1 or more, the API sets the maximum) and `offset` the jobs to skip.
@@ -829,13 +895,13 @@ class Jobs:
         page_window(limit, offset)
         list_filters(status, type)
         try:
-            res = self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(status=status, type=type, limit=limit, offset=offset))
+            res = self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(type=type, limit=limit, offset=offset, request_options=status_filter(status)))
         except ResponseValidationError as err:
             return job_page(err)
         jobs: List[SomeJob] = list(res.data)
         return Page(jobs, res.meta)
 
-    def list_all(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, page_size: int = 100) -> Iterator[SomeJob]:
+    def list_all(self, *, status: Union[JobStatus, str, None] = None, type: Optional[str] = None, page_size: int = 100) -> Iterator[SomeJob]:
         """Every matching job, fetching pages as you iterate."""
         page_window(page_size, None)
         offset = 0
@@ -902,8 +968,9 @@ class Jobs:
                 per-job limit) to that budget plus two minutes for upload and
                 delivery, counted from the poll that saw it. So a long job is
                 not cut off while it runs, and a job stuck in the queue still
-                ends the wait. A status newer than this SDK counts as not
-                finished, so it too ends at this bound.
+                ends the wait. A status newer than this SDK ends the wait,
+                returned as an UnknownJob, when the job reports it is
+                `terminal`, and is polled until this bound when it is not.
             interval: Seconds before the second poll. Each later pause is 1.5 times longer.
             max_interval: The longest pause between polls, in seconds.
             on_progress: Called with the job after every poll.

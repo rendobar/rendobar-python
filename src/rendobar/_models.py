@@ -34,11 +34,18 @@ from ._generated.jobs.types.cancel_job_response_data import CancelJobResponseDat
 from ._generated.jobs.types.get_job_type_schema_response_data import GetJobTypeSchemaResponseData
 from ._generated.jobs.types.get_job_type_schema_response_data_inputs import GetJobTypeSchemaResponseDataInputs
 from ._generated.jobs.types.list_jobs_response_meta import ListJobsResponseMeta
+from ._generated.requests.job_input import JobInputParams
 from ._generated.requests.submit_any_job_callback import SubmitAnyJobCallbackParams
 from ._generated.requests.submit_typed_job import SubmitTypedJobParams
 from ._generated.types.callback_status import CallbackStatus
 from ._generated.types.ffprobe_result import FfprobeResult
-from ._generated.types.ffprobe_summary import FfprobeSummary
+from ._generated.types.ffprobe_summary import (
+    FfprobeSummary,
+    FfprobeSummary_Audio,
+    FfprobeSummary_Image,
+    FfprobeSummary_Other,
+    FfprobeSummary_Video,
+)
 from ._generated.types.job import Job_Cancelled, Job_Complete, Job_Dispatched, Job_Failed, Job_Running, Job_Waiting
 from ._generated.types.job_completed_on_submit import JobCompletedOnSubmit
 from ._generated.types.job_cost import JobCost
@@ -55,10 +62,11 @@ __all__ = [
     "Job", "JobWaiting", "JobDispatched", "JobRunning", "JobComplete", "JobFailed", "JobCancelled",
     "JobError", "JobOutput", "OutputFile", "JobCost", "JobStep", "JobDelivery", "CallbackStatus",
     "JobStatus", "KNOWN_STATUSES", "UnknownJob", "SomeJob", "FinishedJob",
-    "SubmitJob", "UntypedJob", "Callback", "JobCreated", "JobCompletedOnSubmit", "JobReplayed", "Submitted",
+    "SubmitJob", "UntypedJob", "Callback", "JobInput", "JobCreated", "JobCompletedOnSubmit", "JobReplayed", "Submitted",
     "JobCancellation", "JobType", "JobTypeSchema", "JobTypeInputs", "PageMeta",
     "AccountCapabilities", "AccountPlan", "AccountLimits", "AccountFeatures",
-    "FfprobeResult", "FfprobeSummary", "PUBLIC_MODELS",
+    "FfprobeResult", "FfprobeSummary", "FfprobeVideoSummary", "FfprobeAudioSummary", "FfprobeImageSummary",
+    "FfprobeOtherSummary", "PUBLIC_MODELS",
 ]
 
 # A job, by status. Narrow with isinstance (`isinstance(job, JobComplete)`) to read
@@ -111,9 +119,16 @@ Submitted = Union[JobCreated, JobCompletedOnSubmit, JobReplayed]
 # regeneration.
 SubmitJob = SubmitTypedJobParams
 Callback = SubmitAnyJobCallbackParams  # the `callback=` of jobs.create(): url, headers, verify, events
+# One named input of a job: a URL, {"url"}, {"content"} (inline text), {"job"} (another job's
+# output), or a list of those for an input that takes several, such as image.edit's images.
+JobInput = JobInputParams
 
 
 def _no_entries() -> Mapping[str, object]:
+    return {}
+
+
+def _no_inputs() -> Mapping[str, JobInput]:
     return {}
 
 
@@ -131,8 +146,15 @@ class UntypedJob:
 
     type: str
     params: Mapping[str, object] = field(default_factory=_no_entries)
-    inputs: Mapping[str, object] = field(default_factory=_no_entries)
+    inputs: Mapping[str, JobInput] = field(default_factory=_no_inputs)
 
+
+# An ffprobe result's `summary`, by its `kind` (the spec's Ffprobe<Kind>Summary components).
+# A kind newer than this SDK leaves `summary` None; see output_data().
+FfprobeVideoSummary = FfprobeSummary_Video
+FfprobeAudioSummary = FfprobeSummary_Audio
+FfprobeImageSummary = FfprobeSummary_Image
+FfprobeOtherSummary = FfprobeSummary_Other
 
 JobCancellation = CancelJobResponseData  # what jobs.cancel() returns: `id` and `status`
 JobTypeSchema = GetJobTypeSchemaResponseData
@@ -160,6 +182,10 @@ PUBLIC_MODELS: Dict[str, Type[object]] = {
     "AccountPlan": AccountPlan,
     "AccountLimits": AccountLimits,
     "AccountFeatures": AccountFeatures,
+    "FfprobeVideoSummary": FfprobeVideoSummary,
+    "FfprobeAudioSummary": FfprobeAudioSummary,
+    "FfprobeImageSummary": FfprobeImageSummary,
+    "FfprobeOtherSummary": FfprobeOtherSummary,
 }
 
 

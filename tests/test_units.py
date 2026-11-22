@@ -799,3 +799,68 @@ def test_output_data_reads_a_typed_result() -> None:
     assert got.cost is not None and got.cost.amount == 2_100_000 and isinstance(got.cost.amount, int)
     with pytest.raises(ResponseValidationError):
         output_data(got.model_copy(update={"output": got.output.model_copy(update={"data": "not a probe"})}), FfprobeResult)
+
+
+# ── final round: bodies exactly as meant ──────────────────────────────
+
+def _sent_body(job: Any) -> Dict[str, Any]:
+    sent: List[Dict[str, Any]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(201, json={"data": {"id": "job_1", "status": "waiting"}})
+
+    sync_client(handle).jobs.create(job, idempotency_key="k")
+    return sent[0]
+
+
+def test_an_untyped_job_is_sent_verbatim() -> None:
+    params = {"dry_run": True, "max_resolution": "1080p", "enhance_prompt": True, "for_": "web",
+              "translate_to": "de", "nested": {"max_resolution": 1, "dry_run": False}}
+    inputs = {"source": "https://x/a.mp4", "images": ["https://x/1.png", "https://x/2.png"], "script": {"content": "hi"}}
+    body = _sent_body(UntypedJob("video.newthing", params, inputs))
+    assert body == {"type": "video.newthing", "params": params, "inputs": inputs, "idempotencyKey": "k"}
+
+
+@pytest.mark.parametrize("job, wire_params", [
+    ({"type": "ffprobe", "params": {"command": "x"}}, {"command": "x"}),
+    ({"type": "ffmpeg", "params": {"command": "ffmpeg -i x out.mp4"}}, {"command": "ffmpeg -i x out.mp4"}),
+    ({"type": "compress.target", "params": {"max_resolution": "1080p", "dry_run": True, "for_": "web"}},
+     {"maxResolution": "1080p", "dryRun": True, "for": "web"}),
+    ({"type": "captions.animate", "params": {"translate_to": "de", "auto_emphasis": True}}, {"translateTo": "de", "autoEmphasis": True}),
+    ({"type": "caption.burn", "params": {"font_size": 32, "box_enabled": True}}, {"fontSize": 32, "boxEnabled": True}),
+    ({"type": "image.generate", "params": {"prompt": "a cat", "enhance_prompt": True}}, {"prompt": "a cat", "enhancePrompt": True}),
+    ({"type": "image.edit", "params": {"prompt": "make it blue", "enhance_prompt": False}}, {"prompt": "make it blue", "enhancePrompt": False}),
+    ({"type": "image.upscale", "params": {}}, {}),
+], ids=lambda value: value["type"] if isinstance(value, dict) and "type" in value else "")
+def test_a_typed_job_is_serialised_by_its_own_type(job: Dict[str, Any], wire_params: Dict[str, Any]) -> None:
+    assert _sent_body(job)["params"] == wire_params
+
+
+def test_image_edit_takes_a_list_input() -> None:
+    images = ["https://x/1.png", "https://x/2.png", {"job": "job_prev"}]
+    body = _sent_body({"type": "image.edit", "params": {"prompt": "merge"}, "inputs": {"images": images}})
+    assert body["inputs"] == {"images": images}
+
+
+def test_a_status_newer_than_the_sdk_filters_as_given() -> None:
+    queries: List[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        queries.append(str(request.url.params.get("status")))
+        return httpx.Response(200, json={"data": [], "meta": {"total": 0, "page": 1, "limit": 50}})
+
+    sync_client(handle).jobs.list(status="archived")
+    assert queries == ["archived"]
+
+
+def test_a_summary_of_a_new_kind_leaves_the_rest_of_the_result_typed() -> None:
+    from rendobar import FfprobeResult, JobComplete, output_data
+
+    data = {"format": {"format_name": "mov,mp4"}, "streams": [], "summary": {"kind": "hologram", "depth": 3}}
+    done = job("job_1", "complete", output={"data": data, "files": []})
+    got = sync_client(routes({"GET /jobs/job_1": (200, {"data": done})})).jobs.get("job_1")
+    assert isinstance(got, JobComplete)
+    result = output_data(got, FfprobeResult)
+    assert result.summary is None and result.format is not None
+    assert (result.model_extra or {})["unknown_summary"] == {"kind": "hologram", "depth": 3}

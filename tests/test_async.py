@@ -20,6 +20,12 @@ def reset(query: str = "") -> None:
     urllib.request.urlopen(urllib.request.Request(f"{MOCK}/__reset{query}", method="POST"), timeout=5)
 
 
+@pytest.fixture(autouse=True)
+def _fresh() -> None:
+    """Every test starts from a clean mock: hit counters and created jobs are per test, never shared."""
+    reset()
+
+
 def test_async_scenarios() -> None:
     async def scenarios() -> None:
         reset()

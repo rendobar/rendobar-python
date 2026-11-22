@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import asyncio
 import time
+
+import httpx
 from types import TracebackType
 from typing import AsyncIterator, Awaitable, Callable, List, Literal, Optional, Type, TypeVar, Union, overload
 
@@ -37,7 +39,10 @@ from ._client import (
     require_key,
     resolve_api_key,
     retry_delay,
+    _EMPTY_REQUEST,
     submit_body,
+    status_filter,
+    submit_options,
     submitted,
     wait_options,
 )
@@ -83,7 +88,9 @@ class AsyncRendobar:
         on_deprecation: Optional[Callable[[DeprecationNotice], None]] = None,
     ) -> None:
         self._api_key = resolve_api_key(api_key)
-        self._core = AsyncGeneratedClient(**core_options(self._api_key, base_url=base_url, timeout=timeout, app=app))
+        options = core_options(self._api_key, base_url=base_url, timeout=timeout, app=app)
+        self._http = httpx.AsyncClient(timeout=timeout, follow_redirects=True)  # owned here, so aclose() needs no core internals
+        self._core = AsyncGeneratedClient(**options, httpx_client=self._http)
         self._max_retries = max_retries
         self._closed = False
         self._deprecations = _Deprecations(on_deprecation)
@@ -93,7 +100,7 @@ class AsyncRendobar:
     async def aclose(self) -> None:
         """Close the underlying HTTP connections. Every call after raises RendobarError (code `CLIENT_CLOSED`)."""
         self._closed = True
-        await self._core._client_wrapper.httpx_client.httpx_client.aclose()
+        await self._http.aclose()
 
     async def __aenter__(self) -> AsyncRendobar:
         return self
@@ -183,7 +190,7 @@ class AsyncJobs:
         request = submit_body(job, idempotency_key=key, label=label, destinations=destinations,
                               callback=callback, force_async=force_async)
         async def submit() -> _Fetched[Submitted]:
-            sent = await self._raw.submit_job(request=request)
+            sent = await self._raw.submit_job(request=_EMPTY_REQUEST, request_options=submit_options(request))
             return _Fetched(sent.headers, submitted(sent.response))
 
         try:
@@ -200,7 +207,7 @@ class AsyncJobs:
         safe = path_segment("job_id", job_id)
         return await self._job("GET", f"/jobs/{safe}", lambda: self._raw.get_job(safe), deadline)
 
-    async def list(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
+    async def list(self, *, status: Union[JobStatus, str, None] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
         """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page.
 
         `limit` is the page size (1 or more, the API sets the maximum) and `offset` the jobs to skip.
@@ -208,13 +215,13 @@ class AsyncJobs:
         page_window(limit, offset)
         list_filters(status, type)
         try:
-            res = await self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(status=status, type=type, limit=limit, offset=offset))
+            res = await self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(type=type, limit=limit, offset=offset, request_options=status_filter(status)))
         except ResponseValidationError as err:
             return job_page(err)
         jobs: List[SomeJob] = list(res.data)
         return Page(jobs, res.meta)
 
-    async def list_all(self, *, status: Optional[JobStatus] = None, type: Optional[str] = None, page_size: int = 100) -> AsyncIterator[SomeJob]:
+    async def list_all(self, *, status: Union[JobStatus, str, None] = None, type: Optional[str] = None, page_size: int = 100) -> AsyncIterator[SomeJob]:
         """Every matching job, fetching pages as you iterate."""
         page_window(page_size, None)
         offset = 0
@@ -236,15 +243,16 @@ class AsyncJobs:
         safe = path_segment("job_id", job_id)
 
         async def fetch() -> _Fetched[int]:
+            # File I/O runs in a worker thread so a slow disk never blocks the event loop.
             async with self._raw.download_job_output(safe) as response:
-                sink = Sink(to)
+                sink = await asyncio.to_thread(Sink, to)
                 try:
                     async for chunk in response.data:
-                        sink.write(chunk)
+                        await asyncio.to_thread(sink.write, chunk)
                 except BaseException as err:
-                    sink.fail()
+                    await asyncio.to_thread(sink.fail)
                     raise body_failed(err) from err
-                return _Fetched(response.headers, sink.finish())
+                return _Fetched(response.headers, await asyncio.to_thread(sink.finish))
 
         return await self._client._call("GET", f"/jobs/{safe}/download", fetch)
 
@@ -275,7 +283,8 @@ class AsyncJobs:
                 reports its own execution budget (`timeout_ms`, your plan's
                 per-job limit) to that budget plus two minutes for upload and
                 delivery, counted from the poll that saw it. A status newer
-                than this SDK counts as not finished, so it too ends at this bound.
+                than this SDK ends the wait, returned as an UnknownJob, when the
+                job reports it is `terminal`, and is polled until this bound when it is not.
             interval: Seconds before the second poll. Each later pause is 1.5 times longer.
             max_interval: The longest pause between polls, in seconds.
             on_progress: Called with the job after every poll.

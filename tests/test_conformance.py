@@ -408,3 +408,14 @@ def test_c38_the_client_header_names_the_package_version_runtime_and_app() -> No
     client.jobs.get("job_x")
     header = recorder.requests[0].headers["X-Rendobar-Client"]
     assert header.startswith(f"python/{__version__} (python/") and header.endswith("; app/conformance)")
+
+
+def test_c40_an_unknown_terminal_status_ends_the_wait(parity_mock: None, rb: Rendobar) -> None:
+    started = time.monotonic()
+    ended = rb.jobs.wait("job_future_done", timeout=10, interval=0.5)
+    assert isinstance(ended, UnknownJob) and ended.status == "archived" and ended.terminal
+    assert time.monotonic() - started < 5
+    reset("?archive_created=1")
+    with pytest.raises(JobFailedError) as info:
+        rb.jobs.run({"type": "ffprobe", "params": {"command": "https://x/a.mp4"}}, interval=0.05)
+    assert isinstance(info.value.job, UnknownJob) and info.value.job.status == "archived"

@@ -64,6 +64,21 @@ def submits(rb: Rendobar) -> None:
     rb.jobs.run({"type": "ffprobe", "params": {"command": URL}, "label": "x"})  # type: ignore[call-overload]
     rb.jobs.run({"type": "ffprobe", "params": {"command": URL}}, no_such_option=1)  # type: ignore[call-overload]
     rb.jobs.create({"type": "ffprobe", "params": {"command": URL}}, destinations="storage://x")  # type: ignore[arg-type]
+
+    # Request enums are closed and inputs are typed: each of these fails the check too.
+    rb.jobs.run({"type": "ffmpeg", "params": {"command": "ffmpeg -i x out.mp4", "compute": "tpu"}})  # type: ignore[call-overload]
+    rb.jobs.run({"type": "ffmpeg", "params": {"command": "ffmpeg -i x out.mp4", "compute": 7}})  # type: ignore[call-overload]
+    rb.jobs.run({"type": "compress.target", "params": {"effort": "max"}})  # type: ignore[call-overload]
+    rb.jobs.run({"type": "image.upscale", "params": {"model": "seedvr9"}})  # type: ignore[call-overload]
+    rb.jobs.run({"type": "ffprobe", "params": {"command": URL}}, callback={"url": "https://x", "events": ["job.teleported"]})  # type: ignore[call-overload]
+    rb.jobs.run({"type": "ffprobe", "params": {"command": URL}, "inputs": {"source": 5}})  # type: ignore[call-overload]
+    rb.jobs.run({"type": "ffmpeg", "params": {"command": "ffmpeg -i x out.mp4", "compute": "gpu"}, "inputs": {"clips": [URL, {"job": "job_1"}]}})
+    UntypedJob("video.newthing", inputs={"source": 5})  # type: ignore[dict-item]
+
+    # Free-form response values are `object`: read them only after narrowing.
+    job.params["preset"].upper()  # type: ignore[attr-defined]
+    job.output.data["format"]  # type: ignore[index]
+    job.steps[0].meta["k"]  # type: ignore[index]  # meta may be None
     job.nonexistent_attribute  # type: ignore[attr-defined]
 
 
@@ -84,7 +99,6 @@ def results(rb: Rendobar) -> None:
         assert_type(got.error.code, str)
 
     rb.jobs.list(status="complete")
-    rb.jobs.list(status="done")  # type: ignore[arg-type]
     page = rb.jobs.list()
     assert_type(page.data, List[Union[Job, UnknownJob]])
     assert_type(page.meta, PageMeta)
