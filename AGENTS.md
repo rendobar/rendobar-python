@@ -6,8 +6,10 @@ For coding agents changing this SDK. Users of the SDK want the README.
   published spec) plus `fern/overrides.yml`. Never edit either: the overrides are
   derived from the spec by `fern/derive_overrides.py` (strict per-type submit
   TypedDicts in `SubmitTypedJob`, open enums in jobs as `str`). Regenerate:
-  `python fern/derive_overrides.py && cd fern && fern generate --local --group python --force`
-  (needs Docker; on Windows run it in WSL). CI checks the overrides are current.
+  `python fern/derive_overrides.py && (cd fern && fern generate --local --group python --force) && python fern/postprocess.py`
+  (needs Docker; on Windows run it in WSL), then `python fern/postprocess.py`, which
+  closes request enums, opens response enums to `Literal | str` and turns `Any` in
+  models into `object`. CI checks both steps are current.
 - Hand-written code is everything else in `src/rendobar/`: `_client.py`,
   `_async_client.py`, `_errors.py`, `_models.py`, `webhooks.py`. `_models.py` gives
   the generated models users meet their public names (`JobComplete`, not
@@ -18,7 +20,7 @@ For coding agents changing this SDK. Users of the SDK want the README.
 - Submits take one job (`SubmitJob` typed dict, or `UntypedJob` for a type the
   SDK does not know) plus keyword options. Never add a second way to submit. Keep sync and async in step:
   everything that is not I/O lives in `_client.py` helpers (`core_options`,
-  `retry_delay`, `build_submit`, `WaitPoll`, `one_job`, `job_page`, ...); the
+  `retry_delay`, `submit_body`, `WaitPoll`, `one_job`, `job_page`, ...); the
   async client only awaits and sleeps.
 - The core is built with `max_retries=0`. Retries belong to `_call` (429, 5xx,
   connection failures only); never re-enable the core's, it retries 409 too.

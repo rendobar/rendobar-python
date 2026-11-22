@@ -95,7 +95,11 @@ With no key passed and no `RENDOBAR_API_KEY` set (or an empty one), the client s
 
 ## Submitting a job
 
-The first argument of `jobs.create()` and `jobs.run()` says what to run: `type`, `params` and, for job types that read files, `inputs`. Everything about how to run it is a keyword argument, listed under [Job options](#job-options). A submit option inside the job dict is a type error.
+The first argument of `jobs.create()` and `jobs.run()` says what to run: `type`, `params` and, for job types that read files, `inputs`. Everything about how to run it is a keyword argument, listed under [Job options](#job-options). A submit option inside the job dict is a type error. Enum params are closed sets, so a value the job type does not take (`"compute": "tpu"`) fails the check too.
+
+Each input is a URL, `{"url": ...}`, `{"content": ...}` for inline text such as subtitles, `{"job": "job_..."}` for another job's output, or a list of those for an input that takes several, such as the `images` of `image.edit` (`JobInput`).
+
+A job dict written inline is checked where you pass it. One built in a variable first needs the annotation, or the checker infers a plain `dict`: `job: SubmitJob = {"type": "ffprobe", "params": {"command": url}}`.
 
 ```python
 from rendobar import Rendobar, UntypedJob
@@ -141,7 +145,7 @@ Every method returns a typed result, so your editor completes fields and your ty
 | `jobs.run()` | `JobComplete` (with `throw_on_failure=False`: `JobComplete`, `JobFailed` or `JobCancelled`) |
 | `jobs.wait()` | `JobComplete`, `JobFailed`, `JobCancelled`, or an `UnknownJob` that ended with a status newer than the SDK (with `throw_on_failure=True`: `JobComplete`) |
 | `jobs.create()` | `JobCreated`, `JobCompletedOnSubmit` for a job that finished during the request, or `JobReplayed` when the idempotency key was used before |
-| `jobs.get()`, `jobs.list()`, `jobs.list_all()` | `Job`: one of `JobWaiting`, `JobDispatched`, `JobRunning`, `JobComplete`, `JobFailed`, `JobCancelled` |
+| `jobs.get()`, `jobs.list()`, `jobs.list_all()` | `Job`: one of `JobWaiting`, `JobDispatched`, `JobRunning`, `JobComplete`, `JobFailed`, `JobCancelled`, or an `UnknownJob` for a status newer than the SDK |
 | `jobs.cancel()` | `JobCancellation` (`id` and `status`) |
 | `jobs.types()`, `jobs.schema()` | a list of `JobType`, a `JobTypeSchema` |
 | `account.capabilities()` | `AccountCapabilities` (`plan`, `limits`, `features`) |
@@ -175,7 +179,9 @@ if result.summary is not None:
     print(result.summary)
 ```
 
-`output_data()` raises `ResponseValidationError` when the data is not that shape. Each job type the spec gives a result type gets one the same way.
+`result.summary` is one of `FfprobeVideoSummary`, `FfprobeAudioSummary`, `FfprobeImageSummary` or `FfprobeOtherSummary`, by its `kind`. A kind newer than your SDK leaves `summary` as `None` and keeps the value in `result.model_extra["unknown_summary"]`, so the rest of the result stays typed. `output_data()` raises `ResponseValidationError` only when the data is not that shape at all. Each job type the spec gives a result type gets one the same way.
+
+Free-form values the API does not describe, such as `job.params` and `job.output.data`, are typed `object`, so your type checker asks you to narrow them before use.
 
 `jobs.list()` takes `status` as one of the six job statuses (`JobStatus`), `limit` (1 or more) and `offset` (0 or more).
 
@@ -225,7 +231,7 @@ Everything the SDK raises is a `RendobarError` with a `code`:
 
 `code` is one of the codes in `ErrorCode` or, from a newer API, any other string, so compare it with strings rather than matching every case.
 
-A refusal that lists what is wrong has `problems`: each one's `path` (such as `("params", "command")`), `message` and, on a plan refusal, `upgrade_to` (the plan that allows it). `details` holds the same list, or a mapping of other facts such as the `jobId` of a conflict.
+A refusal that lists what is wrong has `problems`: each one's `path` (such as `("command",)`), `message` and, on a plan refusal, `upgrade_to` (the plan that allows it). `details` holds the same list, or a mapping of other facts such as the `jobId` of a conflict.
 
 ```python
 from rendobar import BadRequestError, Rendobar
@@ -268,7 +274,7 @@ def handle_rendobar_webhook(raw_body: bytes, headers: Mapping[str, str]) -> int:
     return 200  # acknowledge every genuine delivery, including events you do not handle
 ```
 
-`parse()` checks the signature, then returns the event typed by its name: `JobCreatedWebhookEvent`, `JobStartedWebhookEvent`, `JobCompletedWebhookEvent`, `JobFailedWebhookEvent`, `JobCancelledWebhookEvent`, `JobDeliverySucceededWebhookEvent`, `JobDeliveryFailedWebhookEvent`, `JobDeliveriesSettledWebhookEvent`, `BalanceLowWebhookEvent`, `BalanceDepletedWebhookEvent` or `TestWebhookEvent`. An event, or an envelope version, that your SDK does not know comes back as `UnknownWebhookEvent` with the body in `raw`, never as an exception, so a new event cannot break your handler. `verify()` is the signature check alone, as a bool, if you read the body yourself.
+`parse()` checks the signature, then returns the event typed by its name: `JobCreatedWebhookEvent`, `JobStartedWebhookEvent`, `JobCompletedWebhookEvent`, `JobFailedWebhookEvent`, `JobCancelledWebhookEvent`, `JobDeliverySucceededWebhookEvent`, `JobDeliveryFailedWebhookEvent`, `JobDeliveriesSettledWebhookEvent`, `BalanceLowWebhookEvent`, `BalanceDepletedWebhookEvent` or `TestWebhookEvent`. An event, or an envelope version, that your SDK does not know comes back as `UnknownWebhookEvent` with the body in `raw` and a `reason` (`unknown_event`, `unknown_version` or `invalid_payload`), never as an exception, so a new event cannot break your handler. `verify()` is the signature check alone, as a bool, if you read the body yourself.
 
 Pass the raw body exactly as received. Parsing and re-serialising the JSON first changes the bytes, and the signature no longer matches. An empty secret never verifies, so read it with `os.environ["RENDOBAR_WEBHOOK_SECRET"]` and let a missing one fail at startup.
 
