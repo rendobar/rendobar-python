@@ -1,9 +1,9 @@
 """Verify and read Rendobar webhook and callback deliveries.
 
-    from rendobar.webhooks import JobCompletedEvent, parse
+    from rendobar.webhooks import JobCompletedWebhookEvent, parse
 
     event = parse(request.body, request.headers, os.environ["RENDOBAR_WEBHOOK_SECRET"])
-    if isinstance(event, JobCompletedEvent):
+    if isinstance(event, JobCompletedWebhookEvent):
         print(event.data.job_id, event.data.output.files[0].url)
 
 `parse()` checks the signature (raising `WebhookSignatureError` when it does not
