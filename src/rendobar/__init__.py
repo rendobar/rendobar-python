@@ -189,6 +189,7 @@ from ._resources import (
     UploadSource,
     Webhooks,
 )
+from ._realtime import AsyncRealtime, Realtime
 from ._version import __version__
 
 __all__ = [
@@ -199,6 +200,7 @@ __all__ = [
     "Billing", "AsyncBilling", "Uploads", "AsyncUploads", "Assets", "AsyncAssets", "Webhooks", "AsyncWebhooks",
     "Storage", "AsyncStorage", "ApiKeys", "AsyncApiKeys", "Orgs", "AsyncOrgs", "Members", "AsyncMembers",
     "Invitations", "AsyncInvitations", "Compose", "AsyncCompose", "Notifications", "AsyncNotifications",
+    "Realtime", "AsyncRealtime",
     # submitting
     "SubmitJob", "UntypedJob", "Callback", "JobInput", "Submitted", "output_data",
     # jobs

@@ -4434,6 +4434,10 @@ langchain = [
     { name = "langchain-core", version = "1.7.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "langchain-core", version = "1.8.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
 ]
+realtime = [
+    { name = "websockets", version = "16.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "websockets", version = "17.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -4445,8 +4449,9 @@ requires-dist = [
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.380" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "typing-extensions", specifier = ">=4.9" },
+    { name = "websockets", marker = "extra == 'realtime'", specifier = ">=13,<18" },
 ]
-provides-extras = ["langchain", "crewai", "dev"]
+provides-extras = ["langchain", "crewai", "realtime", "dev"]
 
 [[package]]
 name = "requests"

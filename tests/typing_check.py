@@ -8,7 +8,7 @@ starts to type-check fails CI.
 # pyright: strict, reportUnnecessaryTypeIgnoreComment=true
 from __future__ import annotations
 
-from typing import AsyncIterator, Iterator, List, Optional, Union
+from typing import AsyncIterator, Dict, Iterator, List, Optional, Union
 
 from typing_extensions import assert_type
 
@@ -70,6 +70,8 @@ from rendobar import (
     WebhookTestResult,
 )
 from rendobar.webhooks import JobCompletedWebhookEvent, UnknownWebhookEvent, WebhookEvent, parse
+from rendobar import realtime
+from rendobar.realtime import RealtimeEvent
 
 Finished = Union[JobComplete, JobFailed, JobCancelled, UnknownJob]
 URL = "https://cdn.rendobar.com/assets/examples/sample.mp4"
@@ -253,3 +255,20 @@ async def async_resources(rb: AsyncRendobar) -> None:
     assert_type(await rb.orgs.get_settings(), OrgSettings)
     assert_type(await rb.compose.validate({}), Union[ComposeValid, ComposeInvalid])
     assert_type((await rb.notifications.list()).meta, NotificationsMeta)
+    async for event in rb.realtime.subscribe_job("job_1", timeout=60):
+        assert_type(event, RealtimeEvent)
+    async for event in rb.realtime.connect(last_event_id=7):
+        if isinstance(event, realtime.BalanceUpdated):
+            assert_type(event.balance, int)
+
+
+def realtime_events(rb: Rendobar) -> None:
+    for event in rb.realtime.subscribe_job("job_1"):
+        assert_type(event, RealtimeEvent)
+        if isinstance(event, realtime.JobProgress):
+            assert_type(event.progress, Optional[float])
+        elif isinstance(event, realtime.JobStatusChanged):
+            assert_type(event.final, bool)
+        elif isinstance(event, realtime.UnknownRealtimeEvent):
+            assert_type(event.raw, Dict[str, object])
+    rb.realtime.connect(last_event_id="7")  # type: ignore[arg-type]

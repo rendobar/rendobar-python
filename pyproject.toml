@@ -31,6 +31,8 @@ Issues = "https://github.com/rendobar/rendobar-python/issues"
 # The adapter needs only langchain-core; langchain is there for `create_agent`, which the README uses.
 langchain = ["langchain-core>=1.7,<2", "langchain>=1.0,<2"]
 crewai = ["crewai>=1.15,<2"]
+# rb.realtime, the event stream over a WebSocket. Imported only when a stream starts.
+realtime = ["websockets>=13,<18"]
 dev = ["pytest>=8", "pyright>=1.1.380"]
 
 [tool.hatch.build.targets.wheel]

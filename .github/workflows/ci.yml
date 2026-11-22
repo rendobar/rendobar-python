@@ -57,8 +57,8 @@ jobs:
         if: matrix.python == '3.13'
         run: uv build
   agents:
-    # The agent adapters, the framework examples and the full type check, with
-    # the optional frameworks installed. Separate from the matrix so a plain install stays the common path.
+    # The agent adapters, realtime, the framework examples and the full type check, with
+    # the optional extras installed. Separate from the matrix so a plain install stays the common path.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -83,7 +83,7 @@ jobs:
       - name: Install with the agent extras
         run: |
           uv venv
-          uv pip install -e ".[langchain,crewai]" pytest pyright mypy "fastapi>=0.115" "django>=5.2" django-stubs
+          uv pip install -e ".[langchain,crewai,realtime]" pytest pyright mypy "fastapi>=0.115" "django>=5.2" django-stubs
       - name: Full suite with the adapters and examples (LangChain, CrewAI, FastAPI, Django)
         run: .venv/bin/python -m pytest -q
       - name: Types (pyright; every hand-written module and tests/typing_check.py are strict)

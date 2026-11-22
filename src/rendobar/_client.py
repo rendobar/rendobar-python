@@ -131,6 +131,7 @@ from ._resources import (
     Uploads,
     Webhooks,
 )
+from ._realtime import Realtime
 from ._version import __version__
 
 DEFAULT_BASE_URL = "https://api.rendobar.com"
@@ -732,6 +733,8 @@ class Rendobar:
     ) -> None:
         self._api_key = resolve_api_key(api_key)
         options = core_options(self._api_key, base_url=base_url, timeout=timeout, app=app)
+        self._base_url = base_url
+        self._headers = options["headers"]  # X-Rendobar-Client, for the event stream's handshake too
         self._http = httpx.Client(timeout=timeout, follow_redirects=True)  # owned here, so close() needs no core internals
         self._core = GeneratedClient(**options, httpx_client=self._http)
         self._max_retries = max_retries
@@ -748,6 +751,7 @@ class Rendobar:
         self.orgs = Orgs(self)
         self.compose = Compose(self)
         self.notifications = Notifications(self)
+        self.realtime = Realtime(self)
 
     def close(self) -> None:
         """Close the underlying HTTP connections. Every call after raises RendobarError (code `CLIENT_CLOSED`)."""

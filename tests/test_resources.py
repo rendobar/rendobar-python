@@ -415,7 +415,7 @@ def test_the_sync_and_async_clients_have_the_same_methods() -> None:
     def surface(client: object) -> Dict[str, List[str]]:
         out: Dict[str, List[str]] = {}
         for resource in ("jobs", "account", "billing", "uploads", "assets", "webhooks", "storage", "api_keys", "orgs", "compose",
-                         "notifications"):
+                         "notifications", "realtime"):
             target = getattr(client, resource)
             out[resource] = sorted(a for a in dir(target) if not a.startswith("_") and callable(getattr(target, a)))
         for nested in ("members", "invitations"):

@@ -56,6 +56,7 @@ from ._async_resources import (
 from ._errors import RendobarError, ResponseValidationError, client_closed, to_public
 from ._generated.client import AsyncGeneratedClient
 from ._plumbing import Envelope, Fetched, Page, Reader, Response, Sent, listed, one, page_window, path_segment
+from ._realtime import AsyncRealtime
 from ._resource_models import DeliveriesRetried, JobLogEntry, JobSort, JobStats, JobTimings, SortOrder, StatsWindow
 from ._models import (
     AccountCapabilities,
@@ -99,6 +100,8 @@ class AsyncRendobar:
     ) -> None:
         self._api_key = resolve_api_key(api_key)
         options = core_options(self._api_key, base_url=base_url, timeout=timeout, app=app)
+        self._base_url = base_url
+        self._headers = options["headers"]  # X-Rendobar-Client, for the event stream's handshake too
         self._http = httpx.AsyncClient(timeout=timeout, follow_redirects=True)  # owned here, so aclose() needs no core internals
         self._core = AsyncGeneratedClient(**options, httpx_client=self._http)
         self._max_retries = max_retries
@@ -115,6 +118,7 @@ class AsyncRendobar:
         self.orgs = AsyncOrgs(self)
         self.compose = AsyncCompose(self)
         self.notifications = AsyncNotifications(self)
+        self.realtime = AsyncRealtime(self)
 
     async def aclose(self) -> None:
         """Close the underlying HTTP connections. Every call after raises RendobarError (code `CLIENT_CLOSED`)."""
