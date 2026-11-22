@@ -24,14 +24,14 @@ class ConnectorFieldParams(typing_extensions.TypedDict):
     type: ConnectorFieldType
     required: bool
     nullable: typing_extensions.NotRequired[bool]
-    default: typing_extensions.NotRequired[typing.Any]
+    default: typing_extensions.NotRequired[object]
     options: typing_extensions.NotRequired[typing.Sequence[ConnectorFieldOptionsItemParams]]
     min: typing_extensions.NotRequired[float]
     max: typing_extensions.NotRequired[float]
     min_length: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="minLength")]]
     max_length: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="maxLength")]]
     description: typing_extensions.NotRequired[str]
-    example: typing_extensions.NotRequired[typing.Any]
+    example: typing_extensions.NotRequired[object]
     """
     Example value, for placeholder text
     """

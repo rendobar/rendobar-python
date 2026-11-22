@@ -2,4 +2,4 @@
 
 import typing
 
-ListAssetsRequestStatus = typing.Union[typing.Literal["pending", "uploading", "ready", "failed", "expired"], typing.Any]
+ListAssetsRequestStatus = typing.Literal["pending", "uploading", "ready", "failed", "expired"]

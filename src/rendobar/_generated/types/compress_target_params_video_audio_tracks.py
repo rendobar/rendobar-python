@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsVideoAudioTracks = typing.Union[typing.Literal["all", "primary", "none"], typing.Any]
+CompressTargetParamsVideoAudioTracks = typing.Literal["all", "primary", "none"]

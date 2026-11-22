@@ -6,12 +6,13 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
+from .job_delivery_failed_data_status import JobDeliveryFailedDataStatus
 
 
 class JobDeliveryFailedData(UniversalBaseModel):
     job_id: typing_extensions.Annotated[str, FieldMetadata(alias="jobId"), pydantic.Field(alias="jobId")]
     storage_id: typing_extensions.Annotated[str, FieldMetadata(alias="storageId"), pydantic.Field(alias="storageId")]
-    status: str
+    status: JobDeliveryFailedDataStatus
     reason: str
 
     if IS_PYDANTIC_V2:

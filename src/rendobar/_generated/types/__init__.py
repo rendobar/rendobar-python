@@ -12,9 +12,12 @@ if typing.TYPE_CHECKING:
     from .api_key_disabled_by import ApiKeyDisabledBy
     from .balance_depleted_data import BalanceDepletedData
     from .balance_depleted_webhook_event import BalanceDepletedWebhookEvent
+    from .balance_depleted_webhook_event_version import BalanceDepletedWebhookEventVersion
     from .balance_low_data import BalanceLowData
     from .balance_low_webhook_event import BalanceLowWebhookEvent
+    from .balance_low_webhook_event_version import BalanceLowWebhookEventVersion
     from .callback_status import CallbackStatus
+    from .callback_status_status import CallbackStatusStatus
     from .caption_burn_job import CaptionBurnJob
     from .caption_burn_params import CaptionBurnParams
     from .caption_burn_params_alignment import CaptionBurnParamsAlignment
@@ -153,51 +156,85 @@ if typing.TYPE_CHECKING:
     )
     from .image_upscale_params_sizing_factor import ImageUpscaleParamsSizingFactor
     from .image_upscale_params_sizing_height import ImageUpscaleParamsSizingHeight
+    from .input_content import InputContent
+    from .input_job_output import InputJobOutput
+    from .input_source import InputSource
+    from .input_url import InputUrl
     from .job import Job, Job_Cancelled, Job_Complete, Job_Dispatched, Job_Failed, Job_Running, Job_Waiting
     from .job_cancelled import JobCancelled
     from .job_cancelled_data import JobCancelledData
+    from .job_cancelled_data_status import JobCancelledDataStatus
     from .job_cancelled_data_timing import JobCancelledDataTiming
+    from .job_cancelled_output_category import JobCancelledOutputCategory
     from .job_cancelled_webhook_event import JobCancelledWebhookEvent
+    from .job_cancelled_webhook_event_version import JobCancelledWebhookEventVersion
     from .job_complete import JobComplete
+    from .job_complete_output_category import JobCompleteOutputCategory
     from .job_completed_data import JobCompletedData
+    from .job_completed_data_status import JobCompletedDataStatus
     from .job_completed_data_timing import JobCompletedDataTiming
     from .job_completed_on_submit import JobCompletedOnSubmit
+    from .job_completed_on_submit_status import JobCompletedOnSubmitStatus
     from .job_completed_webhook_event import JobCompletedWebhookEvent
+    from .job_completed_webhook_event_version import JobCompletedWebhookEventVersion
     from .job_cost import JobCost
+    from .job_cost_currency import JobCostCurrency
     from .job_created import JobCreated
     from .job_created_data import JobCreatedData
+    from .job_created_data_status import JobCreatedDataStatus
     from .job_created_data_timing import JobCreatedDataTiming
+    from .job_created_status import JobCreatedStatus
     from .job_created_webhook_event import JobCreatedWebhookEvent
+    from .job_created_webhook_event_version import JobCreatedWebhookEventVersion
     from .job_deliveries_settled_data import JobDeliveriesSettledData
     from .job_deliveries_settled_webhook_event import JobDeliveriesSettledWebhookEvent
+    from .job_deliveries_settled_webhook_event_version import JobDeliveriesSettledWebhookEventVersion
     from .job_delivery import JobDelivery
     from .job_delivery_failed_data import JobDeliveryFailedData
+    from .job_delivery_failed_data_status import JobDeliveryFailedDataStatus
     from .job_delivery_failed_webhook_event import JobDeliveryFailedWebhookEvent
+    from .job_delivery_failed_webhook_event_version import JobDeliveryFailedWebhookEventVersion
+    from .job_delivery_reason import JobDeliveryReason
+    from .job_delivery_status import JobDeliveryStatus
     from .job_delivery_succeeded_data import JobDeliverySucceededData
+    from .job_delivery_succeeded_data_status import JobDeliverySucceededDataStatus
     from .job_delivery_succeeded_webhook_event import JobDeliverySucceededWebhookEvent
+    from .job_delivery_succeeded_webhook_event_version import JobDeliverySucceededWebhookEventVersion
     from .job_dispatched import JobDispatched
     from .job_dispatched_boot_state import JobDispatchedBootState
+    from .job_dispatched_output_category import JobDispatchedOutputCategory
     from .job_error import JobError
+    from .job_error_failed_phase import JobErrorFailedPhase
     from .job_failed import JobFailed
     from .job_failed_data import JobFailedData
+    from .job_failed_data_status import JobFailedDataStatus
     from .job_failed_data_timing import JobFailedDataTiming
+    from .job_failed_output_category import JobFailedOutputCategory
     from .job_failed_webhook_event import JobFailedWebhookEvent
+    from .job_failed_webhook_event_version import JobFailedWebhookEventVersion
+    from .job_input import JobInput
     from .job_output import JobOutput
     from .job_output_file import JobOutputFile
     from .job_output_file_meta import JobOutputFileMeta
     from .job_replayed import JobReplayed
     from .job_running import JobRunning
+    from .job_running_output_category import JobRunningOutputCategory
     from .job_started_data import JobStartedData
+    from .job_started_data_status import JobStartedDataStatus
     from .job_started_data_timing import JobStartedDataTiming
     from .job_started_webhook_event import JobStartedWebhookEvent
+    from .job_started_webhook_event_version import JobStartedWebhookEventVersion
     from .job_step import JobStep
     from .job_type import JobType
     from .job_waiting import JobWaiting
+    from .job_waiting_output_category import JobWaitingOutputCategory
     from .oauth_scope import OauthScope
     from .output_file import OutputFile
     from .output_file_meta import OutputFileMeta
     from .output_file_type import OutputFileType
     from .settled_delivery import SettledDelivery
+    from .settled_delivery_reason import SettledDeliveryReason
+    from .settled_delivery_status import SettledDeliveryStatus
     from .submit_any_job import SubmitAnyJob
     from .submit_any_job_callback import SubmitAnyJobCallback
     from .submit_any_job_callback_events_item import SubmitAnyJobCallbackEventsItem
@@ -236,8 +273,10 @@ if typing.TYPE_CHECKING:
     from .submit_typed_job import SubmitTypedJob
     from .test_event_data import TestEventData
     from .test_webhook_event import TestWebhookEvent
+    from .test_webhook_event_version import TestWebhookEventVersion
     from .webhook_endpoint import WebhookEndpoint
     from .webhook_job_cost import WebhookJobCost
+    from .webhook_job_cost_currency import WebhookJobCostCurrency
     from .webhook_job_step import WebhookJobStep
     from .webhook_payload import (
         WebhookPayload,
@@ -260,9 +299,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiKeyDisabledBy": ".api_key_disabled_by",
     "BalanceDepletedData": ".balance_depleted_data",
     "BalanceDepletedWebhookEvent": ".balance_depleted_webhook_event",
+    "BalanceDepletedWebhookEventVersion": ".balance_depleted_webhook_event_version",
     "BalanceLowData": ".balance_low_data",
     "BalanceLowWebhookEvent": ".balance_low_webhook_event",
+    "BalanceLowWebhookEventVersion": ".balance_low_webhook_event_version",
     "CallbackStatus": ".callback_status",
+    "CallbackStatusStatus": ".callback_status_status",
     "CaptionBurnJob": ".caption_burn_job",
     "CaptionBurnParams": ".caption_burn_params",
     "CaptionBurnParamsAlignment": ".caption_burn_params_alignment",
@@ -393,46 +435,78 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ImageUpscaleParamsSizingHeight": ".image_upscale_params_sizing_height",
     "ImageUpscaleParamsSizing_Factor": ".image_upscale_params_sizing",
     "ImageUpscaleParamsSizing_Height": ".image_upscale_params_sizing",
+    "InputContent": ".input_content",
+    "InputJobOutput": ".input_job_output",
+    "InputSource": ".input_source",
+    "InputUrl": ".input_url",
     "Job": ".job",
     "JobCancelled": ".job_cancelled",
     "JobCancelledData": ".job_cancelled_data",
+    "JobCancelledDataStatus": ".job_cancelled_data_status",
     "JobCancelledDataTiming": ".job_cancelled_data_timing",
+    "JobCancelledOutputCategory": ".job_cancelled_output_category",
     "JobCancelledWebhookEvent": ".job_cancelled_webhook_event",
+    "JobCancelledWebhookEventVersion": ".job_cancelled_webhook_event_version",
     "JobComplete": ".job_complete",
+    "JobCompleteOutputCategory": ".job_complete_output_category",
     "JobCompletedData": ".job_completed_data",
+    "JobCompletedDataStatus": ".job_completed_data_status",
     "JobCompletedDataTiming": ".job_completed_data_timing",
     "JobCompletedOnSubmit": ".job_completed_on_submit",
+    "JobCompletedOnSubmitStatus": ".job_completed_on_submit_status",
     "JobCompletedWebhookEvent": ".job_completed_webhook_event",
+    "JobCompletedWebhookEventVersion": ".job_completed_webhook_event_version",
     "JobCost": ".job_cost",
+    "JobCostCurrency": ".job_cost_currency",
     "JobCreated": ".job_created",
     "JobCreatedData": ".job_created_data",
+    "JobCreatedDataStatus": ".job_created_data_status",
     "JobCreatedDataTiming": ".job_created_data_timing",
+    "JobCreatedStatus": ".job_created_status",
     "JobCreatedWebhookEvent": ".job_created_webhook_event",
+    "JobCreatedWebhookEventVersion": ".job_created_webhook_event_version",
     "JobDeliveriesSettledData": ".job_deliveries_settled_data",
     "JobDeliveriesSettledWebhookEvent": ".job_deliveries_settled_webhook_event",
+    "JobDeliveriesSettledWebhookEventVersion": ".job_deliveries_settled_webhook_event_version",
     "JobDelivery": ".job_delivery",
     "JobDeliveryFailedData": ".job_delivery_failed_data",
+    "JobDeliveryFailedDataStatus": ".job_delivery_failed_data_status",
     "JobDeliveryFailedWebhookEvent": ".job_delivery_failed_webhook_event",
+    "JobDeliveryFailedWebhookEventVersion": ".job_delivery_failed_webhook_event_version",
+    "JobDeliveryReason": ".job_delivery_reason",
+    "JobDeliveryStatus": ".job_delivery_status",
     "JobDeliverySucceededData": ".job_delivery_succeeded_data",
+    "JobDeliverySucceededDataStatus": ".job_delivery_succeeded_data_status",
     "JobDeliverySucceededWebhookEvent": ".job_delivery_succeeded_webhook_event",
+    "JobDeliverySucceededWebhookEventVersion": ".job_delivery_succeeded_webhook_event_version",
     "JobDispatched": ".job_dispatched",
     "JobDispatchedBootState": ".job_dispatched_boot_state",
+    "JobDispatchedOutputCategory": ".job_dispatched_output_category",
     "JobError": ".job_error",
+    "JobErrorFailedPhase": ".job_error_failed_phase",
     "JobFailed": ".job_failed",
     "JobFailedData": ".job_failed_data",
+    "JobFailedDataStatus": ".job_failed_data_status",
     "JobFailedDataTiming": ".job_failed_data_timing",
+    "JobFailedOutputCategory": ".job_failed_output_category",
     "JobFailedWebhookEvent": ".job_failed_webhook_event",
+    "JobFailedWebhookEventVersion": ".job_failed_webhook_event_version",
+    "JobInput": ".job_input",
     "JobOutput": ".job_output",
     "JobOutputFile": ".job_output_file",
     "JobOutputFileMeta": ".job_output_file_meta",
     "JobReplayed": ".job_replayed",
     "JobRunning": ".job_running",
+    "JobRunningOutputCategory": ".job_running_output_category",
     "JobStartedData": ".job_started_data",
+    "JobStartedDataStatus": ".job_started_data_status",
     "JobStartedDataTiming": ".job_started_data_timing",
     "JobStartedWebhookEvent": ".job_started_webhook_event",
+    "JobStartedWebhookEventVersion": ".job_started_webhook_event_version",
     "JobStep": ".job_step",
     "JobType": ".job_type",
     "JobWaiting": ".job_waiting",
+    "JobWaitingOutputCategory": ".job_waiting_output_category",
     "Job_Cancelled": ".job",
     "Job_Complete": ".job",
     "Job_Dispatched": ".job",
@@ -444,6 +518,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "OutputFileMeta": ".output_file_meta",
     "OutputFileType": ".output_file_type",
     "SettledDelivery": ".settled_delivery",
+    "SettledDeliveryReason": ".settled_delivery_reason",
+    "SettledDeliveryStatus": ".settled_delivery_status",
     "SubmitAnyJob": ".submit_any_job",
     "SubmitAnyJobCallback": ".submit_any_job_callback",
     "SubmitAnyJobCallbackEventsItem": ".submit_any_job_callback_events_item",
@@ -482,8 +558,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SubmitTypedJob": ".submit_typed_job",
     "TestEventData": ".test_event_data",
     "TestWebhookEvent": ".test_webhook_event",
+    "TestWebhookEventVersion": ".test_webhook_event_version",
     "WebhookEndpoint": ".webhook_endpoint",
     "WebhookJobCost": ".webhook_job_cost",
+    "WebhookJobCostCurrency": ".webhook_job_cost_currency",
     "WebhookJobStep": ".webhook_job_step",
     "WebhookPayload": ".webhook_payload",
     "WebhookPayload_BalanceDepleted": ".webhook_payload",
@@ -528,9 +606,12 @@ __all__ = [
     "ApiKeyDisabledBy",
     "BalanceDepletedData",
     "BalanceDepletedWebhookEvent",
+    "BalanceDepletedWebhookEventVersion",
     "BalanceLowData",
     "BalanceLowWebhookEvent",
+    "BalanceLowWebhookEventVersion",
     "CallbackStatus",
+    "CallbackStatusStatus",
     "CaptionBurnJob",
     "CaptionBurnParams",
     "CaptionBurnParamsAlignment",
@@ -661,46 +742,78 @@ __all__ = [
     "ImageUpscaleParamsSizingHeight",
     "ImageUpscaleParamsSizing_Factor",
     "ImageUpscaleParamsSizing_Height",
+    "InputContent",
+    "InputJobOutput",
+    "InputSource",
+    "InputUrl",
     "Job",
     "JobCancelled",
     "JobCancelledData",
+    "JobCancelledDataStatus",
     "JobCancelledDataTiming",
+    "JobCancelledOutputCategory",
     "JobCancelledWebhookEvent",
+    "JobCancelledWebhookEventVersion",
     "JobComplete",
+    "JobCompleteOutputCategory",
     "JobCompletedData",
+    "JobCompletedDataStatus",
     "JobCompletedDataTiming",
     "JobCompletedOnSubmit",
+    "JobCompletedOnSubmitStatus",
     "JobCompletedWebhookEvent",
+    "JobCompletedWebhookEventVersion",
     "JobCost",
+    "JobCostCurrency",
     "JobCreated",
     "JobCreatedData",
+    "JobCreatedDataStatus",
     "JobCreatedDataTiming",
+    "JobCreatedStatus",
     "JobCreatedWebhookEvent",
+    "JobCreatedWebhookEventVersion",
     "JobDeliveriesSettledData",
     "JobDeliveriesSettledWebhookEvent",
+    "JobDeliveriesSettledWebhookEventVersion",
     "JobDelivery",
     "JobDeliveryFailedData",
+    "JobDeliveryFailedDataStatus",
     "JobDeliveryFailedWebhookEvent",
+    "JobDeliveryFailedWebhookEventVersion",
+    "JobDeliveryReason",
+    "JobDeliveryStatus",
     "JobDeliverySucceededData",
+    "JobDeliverySucceededDataStatus",
     "JobDeliverySucceededWebhookEvent",
+    "JobDeliverySucceededWebhookEventVersion",
     "JobDispatched",
     "JobDispatchedBootState",
+    "JobDispatchedOutputCategory",
     "JobError",
+    "JobErrorFailedPhase",
     "JobFailed",
     "JobFailedData",
+    "JobFailedDataStatus",
     "JobFailedDataTiming",
+    "JobFailedOutputCategory",
     "JobFailedWebhookEvent",
+    "JobFailedWebhookEventVersion",
+    "JobInput",
     "JobOutput",
     "JobOutputFile",
     "JobOutputFileMeta",
     "JobReplayed",
     "JobRunning",
+    "JobRunningOutputCategory",
     "JobStartedData",
+    "JobStartedDataStatus",
     "JobStartedDataTiming",
     "JobStartedWebhookEvent",
+    "JobStartedWebhookEventVersion",
     "JobStep",
     "JobType",
     "JobWaiting",
+    "JobWaitingOutputCategory",
     "Job_Cancelled",
     "Job_Complete",
     "Job_Dispatched",
@@ -712,6 +825,8 @@ __all__ = [
     "OutputFileMeta",
     "OutputFileType",
     "SettledDelivery",
+    "SettledDeliveryReason",
+    "SettledDeliveryStatus",
     "SubmitAnyJob",
     "SubmitAnyJobCallback",
     "SubmitAnyJobCallbackEventsItem",
@@ -750,8 +865,10 @@ __all__ = [
     "SubmitTypedJob",
     "TestEventData",
     "TestWebhookEvent",
+    "TestWebhookEventVersion",
     "WebhookEndpoint",
     "WebhookJobCost",
+    "WebhookJobCostCurrency",
     "WebhookJobStep",
     "WebhookPayload",
     "WebhookPayload_BalanceDepleted",

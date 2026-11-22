@@ -48,9 +48,11 @@ jobs:
       - name: Public-surface deny-list
         if: matrix.python == '3.13'
         run: python3 -I .openapi/scripts/deny_list.py
-      - name: Fern overrides match the spec
+      - name: Fern overrides match the spec, and the generated core is post-processed
         if: matrix.python == '3.13'
-        run: python3 -I fern/derive_overrides.py --check
+        run: |
+          python3 -I fern/derive_overrides.py --check
+          python3 -I fern/postprocess.py --check
       - name: Build
         if: matrix.python == '3.13'
         run: uv build

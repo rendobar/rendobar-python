@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .job_completed_on_submit_status import JobCompletedOnSubmitStatus
 
 
 class JobCompletedOnSubmit(UniversalBaseModel):
@@ -12,7 +13,7 @@ class JobCompletedOnSubmit(UniversalBaseModel):
     Job ID
     """
 
-    status: str = pydantic.Field()
+    status: JobCompletedOnSubmitStatus = pydantic.Field()
     """
     Completed synchronously
     """

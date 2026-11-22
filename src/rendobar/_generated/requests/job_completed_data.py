@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.job_completed_data_status import JobCompletedDataStatus
 from .job_completed_data_timing import JobCompletedDataTimingParams
 from .job_output import JobOutputParams
 from .webhook_job_cost import WebhookJobCostParams
@@ -13,7 +14,7 @@ from .webhook_job_step import WebhookJobStepParams
 class JobCompletedDataParams(typing_extensions.TypedDict):
     job_id: typing_extensions.Annotated[str, FieldMetadata(alias="jobId")]
     job_type: typing_extensions.Annotated[str, FieldMetadata(alias="jobType")]
-    status: str
+    status: JobCompletedDataStatus
     output: JobOutputParams
     cost: typing_extensions.NotRequired[WebhookJobCostParams]
     timing: JobCompletedDataTimingParams

@@ -2,4 +2,4 @@
 
 import typing
 
-InviteTeamMemberRequestRole = typing.Union[typing.Literal["admin", "member"], typing.Any]
+InviteTeamMemberRequestRole = typing.Literal["admin", "member"]

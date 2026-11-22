@@ -2,4 +2,4 @@
 
 import typing
 
-DisputeJobResponseDataAction = typing.Union[typing.Literal["flagged"], typing.Any]
+DisputeJobResponseDataAction = typing.Literal["flagged"]

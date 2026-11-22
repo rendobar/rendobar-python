@@ -6,13 +6,14 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
+from .job_started_data_status import JobStartedDataStatus
 from .job_started_data_timing import JobStartedDataTiming
 
 
 class JobStartedData(UniversalBaseModel):
     job_id: typing_extensions.Annotated[str, FieldMetadata(alias="jobId"), pydantic.Field(alias="jobId")]
     job_type: typing_extensions.Annotated[str, FieldMetadata(alias="jobType"), pydantic.Field(alias="jobType")]
-    status: str
+    status: JobStartedDataStatus
     timing: JobStartedDataTiming
 
     if IS_PYDANTIC_V2:

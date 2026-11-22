@@ -2,4 +2,4 @@
 
 import typing
 
-ListAccountBucketsRequestProvider = typing.Union[typing.Literal["s3", "r2"], typing.Any]
+ListAccountBucketsRequestProvider = typing.Literal["s3", "r2"]

@@ -2,4 +2,4 @@
 
 import typing
 
-PrepareAwsStorageResponseDataDeliverySummaryLastStatus = typing.Union[typing.Literal["delivered", "failed"], typing.Any]
+PrepareAwsStorageResponseDataDeliverySummaryLastStatus = typing.Literal["delivered", "failed"]

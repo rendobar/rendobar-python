@@ -4,11 +4,12 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .webhook_job_cost_currency import WebhookJobCostCurrency
 
 
 class WebhookJobCost(UniversalBaseModel):
     amount: int
-    currency: str
+    currency: WebhookJobCostCurrency
     formatted: str
     breakdown: str
 

@@ -7,10 +7,11 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
 from .balance_low_data import BalanceLowData
+from .balance_low_webhook_event_version import BalanceLowWebhookEventVersion
 
 
 class BalanceLowWebhookEvent(UniversalBaseModel):
-    version: str = pydantic.Field()
+    version: BalanceLowWebhookEventVersion = pydantic.Field()
     """
     Envelope version. A new version is a new shape
     """

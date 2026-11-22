@@ -17,12 +17,12 @@ class SubmitAnyJobParams(typing_extensions.TypedDict):
     Job type identifier, such as ffmpeg, ffprobe or compose. GET /jobs/types lists every live type.
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, object]]
     """
     Input files (e.g., { source: 'https://...' })
     """
 
-    params: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    params: typing_extensions.NotRequired[typing.Dict[str, object]]
     """
     Job-specific parameters (validated per job type)
     """

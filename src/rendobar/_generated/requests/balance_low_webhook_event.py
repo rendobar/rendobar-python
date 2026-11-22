@@ -2,11 +2,12 @@
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.balance_low_webhook_event_version import BalanceLowWebhookEventVersion
 from .balance_low_data import BalanceLowDataParams
 
 
 class BalanceLowWebhookEventParams(typing_extensions.TypedDict):
-    version: str
+    version: BalanceLowWebhookEventVersion
     """
     Envelope version. A new version is a new shape
     """

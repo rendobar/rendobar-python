@@ -2,6 +2,8 @@
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.settled_delivery_reason import SettledDeliveryReason
+from ..types.settled_delivery_status import SettledDeliveryStatus
 
 
 class SettledDeliveryParams(typing_extensions.TypedDict):
@@ -10,7 +12,7 @@ class SettledDeliveryParams(typing_extensions.TypedDict):
     The storage connection id
     """
 
-    status: str
+    status: SettledDeliveryStatus
     path: typing_extensions.NotRequired[str]
     """
     Object key in the bucket, rendered from the template. A multi-file output is a folder, and its path ends in /
@@ -21,7 +23,7 @@ class SettledDeliveryParams(typing_extensions.TypedDict):
     Where to fetch it: the public base URL when set, else our files route. Absent for a folder
     """
 
-    reason: typing_extensions.NotRequired[str]
+    reason: typing_extensions.NotRequired[SettledDeliveryReason]
     renamed: typing_extensions.NotRequired[bool]
     """
     The name was taken, so the job's tail was appended to free it

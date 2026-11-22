@@ -9,6 +9,7 @@ from ..core.serialization import FieldMetadata
 from .callback_status import CallbackStatus
 from .job_cost import JobCost
 from .job_delivery import JobDelivery
+from .job_running_output_category import JobRunningOutputCategory
 from .job_step import JobStep
 
 
@@ -72,19 +73,19 @@ class JobRunning(UniversalBaseModel):
     Detected media type (video | image | audio), or null
     """
 
-    inputs: typing.Dict[str, typing.Any] = pydantic.Field()
+    inputs: typing.Dict[str, object] = pydantic.Field()
     """
     Input file references
     """
 
-    params: typing.Dict[str, typing.Any] = pydantic.Field()
+    params: typing.Dict[str, object] = pydantic.Field()
     """
     Job parameters
     """
 
     cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
-        str,
+        JobRunningOutputCategory,
         FieldMetadata(alias="outputCategory"),
         pydantic.Field(
             alias="outputCategory", description="Output category. Clients should tolerate unknown future values."

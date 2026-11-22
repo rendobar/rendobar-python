@@ -14,13 +14,12 @@ them out and setting one in the job is a type error, not a second way. A job
 type the SDK does not know yet goes through `SubmitAnyJob` (the SDK's
 `UntypedJob`), which stays out of the union.
 
-Every string enum a response can carry (a job's output category, currency,
-file type, delivery status, failed phase; the submit statuses; webhook data)
-is typed `str`. Fern types an enum as
-`Literal[...] | Any`, which turns off checking, and a closed Literal would
-make an older SDK fail on a value the API adds later. `str` is what both
-checkers make of `Literal[...] | str`: typed, and open to new values. The
-status a job is discriminated on, and the event a webhook is, stay literals.
+Each typed job's `inputs` is typed as the input forms the API accepts (a URL,
+`{url}`, `{content}` for inline text, `{job}` for another job's output, or a
+list of those), defined once here as `InputSource` and `JobInput` until the
+spec names them. The spec types inputs as a free-form object.
+
+Enum and `Any` annotations are tightened after generation by postprocess.py.
 
 Usage: python fern/derive_overrides.py [--check]
 --check exits 1 when overrides.yml is not what the spec gives (CI runs this).
@@ -34,6 +33,25 @@ SPEC = HERE / "openapi.json"
 OUT = HERE / "overrides.yml"
 REF = "#/components/schemas/"
 WHAT = ("type", "params", "inputs")  # what to run; everything else is a submit option
+
+# The input forms the API accepts for every job type, not yet named in the spec.
+_SOURCE_FORMS = {
+    "InputUrl": ("url", "A file URL, the same as giving the URL as a string"),
+    "InputContent": ("content", "Inline text the job reads as a file, such as subtitles or a script"),
+    "InputJobOutput": ("job", "The output of another job, by its id (job_...)"),
+}
+INPUT_SCHEMAS: dict = {
+    **{name: {"type": "object", "description": text, "required": [key], "properties": {key: {"type": "string"}}}
+       for name, (key, text) in _SOURCE_FORMS.items()},
+    "InputSource": {
+        "description": "One input file: a URL, or one of the object forms",
+        "oneOf": [{"type": "string", "description": "A public or signed URL"}] + [{"$ref": f"{REF}{n}"} for n in _SOURCE_FORMS],
+    },
+    "JobInput": {
+        "description": "A named input: one source, or a list of them for an input that takes several (such as image.edit images)",
+        "oneOf": [{"$ref": f"{REF}InputSource"}, {"type": "array", "items": {"$ref": f"{REF}InputSource"}}],
+    },
+}
 
 
 def variant_name(submit_schema: str) -> str:
@@ -58,6 +76,8 @@ def derive(spec: dict) -> dict:
     for name, const in typed:
         schema = schemas[name]
         what = {k: v for k, v in schema["properties"].items() if k in WHAT}
+        if "inputs" in what:
+            what["inputs"] = {**what["inputs"], "additionalProperties": {"$ref": f"{REF}JobInput"}}
         what["type"] = {"x-fern-type": f'literal<"{const}">', "description": "Job type"}
         added[variant_name(name)] = {
             "type": "object",
@@ -69,84 +89,11 @@ def derive(spec: dict) -> dict:
         "description": "A job of a type this SDK knows: what to run, typed per job type.",
         "anyOf": [{"$ref": f"{REF}{variant}"} for variant in added],
     }
+    added.update(INPUT_SCHEMAS)
     clash = sorted(set(added) & set(schemas))
     if clash:
-        raise SystemExit(f"the spec now has schemas named {clash}: rename the derived ones")
-    overrides: dict = {"components": {"schemas": added}}
-    for name, override in open_enums(spec).items():
-        merge(overrides["components"]["schemas"].setdefault(name, {}), override)
-    return overrides
-
-
-def merge(into: dict, more: dict) -> None:
-    for key, value in more.items():
-        if isinstance(value, dict) and isinstance(into.get(key), dict):
-            merge(into[key], value)
-        else:
-            into[key] = value
-
-
-def _string_enum(node: dict) -> bool:
-    return "enum" in node and all(isinstance(value, str) for value in node["enum"])
-
-
-def open_enums(spec: dict) -> dict:
-    """`{schema: override}` setting `x-fern-type: string` on every string enum a response can carry.
-
-    The roots are the Job union's variants, the webhook payload union's
-    variants (each skipping the property its union is discriminated on) and
-    the POST /jobs success bodies.
-    """
-    schemas = spec["components"]["schemas"]
-    out: dict = {}
-
-    def walk(node: dict, override: dict, skip: object, seen: frozenset) -> None:
-        if "$ref" in node:
-            name = node["$ref"].removeprefix(REF)
-            if name in seen:
-                return
-            target = schemas[name]
-            if _string_enum(target):
-                out.setdefault(name, {})["x-fern-type"] = "string"
-            else:
-                walk(target, out.setdefault(name, {}), None, seen | {name})
-            return
-        if any(key in node for key in ("anyOf", "oneOf", "allOf")):
-            raise SystemExit("a union inside a response: teach derive_overrides.py to override inside it")
-        for prop, child in node.get("properties", {}).items():
-            if prop == skip:
-                continue
-            if _string_enum(child):
-                override.setdefault("properties", {}).setdefault(prop, {})["x-fern-type"] = "string"
-            else:
-                walk(child, override.setdefault("properties", {}).setdefault(prop, {}), None, seen)
-        items = node.get("items")
-        if isinstance(items, dict):
-            if _string_enum(items):
-                override.setdefault("items", {})["x-fern-type"] = "string"
-            else:
-                walk(items, override.setdefault("items", {}), None, seen)
-
-    for union in ("Job", "WebhookPayload"):
-        discriminant = schemas[union]["discriminator"]["propertyName"]
-        for variant in schemas[union]["oneOf"]:
-            name = variant["$ref"].removeprefix(REF)
-            walk(schemas[name], out.setdefault(name, {}), discriminant, frozenset({name}))
-    for status in ("200", "201"):
-        data = spec["paths"]["/jobs"]["post"]["responses"][status]["content"]["application/json"]["schema"]["properties"]["data"]
-        for member in data.get("anyOf", [data]):
-            walk(member, {}, None, frozenset())
-    return {name: prune(o) for name, o in out.items() if prune(o)}
-
-
-def prune(node: dict) -> dict:
-    """Drops the empty branches the walk opened, so the overrides hold only what they change."""
-    out = {}
-    for key, value in node.items():
-        value = prune(value) if isinstance(value, dict) else value
-        if value != {}:
-            out[key] = value
-    return out
+        raise SystemExit(f"the spec now has schemas named {clash}: rename the derived ones (or use the spec's)")
+    return {"components": {"schemas": added}}
 
 
 def main() -> None:

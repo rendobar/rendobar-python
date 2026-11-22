@@ -2,4 +2,4 @@
 
 import typing
 
-ValidateComposeResponseDataProblemsProblemsItemUpgradeTo = typing.Union[typing.Literal["pro", "studio"], typing.Any]
+ValidateComposeResponseDataProblemsProblemsItemUpgradeTo = typing.Literal["pro", "studio"]

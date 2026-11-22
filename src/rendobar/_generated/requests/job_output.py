@@ -13,7 +13,7 @@ class JobOutputParams(typing_extensions.TypedDict):
     Job output. Present only when status is complete.
     """
 
-    data: typing_extensions.NotRequired[typing.Any]
+    data: typing_extensions.NotRequired[object]
     """
     Job-type-specific computed result (probe result, detections, transcript). Shape varies per job type. Null when the job produced no structured data. For an ffprobe job it is an FfprobeResult (#/components/schemas/FfprobeResult).
     """

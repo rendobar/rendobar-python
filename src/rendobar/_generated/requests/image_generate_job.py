@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from .image_generate_params import ImageGenerateParamsParams
+from .job_input import JobInputParams
 
 
 class ImageGenerateJobParams(typing_extensions.TypedDict):
@@ -11,7 +12,7 @@ class ImageGenerateJobParams(typing_extensions.TypedDict):
     Submit a image.generate job.
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, JobInputParams]]
     """
     Input files (e.g., { source: 'https://...' })
     """

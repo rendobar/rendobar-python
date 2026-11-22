@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from .compress_target_params import CompressTargetParamsParams
+from .job_input import JobInputParams
 
 
 class CompressTargetJobParams(typing_extensions.TypedDict):
@@ -11,7 +12,7 @@ class CompressTargetJobParams(typing_extensions.TypedDict):
     Submit a compress.target job.
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, JobInputParams]]
     """
     Input files (e.g., { source: 'https://...' })
     """

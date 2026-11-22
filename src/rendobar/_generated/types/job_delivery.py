@@ -6,6 +6,8 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
+from .job_delivery_reason import JobDeliveryReason
+from .job_delivery_status import JobDeliveryStatus
 
 
 class JobDelivery(UniversalBaseModel):
@@ -18,7 +20,7 @@ class JobDelivery(UniversalBaseModel):
     The storage connection id
     """
 
-    status: str
+    status: JobDeliveryStatus
     path: typing.Optional[str] = pydantic.Field(default=None)
     """
     Object key in the bucket, rendered from the template. A multi-file output is a folder, and its path ends in /
@@ -29,7 +31,7 @@ class JobDelivery(UniversalBaseModel):
     Where to fetch it: the public base URL when set, else our files route. Absent for a folder
     """
 
-    reason: typing.Optional[str] = None
+    reason: typing.Optional[JobDeliveryReason] = None
     renamed: typing.Optional[bool] = pydantic.Field(default=None)
     """
     The name was taken, so the job's tail was appended to free it

@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsTargetZero = typing.Union[typing.Literal["visually-lossless", "balanced", "efficient"], typing.Any]
+CompressTargetParamsTargetZero = typing.Literal["visually-lossless", "balanced", "efficient"]

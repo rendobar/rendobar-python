@@ -2,6 +2,4 @@
 
 import typing
 
-FinishSupabaseStorageResponseDataDeliverySummaryLastStatus = typing.Union[
-    typing.Literal["delivered", "failed"], typing.Any
-]
+FinishSupabaseStorageResponseDataDeliverySummaryLastStatus = typing.Literal["delivered", "failed"]

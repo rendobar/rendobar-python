@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from .captions_animate_params import CaptionsAnimateParamsParams
+from .job_input import JobInputParams
 
 
 class CaptionsAnimateJobParams(typing_extensions.TypedDict):
@@ -11,7 +12,7 @@ class CaptionsAnimateJobParams(typing_extensions.TypedDict):
     Submit a captions.animate job.
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, JobInputParams]]
     """
     Input files (e.g., { source: 'https://...' })
     """

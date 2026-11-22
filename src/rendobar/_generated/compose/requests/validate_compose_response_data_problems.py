@@ -10,7 +10,7 @@ from .validate_compose_response_data_problems_warnings_item import ValidateCompo
 class ValidateComposeResponseDataProblemsParams(typing_extensions.TypedDict):
     valid: bool
     problems: typing.Sequence[ValidateComposeResponseDataProblemsProblemsItemParams]
-    params: typing.Optional[typing.Dict[str, typing.Any]]
+    params: typing.Optional[typing.Dict[str, object]]
     """
     Null when the document did not parse.
     """

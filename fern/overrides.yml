@@ -2,32 +2,13 @@
 {
   "components": {
     "schemas": {
-      "BalanceDepletedWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "BalanceLowWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "CallbackStatus": {
-        "properties": {
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
       "CaptionBurnJob": {
         "description": "Submit a caption.burn job.",
         "properties": {
           "inputs": {
-            "additionalProperties": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JobInput"
+            },
             "default": {},
             "description": "Input files (e.g., { source: 'https://...' })",
             "type": "object"
@@ -50,7 +31,9 @@
         "description": "Submit a captions.animate job.",
         "properties": {
           "inputs": {
-            "additionalProperties": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JobInput"
+            },
             "default": {},
             "description": "Input files (e.g., { source: 'https://...' })",
             "type": "object"
@@ -73,7 +56,9 @@
         "description": "Submit a compress.target job.",
         "properties": {
           "inputs": {
-            "additionalProperties": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JobInput"
+            },
             "default": {},
             "description": "Input files (e.g., { source: 'https://...' })",
             "type": "object"
@@ -96,7 +81,9 @@
         "description": "Submit a ffmpeg job.",
         "properties": {
           "inputs": {
-            "additionalProperties": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JobInput"
+            },
             "default": {},
             "description": "Input files (e.g., { source: 'https://...' })",
             "type": "object"
@@ -119,7 +106,9 @@
         "description": "Submit a ffprobe job.",
         "properties": {
           "inputs": {
-            "additionalProperties": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JobInput"
+            },
             "default": {},
             "description": "Input files (e.g., { source: 'https://...' })",
             "type": "object"
@@ -142,7 +131,9 @@
         "description": "Submit a image.edit job.",
         "properties": {
           "inputs": {
-            "additionalProperties": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JobInput"
+            },
             "default": {},
             "description": "Input files (e.g., { source: 'https://...' })",
             "type": "object"
@@ -165,7 +156,9 @@
         "description": "Submit a image.generate job.",
         "properties": {
           "inputs": {
-            "additionalProperties": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JobInput"
+            },
             "default": {},
             "description": "Input files (e.g., { source: 'https://...' })",
             "type": "object"
@@ -188,7 +181,9 @@
         "description": "Submit a image.upscale job.",
         "properties": {
           "inputs": {
-            "additionalProperties": {},
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JobInput"
+            },
             "default": {},
             "description": "Input files (e.g., { source: 'https://...' })",
             "type": "object"
@@ -207,203 +202,73 @@
         ],
         "type": "object"
       },
-      "JobCancelled": {
+      "InputContent": {
+        "description": "Inline text the job reads as a file, such as subtitles or a script",
         "properties": {
-          "outputCategory": {
-            "x-fern-type": "string"
+          "content": {
+            "type": "string"
           }
-        }
+        },
+        "required": [
+          "content"
+        ],
+        "type": "object"
       },
-      "JobCancelledData": {
+      "InputJobOutput": {
+        "description": "The output of another job, by its id (job_...)",
         "properties": {
-          "status": {
-            "x-fern-type": "string"
+          "job": {
+            "type": "string"
           }
-        }
+        },
+        "required": [
+          "job"
+        ],
+        "type": "object"
       },
-      "JobCancelledWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobComplete": {
-        "properties": {
-          "outputCategory": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobCompletedData": {
-        "properties": {
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobCompletedOnSubmit": {
-        "properties": {
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobCompletedWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobCost": {
-        "properties": {
-          "currency": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobCreated": {
-        "properties": {
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobCreatedData": {
-        "properties": {
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobCreatedWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobDeliveriesSettledWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobDelivery": {
-        "properties": {
-          "reason": {
-            "x-fern-type": "string"
+      "InputSource": {
+        "description": "One input file: a URL, or one of the object forms",
+        "oneOf": [
+          {
+            "description": "A public or signed URL",
+            "type": "string"
           },
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobDeliveryFailedData": {
-        "properties": {
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobDeliveryFailedWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobDeliverySucceededData": {
-        "properties": {
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobDeliverySucceededWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobDispatched": {
-        "properties": {
-          "outputCategory": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobError": {
-        "properties": {
-          "failedPhase": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobFailed": {
-        "properties": {
-          "outputCategory": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobFailedData": {
-        "properties": {
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobFailedWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobRunning": {
-        "properties": {
-          "outputCategory": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobStartedData": {
-        "properties": {
-          "status": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobStartedWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "JobWaiting": {
-        "properties": {
-          "outputCategory": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "OutputFileType": {
-        "x-fern-type": "string"
-      },
-      "SettledDelivery": {
-        "properties": {
-          "reason": {
-            "x-fern-type": "string"
+          {
+            "$ref": "#/components/schemas/InputUrl"
           },
-          "status": {
-            "x-fern-type": "string"
+          {
+            "$ref": "#/components/schemas/InputContent"
+          },
+          {
+            "$ref": "#/components/schemas/InputJobOutput"
           }
-        }
+        ]
+      },
+      "InputUrl": {
+        "description": "A file URL, the same as giving the URL as a string",
+        "properties": {
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "JobInput": {
+        "description": "A named input: one source, or a list of them for an input that takes several (such as image.edit images)",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/InputSource"
+          },
+          {
+            "items": {
+              "$ref": "#/components/schemas/InputSource"
+            },
+            "type": "array"
+          }
+        ]
       },
       "SubmitTypedJob": {
         "anyOf": [
@@ -433,20 +298,6 @@
           }
         ],
         "description": "A job of a type this SDK knows: what to run, typed per job type."
-      },
-      "TestWebhookEvent": {
-        "properties": {
-          "version": {
-            "x-fern-type": "string"
-          }
-        }
-      },
-      "WebhookJobCost": {
-        "properties": {
-          "currency": {
-            "x-fern-type": "string"
-          }
-        }
       }
     }
   }

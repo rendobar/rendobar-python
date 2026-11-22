@@ -2,4 +2,4 @@
 
 import typing
 
-CreatePlanCheckoutRequestPlan = typing.Union[typing.Literal["pro", "studio"], typing.Any]
+CreatePlanCheckoutRequestPlan = typing.Literal["pro", "studio"]

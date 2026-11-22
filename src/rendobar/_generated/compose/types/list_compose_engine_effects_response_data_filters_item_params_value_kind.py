@@ -2,6 +2,4 @@
 
 import typing
 
-ListComposeEngineEffectsResponseDataFiltersItemParamsValueKind = typing.Union[
-    typing.Literal["number", "switch", "enum", "color", "rect", "size", "flags"], typing.Any
-]
+ListComposeEngineEffectsResponseDataFiltersItemParamsValueKind = typing.Literal["number", "switch", "enum", "color", "rect", "size", "flags"]

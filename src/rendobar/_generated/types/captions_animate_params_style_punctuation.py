@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsStylePunctuation = typing.Union[typing.Literal["strip", "emphatic", "keep"], typing.Any]
+CaptionsAnimateParamsStylePunctuation = typing.Literal["strip", "emphatic", "keep"]

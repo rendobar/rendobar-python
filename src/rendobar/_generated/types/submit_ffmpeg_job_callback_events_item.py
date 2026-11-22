@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitFfmpegJobCallbackEventsItem = typing.Union[typing.Literal["job.started"], typing.Any]
+SubmitFfmpegJobCallbackEventsItem = typing.Literal["job.started"]

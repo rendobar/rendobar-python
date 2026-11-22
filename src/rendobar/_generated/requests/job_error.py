@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.job_error_failed_phase import JobErrorFailedPhase
 
 
 class JobErrorParams(typing_extensions.TypedDict):
@@ -27,7 +28,9 @@ class JobErrorParams(typing_extensions.TypedDict):
     True when retrying the same job may succeed
     """
 
-    failed_phase: typing_extensions.NotRequired[typing_extensions.Annotated[str, FieldMetadata(alias="failedPhase")]]
+    failed_phase: typing_extensions.NotRequired[
+        typing_extensions.Annotated[JobErrorFailedPhase, FieldMetadata(alias="failedPhase")]
+    ]
     """
     Which phase the job failed in, when known
     """

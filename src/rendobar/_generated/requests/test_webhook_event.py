@@ -2,11 +2,12 @@
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.test_webhook_event_version import TestWebhookEventVersion
 from .test_event_data import TestEventDataParams
 
 
 class TestWebhookEventParams(typing_extensions.TypedDict):
-    version: str
+    version: TestWebhookEventVersion
     """
     Envelope version. A new version is a new shape
     """

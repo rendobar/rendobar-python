@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsStyleEntrance = typing.Union[typing.Literal["fade", "pop", "bounce"], typing.Any]
+CaptionsAnimateParamsStyleEntrance = typing.Literal["fade", "pop", "bounce"]

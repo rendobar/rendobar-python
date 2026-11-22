@@ -2,6 +2,4 @@
 
 import typing
 
-ListComposeEngineEffectsResponseDataFiltersItemChecked = typing.Union[
-    typing.Literal["proven", "unproven", "nondeterministic"], typing.Any
-]
+ListComposeEngineEffectsResponseDataFiltersItemChecked = typing.Literal["proven", "unproven", "nondeterministic"]

@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitImageUpscaleJobType = typing.Union[typing.Literal["image.upscale"], typing.Any]
+SubmitImageUpscaleJobType = typing.Literal["image.upscale"]

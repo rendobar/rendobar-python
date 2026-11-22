@@ -9,21 +9,32 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
 from .balance_depleted_data import BalanceDepletedData
+from .balance_depleted_webhook_event_version import BalanceDepletedWebhookEventVersion
 from .balance_low_data import BalanceLowData
+from .balance_low_webhook_event_version import BalanceLowWebhookEventVersion
 from .job_cancelled_data import JobCancelledData
+from .job_cancelled_webhook_event_version import JobCancelledWebhookEventVersion
 from .job_completed_data import JobCompletedData
+from .job_completed_webhook_event_version import JobCompletedWebhookEventVersion
 from .job_created_data import JobCreatedData
+from .job_created_webhook_event_version import JobCreatedWebhookEventVersion
 from .job_deliveries_settled_data import JobDeliveriesSettledData
+from .job_deliveries_settled_webhook_event_version import JobDeliveriesSettledWebhookEventVersion
 from .job_delivery_failed_data import JobDeliveryFailedData
+from .job_delivery_failed_webhook_event_version import JobDeliveryFailedWebhookEventVersion
 from .job_delivery_succeeded_data import JobDeliverySucceededData
+from .job_delivery_succeeded_webhook_event_version import JobDeliverySucceededWebhookEventVersion
 from .job_failed_data import JobFailedData
+from .job_failed_webhook_event_version import JobFailedWebhookEventVersion
 from .job_started_data import JobStartedData
+from .job_started_webhook_event_version import JobStartedWebhookEventVersion
 from .test_event_data import TestEventData
+from .test_webhook_event_version import TestWebhookEventVersion
 
 
 class WebhookPayload_JobCreated(UniversalBaseModel):
     event: typing.Literal["job.created"] = "job.created"
-    version: str
+    version: JobCreatedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -41,7 +52,7 @@ class WebhookPayload_JobCreated(UniversalBaseModel):
 
 class WebhookPayload_JobStarted(UniversalBaseModel):
     event: typing.Literal["job.started"] = "job.started"
-    version: str
+    version: JobStartedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -59,7 +70,7 @@ class WebhookPayload_JobStarted(UniversalBaseModel):
 
 class WebhookPayload_JobCompleted(UniversalBaseModel):
     event: typing.Literal["job.completed"] = "job.completed"
-    version: str
+    version: JobCompletedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -77,7 +88,7 @@ class WebhookPayload_JobCompleted(UniversalBaseModel):
 
 class WebhookPayload_JobFailed(UniversalBaseModel):
     event: typing.Literal["job.failed"] = "job.failed"
-    version: str
+    version: JobFailedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -95,7 +106,7 @@ class WebhookPayload_JobFailed(UniversalBaseModel):
 
 class WebhookPayload_JobCancelled(UniversalBaseModel):
     event: typing.Literal["job.cancelled"] = "job.cancelled"
-    version: str
+    version: JobCancelledWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -113,7 +124,7 @@ class WebhookPayload_JobCancelled(UniversalBaseModel):
 
 class WebhookPayload_JobDeliverySucceeded(UniversalBaseModel):
     event: typing.Literal["job.delivery_succeeded"] = "job.delivery_succeeded"
-    version: str
+    version: JobDeliverySucceededWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -131,7 +142,7 @@ class WebhookPayload_JobDeliverySucceeded(UniversalBaseModel):
 
 class WebhookPayload_JobDeliveryFailed(UniversalBaseModel):
     event: typing.Literal["job.delivery_failed"] = "job.delivery_failed"
-    version: str
+    version: JobDeliveryFailedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -149,7 +160,7 @@ class WebhookPayload_JobDeliveryFailed(UniversalBaseModel):
 
 class WebhookPayload_JobDeliveriesSettled(UniversalBaseModel):
     event: typing.Literal["job.deliveries_settled"] = "job.deliveries_settled"
-    version: str
+    version: JobDeliveriesSettledWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -167,7 +178,7 @@ class WebhookPayload_JobDeliveriesSettled(UniversalBaseModel):
 
 class WebhookPayload_BalanceLow(UniversalBaseModel):
     event: typing.Literal["balance.low"] = "balance.low"
-    version: str
+    version: BalanceLowWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -185,7 +196,7 @@ class WebhookPayload_BalanceLow(UniversalBaseModel):
 
 class WebhookPayload_BalanceDepleted(UniversalBaseModel):
     event: typing.Literal["balance.depleted"] = "balance.depleted"
-    version: str
+    version: BalanceDepletedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]
@@ -203,7 +214,7 @@ class WebhookPayload_BalanceDepleted(UniversalBaseModel):
 
 class WebhookPayload_Test(UniversalBaseModel):
     event: typing.Literal["test"] = "test"
-    version: str
+    version: TestWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId"), pydantic.Field(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId"), pydantic.Field(alias="orgId")]

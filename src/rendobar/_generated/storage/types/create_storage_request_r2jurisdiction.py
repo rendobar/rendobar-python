@@ -2,4 +2,4 @@
 
 import typing
 
-CreateStorageRequestR2Jurisdiction = typing.Union[typing.Literal["eu", "fedramp", "us"], typing.Any]
+CreateStorageRequestR2Jurisdiction = typing.Literal["eu", "fedramp", "us"]

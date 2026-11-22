@@ -6,6 +6,17 @@ import typing
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.balance_depleted_webhook_event_version import BalanceDepletedWebhookEventVersion
+from ..types.balance_low_webhook_event_version import BalanceLowWebhookEventVersion
+from ..types.job_cancelled_webhook_event_version import JobCancelledWebhookEventVersion
+from ..types.job_completed_webhook_event_version import JobCompletedWebhookEventVersion
+from ..types.job_created_webhook_event_version import JobCreatedWebhookEventVersion
+from ..types.job_deliveries_settled_webhook_event_version import JobDeliveriesSettledWebhookEventVersion
+from ..types.job_delivery_failed_webhook_event_version import JobDeliveryFailedWebhookEventVersion
+from ..types.job_delivery_succeeded_webhook_event_version import JobDeliverySucceededWebhookEventVersion
+from ..types.job_failed_webhook_event_version import JobFailedWebhookEventVersion
+from ..types.job_started_webhook_event_version import JobStartedWebhookEventVersion
+from ..types.test_webhook_event_version import TestWebhookEventVersion
 from .balance_depleted_data import BalanceDepletedDataParams
 from .balance_low_data import BalanceLowDataParams
 from .job_cancelled_data import JobCancelledDataParams
@@ -21,7 +32,7 @@ from .test_event_data import TestEventDataParams
 
 class WebhookPayload_JobCreatedParams(typing_extensions.TypedDict):
     event: typing.Literal["job.created"]
-    version: str
+    version: JobCreatedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -30,7 +41,7 @@ class WebhookPayload_JobCreatedParams(typing_extensions.TypedDict):
 
 class WebhookPayload_JobStartedParams(typing_extensions.TypedDict):
     event: typing.Literal["job.started"]
-    version: str
+    version: JobStartedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -39,7 +50,7 @@ class WebhookPayload_JobStartedParams(typing_extensions.TypedDict):
 
 class WebhookPayload_JobCompletedParams(typing_extensions.TypedDict):
     event: typing.Literal["job.completed"]
-    version: str
+    version: JobCompletedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -48,7 +59,7 @@ class WebhookPayload_JobCompletedParams(typing_extensions.TypedDict):
 
 class WebhookPayload_JobFailedParams(typing_extensions.TypedDict):
     event: typing.Literal["job.failed"]
-    version: str
+    version: JobFailedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -57,7 +68,7 @@ class WebhookPayload_JobFailedParams(typing_extensions.TypedDict):
 
 class WebhookPayload_JobCancelledParams(typing_extensions.TypedDict):
     event: typing.Literal["job.cancelled"]
-    version: str
+    version: JobCancelledWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -66,7 +77,7 @@ class WebhookPayload_JobCancelledParams(typing_extensions.TypedDict):
 
 class WebhookPayload_JobDeliverySucceededParams(typing_extensions.TypedDict):
     event: typing.Literal["job.delivery_succeeded"]
-    version: str
+    version: JobDeliverySucceededWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -75,7 +86,7 @@ class WebhookPayload_JobDeliverySucceededParams(typing_extensions.TypedDict):
 
 class WebhookPayload_JobDeliveryFailedParams(typing_extensions.TypedDict):
     event: typing.Literal["job.delivery_failed"]
-    version: str
+    version: JobDeliveryFailedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -84,7 +95,7 @@ class WebhookPayload_JobDeliveryFailedParams(typing_extensions.TypedDict):
 
 class WebhookPayload_JobDeliveriesSettledParams(typing_extensions.TypedDict):
     event: typing.Literal["job.deliveries_settled"]
-    version: str
+    version: JobDeliveriesSettledWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -93,7 +104,7 @@ class WebhookPayload_JobDeliveriesSettledParams(typing_extensions.TypedDict):
 
 class WebhookPayload_BalanceLowParams(typing_extensions.TypedDict):
     event: typing.Literal["balance.low"]
-    version: str
+    version: BalanceLowWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -102,7 +113,7 @@ class WebhookPayload_BalanceLowParams(typing_extensions.TypedDict):
 
 class WebhookPayload_BalanceDepletedParams(typing_extensions.TypedDict):
     event: typing.Literal["balance.depleted"]
-    version: str
+    version: BalanceDepletedWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]
@@ -111,7 +122,7 @@ class WebhookPayload_BalanceDepletedParams(typing_extensions.TypedDict):
 
 class WebhookPayload_TestParams(typing_extensions.TypedDict):
     event: typing.Literal["test"]
-    version: str
+    version: TestWebhookEventVersion
     delivery_id: typing_extensions.Annotated[str, FieldMetadata(alias="deliveryId")]
     timestamp: int
     org_id: typing_extensions.Annotated[str, FieldMetadata(alias="orgId")]

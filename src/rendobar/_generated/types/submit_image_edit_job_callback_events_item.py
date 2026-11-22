@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitImageEditJobCallbackEventsItem = typing.Union[typing.Literal["job.started"], typing.Any]
+SubmitImageEditJobCallbackEventsItem = typing.Literal["job.started"]

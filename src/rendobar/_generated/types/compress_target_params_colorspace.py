@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsColorspace = typing.Union[typing.Literal["preserve", "srgb"], typing.Any]
+CompressTargetParamsColorspace = typing.Literal["preserve", "srgb"]

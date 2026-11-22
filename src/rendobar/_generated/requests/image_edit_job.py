@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from .image_edit_params import ImageEditParamsParams
+from .job_input import JobInputParams
 
 
 class ImageEditJobParams(typing_extensions.TypedDict):
@@ -11,7 +12,7 @@ class ImageEditJobParams(typing_extensions.TypedDict):
     Submit a image.edit job.
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, JobInputParams]]
     """
     Input files (e.g., { source: 'https://...' })
     """

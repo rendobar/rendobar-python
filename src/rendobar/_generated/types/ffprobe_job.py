@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .ffprobe_params import FfprobeParams
+from .job_input import JobInput
 
 
 class FfprobeJob(UniversalBaseModel):
@@ -12,7 +13,7 @@ class FfprobeJob(UniversalBaseModel):
     Submit a ffprobe job.
     """
 
-    inputs: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    inputs: typing.Optional[typing.Dict[str, JobInput]] = pydantic.Field(default=None)
     """
     Input files (e.g., { source: 'https://...' })
     """

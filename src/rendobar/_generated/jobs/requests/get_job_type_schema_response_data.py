@@ -17,7 +17,7 @@ class GetJobTypeSchemaResponseDataParams(typing_extensions.TypedDict):
     """
 
     json_schema: typing_extensions.NotRequired[
-        typing_extensions.Annotated[typing.Any, FieldMetadata(alias="jsonSchema")]
+        typing_extensions.Annotated[object, FieldMetadata(alias="jsonSchema")]
     ]
     discriminator: typing_extensions.NotRequired[str]
     """

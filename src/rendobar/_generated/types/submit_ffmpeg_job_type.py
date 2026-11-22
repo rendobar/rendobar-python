@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitFfmpegJobType = typing.Union[typing.Literal["ffmpeg"], typing.Any]
+SubmitFfmpegJobType = typing.Literal["ffmpeg"]

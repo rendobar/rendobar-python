@@ -25,7 +25,7 @@ class JobStep(UniversalBaseModel):
     duration_ms: typing_extensions.Annotated[
         typing.Optional[int], FieldMetadata(alias="durationMs"), pydantic.Field(alias="durationMs")
     ] = None
-    meta: typing.Optional[typing.Dict[str, typing.Any]] = None
+    meta: typing.Optional[typing.Dict[str, object]] = None
     error: typing.Optional[str] = None
 
     if IS_PYDANTIC_V2:

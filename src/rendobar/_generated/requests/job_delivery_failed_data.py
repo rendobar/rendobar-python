@@ -2,10 +2,11 @@
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.job_delivery_failed_data_status import JobDeliveryFailedDataStatus
 
 
 class JobDeliveryFailedDataParams(typing_extensions.TypedDict):
     job_id: typing_extensions.Annotated[str, FieldMetadata(alias="jobId")]
     storage_id: typing_extensions.Annotated[str, FieldMetadata(alias="storageId")]
-    status: str
+    status: JobDeliveryFailedDataStatus
     reason: str

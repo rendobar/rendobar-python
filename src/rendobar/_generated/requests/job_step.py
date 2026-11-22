@@ -17,5 +17,5 @@ class JobStepParams(typing_extensions.TypedDict):
     started_at: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="startedAt")]]
     completed_at: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="completedAt")]]
     duration_ms: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="durationMs")]]
-    meta: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    meta: typing_extensions.NotRequired[typing.Dict[str, object]]
     error: typing_extensions.NotRequired[str]

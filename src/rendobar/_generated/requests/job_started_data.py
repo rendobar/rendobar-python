@@ -2,11 +2,12 @@
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.job_started_data_status import JobStartedDataStatus
 from .job_started_data_timing import JobStartedDataTimingParams
 
 
 class JobStartedDataParams(typing_extensions.TypedDict):
     job_id: typing_extensions.Annotated[str, FieldMetadata(alias="jobId")]
     job_type: typing_extensions.Annotated[str, FieldMetadata(alias="jobType")]
-    status: str
+    status: JobStartedDataStatus
     timing: JobStartedDataTimingParams

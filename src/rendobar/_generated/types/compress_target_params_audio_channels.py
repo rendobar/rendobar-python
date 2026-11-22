@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsAudioChannels = typing.Union[typing.Literal["preserve", "mono", "stereo"], typing.Any]
+CompressTargetParamsAudioChannels = typing.Literal["preserve", "mono", "stereo"]

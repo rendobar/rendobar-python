@@ -2,4 +2,4 @@
 
 import typing
 
-UpdateOrgSettingsRequestDefaultRegion = typing.Union[typing.Literal["auto", "us-east-1", "eu-central-1"], typing.Any]
+UpdateOrgSettingsRequestDefaultRegion = typing.Literal["auto", "us-east-1", "eu-central-1"]

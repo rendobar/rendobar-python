@@ -2,4 +2,4 @@
 
 import typing
 
-UpdateStorageResponseDataAccess = typing.Union[typing.Literal["read"], typing.Any]
+UpdateStorageResponseDataAccess = typing.Literal["read"]

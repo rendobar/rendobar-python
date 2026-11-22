@@ -118,6 +118,10 @@ if typing.TYPE_CHECKING:
     )
     from .image_upscale_params_sizing_factor import ImageUpscaleParamsSizingFactorParams
     from .image_upscale_params_sizing_height import ImageUpscaleParamsSizingHeightParams
+    from .input_content import InputContentParams
+    from .input_job_output import InputJobOutputParams
+    from .input_source import InputSourceParams
+    from .input_url import InputUrlParams
     from .job import (
         JobParams,
         Job_CancelledParams,
@@ -155,6 +159,7 @@ if typing.TYPE_CHECKING:
     from .job_failed_data import JobFailedDataParams
     from .job_failed_data_timing import JobFailedDataTimingParams
     from .job_failed_webhook_event import JobFailedWebhookEventParams
+    from .job_input import JobInputParams
     from .job_output import JobOutputParams
     from .job_output_file import JobOutputFileParams
     from .job_output_file_meta import JobOutputFileMetaParams
@@ -312,6 +317,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ImageUpscaleParamsSizingParams": ".image_upscale_params_sizing",
     "ImageUpscaleParamsSizing_FactorParams": ".image_upscale_params_sizing",
     "ImageUpscaleParamsSizing_HeightParams": ".image_upscale_params_sizing",
+    "InputContentParams": ".input_content",
+    "InputJobOutputParams": ".input_job_output",
+    "InputSourceParams": ".input_source",
+    "InputUrlParams": ".input_url",
     "JobCancelledDataParams": ".job_cancelled_data",
     "JobCancelledDataTimingParams": ".job_cancelled_data_timing",
     "JobCancelledParams": ".job_cancelled",
@@ -340,6 +349,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "JobFailedDataTimingParams": ".job_failed_data_timing",
     "JobFailedParams": ".job_failed",
     "JobFailedWebhookEventParams": ".job_failed_webhook_event",
+    "JobInputParams": ".job_input",
     "JobOutputFileMetaParams": ".job_output_file_meta",
     "JobOutputFileParams": ".job_output_file",
     "JobOutputParams": ".job_output",
@@ -526,6 +536,10 @@ __all__ = [
     "ImageUpscaleParamsSizingParams",
     "ImageUpscaleParamsSizing_FactorParams",
     "ImageUpscaleParamsSizing_HeightParams",
+    "InputContentParams",
+    "InputJobOutputParams",
+    "InputSourceParams",
+    "InputUrlParams",
     "JobCancelledDataParams",
     "JobCancelledDataTimingParams",
     "JobCancelledParams",
@@ -554,6 +568,7 @@ __all__ = [
     "JobFailedDataTimingParams",
     "JobFailedParams",
     "JobFailedWebhookEventParams",
+    "JobInputParams",
     "JobOutputFileMetaParams",
     "JobOutputFileParams",
     "JobOutputParams",

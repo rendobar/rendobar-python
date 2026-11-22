@@ -2,4 +2,4 @@
 
 import typing
 
-FfprobeStreamCodecType = typing.Union[typing.Literal["video", "audio", "subtitle", "data", "attachment"], typing.Any]
+FfprobeStreamCodecType = typing.Union[typing.Literal["video", "audio", "subtitle", "data", "attachment"], str]

@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from .caption_burn_params import CaptionBurnParamsParams
+from .job_input import JobInputParams
 
 
 class CaptionBurnJobParams(typing_extensions.TypedDict):
@@ -11,7 +12,7 @@ class CaptionBurnJobParams(typing_extensions.TypedDict):
     Submit a caption.burn job.
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, JobInputParams]]
     """
     Input files (e.g., { source: 'https://...' })
     """

@@ -19,7 +19,7 @@ class SubmitImageGenerateJobParams(typing_extensions.TypedDict):
     Job type
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, object]]
     """
     Input files (e.g., { source: 'https://...' })
     """

@@ -13,4 +13,4 @@ class GetJobLogsResponseDataItemParams(typing_extensions.TypedDict):
     event: str
     message: str
     duration_ms: typing_extensions.NotRequired[typing_extensions.Annotated[int, FieldMetadata(alias="durationMs")]]
-    meta: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    meta: typing_extensions.NotRequired[typing.Dict[str, object]]

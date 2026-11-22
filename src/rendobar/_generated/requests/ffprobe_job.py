@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from .ffprobe_params import FfprobeParamsParams
+from .job_input import JobInputParams
 
 
 class FfprobeJobParams(typing_extensions.TypedDict):
@@ -11,7 +12,7 @@ class FfprobeJobParams(typing_extensions.TypedDict):
     Submit a ffprobe job.
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, JobInputParams]]
     """
     Input files (e.g., { source: 'https://...' })
     """

@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsTuningMetric = typing.Union[typing.Literal["auto", "ssimulacra2", "vmaf"], typing.Any]
+CompressTargetParamsTuningMetric = typing.Literal["auto", "ssimulacra2", "vmaf"]

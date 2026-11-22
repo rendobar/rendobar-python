@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.job_complete_output_category import JobCompleteOutputCategory
 from .callback_status import CallbackStatusParams
 from .job_cost import JobCostParams
 from .job_delivery import JobDeliveryParams
@@ -57,18 +58,18 @@ class JobCompleteParams(typing_extensions.TypedDict):
     Detected media type (video | image | audio), or null
     """
 
-    inputs: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
     """
     Input file references
     """
 
-    params: typing.Dict[str, typing.Any]
+    params: typing.Dict[str, object]
     """
     Job parameters
     """
 
     cost: typing.Optional[JobCostParams]
-    output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
+    output_category: typing_extensions.Annotated[JobCompleteOutputCategory, FieldMetadata(alias="outputCategory")]
     """
     Output category. Clients should tolerate unknown future values.
     """

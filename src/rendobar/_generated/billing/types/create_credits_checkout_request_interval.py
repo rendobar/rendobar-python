@@ -2,4 +2,4 @@
 
 import typing
 
-CreateCreditsCheckoutRequestInterval = typing.Union[typing.Literal["month"], typing.Any]
+CreateCreditsCheckoutRequestInterval = typing.Literal["month"]

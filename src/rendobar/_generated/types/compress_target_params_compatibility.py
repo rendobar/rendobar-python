@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsCompatibility = typing.Union[typing.Literal["modern", "broad", "legacy"], typing.Any]
+CompressTargetParamsCompatibility = typing.Literal["modern", "broad", "legacy"]

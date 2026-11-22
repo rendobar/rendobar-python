@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitImageEditJobType = typing.Union[typing.Literal["image.edit"], typing.Any]
+SubmitImageEditJobType = typing.Literal["image.edit"]

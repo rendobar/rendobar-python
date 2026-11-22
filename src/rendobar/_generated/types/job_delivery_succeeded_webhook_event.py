@@ -7,10 +7,11 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
 from .job_delivery_succeeded_data import JobDeliverySucceededData
+from .job_delivery_succeeded_webhook_event_version import JobDeliverySucceededWebhookEventVersion
 
 
 class JobDeliverySucceededWebhookEvent(UniversalBaseModel):
-    version: str = pydantic.Field()
+    version: JobDeliverySucceededWebhookEventVersion = pydantic.Field()
     """
     Envelope version. A new version is a new shape
     """

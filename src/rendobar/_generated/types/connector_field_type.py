@@ -2,4 +2,4 @@
 
 import typing
 
-ConnectorFieldType = typing.Union[typing.Literal["string", "number", "boolean", "options", "json"], typing.Any]
+ConnectorFieldType = typing.Union[typing.Literal["string", "number", "boolean", "options", "json"], str]

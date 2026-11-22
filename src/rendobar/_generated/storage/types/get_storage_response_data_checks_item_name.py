@@ -2,4 +2,4 @@
 
 import typing
 
-GetStorageResponseDataChecksItemName = typing.Union[typing.Literal["write", "read", "delete", "list"], typing.Any]
+GetStorageResponseDataChecksItemName = typing.Literal["write", "read", "delete", "list"]

@@ -19,12 +19,12 @@ class SubmitAnyJob(UniversalBaseModel):
     Job type identifier, such as ffmpeg, ffprobe or compose. GET /jobs/types lists every live type.
     """
 
-    inputs: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    inputs: typing.Optional[typing.Dict[str, object]] = pydantic.Field(default=None)
     """
     Input files (e.g., { source: 'https://...' })
     """
 
-    params: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    params: typing.Optional[typing.Dict[str, object]] = pydantic.Field(default=None)
     """
     Job-specific parameters (validated per job type)
     """

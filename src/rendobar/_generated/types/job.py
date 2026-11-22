@@ -9,12 +9,18 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
 from .callback_status import CallbackStatus
+from .job_cancelled_output_category import JobCancelledOutputCategory
+from .job_complete_output_category import JobCompleteOutputCategory
 from .job_cost import JobCost
 from .job_delivery import JobDelivery
 from .job_dispatched_boot_state import JobDispatchedBootState
+from .job_dispatched_output_category import JobDispatchedOutputCategory
 from .job_error import JobError
+from .job_failed_output_category import JobFailedOutputCategory
 from .job_output import JobOutput
+from .job_running_output_category import JobRunningOutputCategory
 from .job_step import JobStep
+from .job_waiting_output_category import JobWaitingOutputCategory
 
 
 class Job_Waiting(UniversalBaseModel):
@@ -32,11 +38,11 @@ class Job_Waiting(UniversalBaseModel):
     media_type: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="mediaType"), pydantic.Field(alias="mediaType")
     ] = None
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
-        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        JobWaitingOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
@@ -99,11 +105,11 @@ class Job_Dispatched(UniversalBaseModel):
     media_type: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="mediaType"), pydantic.Field(alias="mediaType")
     ] = None
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
-        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        JobDispatchedOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
@@ -171,11 +177,11 @@ class Job_Running(UniversalBaseModel):
     media_type: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="mediaType"), pydantic.Field(alias="mediaType")
     ] = None
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
-        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        JobRunningOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
@@ -240,11 +246,11 @@ class Job_Complete(UniversalBaseModel):
     media_type: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="mediaType"), pydantic.Field(alias="mediaType")
     ] = None
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
-        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        JobCompleteOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
@@ -308,11 +314,11 @@ class Job_Failed(UniversalBaseModel):
     media_type: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="mediaType"), pydantic.Field(alias="mediaType")
     ] = None
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
-        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        JobFailedOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[
@@ -376,11 +382,11 @@ class Job_Cancelled(UniversalBaseModel):
     media_type: typing_extensions.Annotated[
         typing.Optional[str], FieldMetadata(alias="mediaType"), pydantic.Field(alias="mediaType")
     ] = None
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
-        str, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
+        JobCancelledOutputCategory, FieldMetadata(alias="outputCategory"), pydantic.Field(alias="outputCategory")
     ]
     steps: typing.List[JobStep]
     logs_available: typing_extensions.Annotated[

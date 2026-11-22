@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsLanguage = typing.Union[typing.Literal["en"], typing.Any]
+CaptionsAnimateParamsLanguage = typing.Literal["en"]

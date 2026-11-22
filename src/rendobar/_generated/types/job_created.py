@@ -4,6 +4,7 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .job_created_status import JobCreatedStatus
 
 
 class JobCreated(UniversalBaseModel):
@@ -12,7 +13,7 @@ class JobCreated(UniversalBaseModel):
     Job ID
     """
 
-    status: str = pydantic.Field()
+    status: JobCreatedStatus = pydantic.Field()
     """
     Initial status
     """

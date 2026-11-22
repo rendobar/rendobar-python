@@ -13,7 +13,7 @@ class AddUploadSessionFileResponseParams(typing_extensions.TypedDict):
     """
 
     data: AddUploadSessionFileResponseDataParams
-    upload: typing_extensions.NotRequired[typing.Any]
+    upload: typing_extensions.NotRequired[object]
     """
     Presigned PUT URL or multipart part URLs
     """

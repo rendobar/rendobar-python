@@ -2,6 +2,4 @@
 
 import typing
 
-PreviewInvitationResponseDataStatus = typing.Union[
-    typing.Literal["pending", "expired", "accepted", "declined", "cancelled"], typing.Any
-]
+PreviewInvitationResponseDataStatus = typing.Literal["pending", "expired", "accepted", "declined", "cancelled"]

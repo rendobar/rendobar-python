@@ -2,6 +2,4 @@
 
 import typing
 
-ListJobsRequestStatus = typing.Union[
-    typing.Literal["waiting", "dispatched", "running", "complete", "failed", "cancelled"], typing.Any
-]
+ListJobsRequestStatus = typing.Literal["waiting", "dispatched", "running", "complete", "failed", "cancelled"]

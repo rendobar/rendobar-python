@@ -6,6 +6,7 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
+from .job_completed_data_status import JobCompletedDataStatus
 from .job_completed_data_timing import JobCompletedDataTiming
 from .job_output import JobOutput
 from .webhook_job_cost import WebhookJobCost
@@ -15,7 +16,7 @@ from .webhook_job_step import WebhookJobStep
 class JobCompletedData(UniversalBaseModel):
     job_id: typing_extensions.Annotated[str, FieldMetadata(alias="jobId"), pydantic.Field(alias="jobId")]
     job_type: typing_extensions.Annotated[str, FieldMetadata(alias="jobType"), pydantic.Field(alias="jobType")]
-    status: str
+    status: JobCompletedDataStatus
     output: JobOutput
     cost: typing.Optional[WebhookJobCost] = None
     timing: JobCompletedDataTiming

@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitCaptionBurnJobType = typing.Union[typing.Literal["caption.burn"], typing.Any]
+SubmitCaptionBurnJobType = typing.Literal["caption.burn"]

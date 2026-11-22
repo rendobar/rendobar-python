@@ -2,4 +2,4 @@
 
 import typing
 
-ListAssetsRequestLifecycle = typing.Union[typing.Literal["ephemeral", "persisted"], typing.Any]
+ListAssetsRequestLifecycle = typing.Literal["ephemeral", "persisted"]

@@ -6,6 +6,12 @@ import typing
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.job_cancelled_output_category import JobCancelledOutputCategory
+from ..types.job_complete_output_category import JobCompleteOutputCategory
+from ..types.job_dispatched_output_category import JobDispatchedOutputCategory
+from ..types.job_failed_output_category import JobFailedOutputCategory
+from ..types.job_running_output_category import JobRunningOutputCategory
+from ..types.job_waiting_output_category import JobWaitingOutputCategory
 from .callback_status import CallbackStatusParams
 from .job_cost import JobCostParams
 from .job_delivery import JobDeliveryParams
@@ -26,10 +32,10 @@ class Job_WaitingParams(typing_extensions.TypedDict):
     idempotency_key: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="idempotencyKey")]
     label: typing_extensions.NotRequired[typing.Optional[str]]
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCostParams]
-    output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
+    output_category: typing_extensions.Annotated[JobWaitingOutputCategory, FieldMetadata(alias="outputCategory")]
     steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
@@ -62,10 +68,10 @@ class Job_DispatchedParams(typing_extensions.TypedDict):
     idempotency_key: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="idempotencyKey")]
     label: typing_extensions.NotRequired[typing.Optional[str]]
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCostParams]
-    output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
+    output_category: typing_extensions.Annotated[JobDispatchedOutputCategory, FieldMetadata(alias="outputCategory")]
     steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
@@ -103,10 +109,10 @@ class Job_RunningParams(typing_extensions.TypedDict):
     idempotency_key: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="idempotencyKey")]
     label: typing_extensions.NotRequired[typing.Optional[str]]
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCostParams]
-    output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
+    output_category: typing_extensions.Annotated[JobRunningOutputCategory, FieldMetadata(alias="outputCategory")]
     steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
@@ -141,10 +147,10 @@ class Job_CompleteParams(typing_extensions.TypedDict):
     idempotency_key: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="idempotencyKey")]
     label: typing_extensions.NotRequired[typing.Optional[str]]
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCostParams]
-    output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
+    output_category: typing_extensions.Annotated[JobCompleteOutputCategory, FieldMetadata(alias="outputCategory")]
     steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
@@ -178,10 +184,10 @@ class Job_FailedParams(typing_extensions.TypedDict):
     idempotency_key: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="idempotencyKey")]
     label: typing_extensions.NotRequired[typing.Optional[str]]
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCostParams]
-    output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
+    output_category: typing_extensions.Annotated[JobFailedOutputCategory, FieldMetadata(alias="outputCategory")]
     steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]
@@ -215,10 +221,10 @@ class Job_CancelledParams(typing_extensions.TypedDict):
     idempotency_key: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="idempotencyKey")]
     label: typing_extensions.NotRequired[typing.Optional[str]]
     media_type: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="mediaType")]
-    inputs: typing.Dict[str, typing.Any]
-    params: typing.Dict[str, typing.Any]
+    inputs: typing.Dict[str, object]
+    params: typing.Dict[str, object]
     cost: typing.Optional[JobCostParams]
-    output_category: typing_extensions.Annotated[str, FieldMetadata(alias="outputCategory")]
+    output_category: typing_extensions.Annotated[JobCancelledOutputCategory, FieldMetadata(alias="outputCategory")]
     steps: typing.Sequence[JobStepParams]
     logs_available: typing_extensions.Annotated[bool, FieldMetadata(alias="logsAvailable")]
     resources_available: typing_extensions.Annotated[bool, FieldMetadata(alias="resourcesAvailable")]

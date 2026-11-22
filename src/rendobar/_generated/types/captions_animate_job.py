@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .captions_animate_params import CaptionsAnimateParams
+from .job_input import JobInput
 
 
 class CaptionsAnimateJob(UniversalBaseModel):
@@ -12,7 +13,7 @@ class CaptionsAnimateJob(UniversalBaseModel):
     Submit a captions.animate job.
     """
 
-    inputs: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    inputs: typing.Optional[typing.Dict[str, JobInput]] = pydantic.Field(default=None)
     """
     Input files (e.g., { source: 'https://...' })
     """

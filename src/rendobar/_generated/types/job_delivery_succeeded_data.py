@@ -6,12 +6,13 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
+from .job_delivery_succeeded_data_status import JobDeliverySucceededDataStatus
 
 
 class JobDeliverySucceededData(UniversalBaseModel):
     job_id: typing_extensions.Annotated[str, FieldMetadata(alias="jobId"), pydantic.Field(alias="jobId")]
     storage_id: typing_extensions.Annotated[str, FieldMetadata(alias="storageId"), pydantic.Field(alias="storageId")]
-    status: str
+    status: JobDeliverySucceededDataStatus
     path: str
     url: typing.Optional[str] = None
 

@@ -16,7 +16,7 @@ class ErrorResponseErrorParams(typing_extensions.TypedDict):
     Human-readable error message
     """
 
-    details: typing_extensions.NotRequired[typing.Any]
+    details: typing_extensions.NotRequired[object]
     """
     More about the error when there is more to say. A refusal lists its problems here as `{ path, message, upgradeTo? }`, where `upgradeTo` names the cheapest plan that runs it (null when only an enterprise plan does).
     """

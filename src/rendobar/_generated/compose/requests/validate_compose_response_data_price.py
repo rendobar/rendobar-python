@@ -9,7 +9,7 @@ from .validate_compose_response_data_price_warnings_item import ValidateComposeR
 
 class ValidateComposeResponseDataPriceParams(typing_extensions.TypedDict):
     valid: bool
-    params: typing.Dict[str, typing.Any]
+    params: typing.Dict[str, object]
     upgraded: typing.Sequence[str]
     """
     Constructs from an older timeline shape that were rewritten into the current one. Empty for a current timeline.

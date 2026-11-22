@@ -7,6 +7,7 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
 from .job_error import JobError
+from .job_failed_data_status import JobFailedDataStatus
 from .job_failed_data_timing import JobFailedDataTiming
 from .webhook_job_step import WebhookJobStep
 
@@ -14,7 +15,7 @@ from .webhook_job_step import WebhookJobStep
 class JobFailedData(UniversalBaseModel):
     job_id: typing_extensions.Annotated[str, FieldMetadata(alias="jobId"), pydantic.Field(alias="jobId")]
     job_type: typing_extensions.Annotated[str, FieldMetadata(alias="jobType"), pydantic.Field(alias="jobType")]
-    status: str
+    status: JobFailedDataStatus
     error: JobError
     timing: JobFailedDataTiming
     steps: typing.Optional[typing.List[WebhookJobStep]] = None

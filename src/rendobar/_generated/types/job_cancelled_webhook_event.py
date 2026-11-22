@@ -7,10 +7,11 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
 from .job_cancelled_data import JobCancelledData
+from .job_cancelled_webhook_event_version import JobCancelledWebhookEventVersion
 
 
 class JobCancelledWebhookEvent(UniversalBaseModel):
-    version: str = pydantic.Field()
+    version: JobCancelledWebhookEventVersion = pydantic.Field()
     """
     Envelope version. A new version is a new shape
     """

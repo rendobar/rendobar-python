@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from .image_upscale_params import ImageUpscaleParamsParams
+from .job_input import JobInputParams
 
 
 class ImageUpscaleJobParams(typing_extensions.TypedDict):
@@ -11,7 +12,7 @@ class ImageUpscaleJobParams(typing_extensions.TypedDict):
     Submit a image.upscale job.
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, JobInputParams]]
     """
     Input files (e.g., { source: 'https://...' })
     """

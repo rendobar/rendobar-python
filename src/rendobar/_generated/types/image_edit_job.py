@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .image_edit_params import ImageEditParams
+from .job_input import JobInput
 
 
 class ImageEditJob(UniversalBaseModel):
@@ -12,7 +13,7 @@ class ImageEditJob(UniversalBaseModel):
     Submit a image.edit job.
     """
 
-    inputs: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    inputs: typing.Optional[typing.Dict[str, JobInput]] = pydantic.Field(default=None)
     """
     Input files (e.g., { source: 'https://...' })
     """

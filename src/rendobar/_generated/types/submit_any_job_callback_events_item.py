@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitAnyJobCallbackEventsItem = typing.Union[typing.Literal["job.started"], typing.Any]
+SubmitAnyJobCallbackEventsItem = typing.Literal["job.started"]

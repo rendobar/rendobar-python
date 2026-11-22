@@ -26,7 +26,7 @@ class ConnectorField(UniversalBaseModel):
     type: ConnectorFieldType
     required: bool
     nullable: typing.Optional[bool] = None
-    default: typing.Optional[typing.Any] = None
+    default: typing.Optional[object] = None
     options: typing.Optional[typing.List[ConnectorFieldOptionsItem]] = None
     min: typing.Optional[float] = None
     max: typing.Optional[float] = None
@@ -37,7 +37,7 @@ class ConnectorField(UniversalBaseModel):
         typing.Optional[int], FieldMetadata(alias="maxLength"), pydantic.Field(alias="maxLength")
     ] = None
     description: typing.Optional[str] = None
-    example: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    example: typing.Optional[object] = pydantic.Field(default=None)
     """
     Example value, for placeholder text
     """

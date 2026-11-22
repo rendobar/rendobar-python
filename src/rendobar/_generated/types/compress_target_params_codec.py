@@ -2,23 +2,4 @@
 
 import typing
 
-CompressTargetParamsCodec = typing.Union[
-    typing.Literal[
-        "auto",
-        "av1",
-        "hevc",
-        "h264",
-        "vp9",
-        "avif",
-        "jxl",
-        "jpegli",
-        "webp",
-        "png",
-        "opus",
-        "aac",
-        "mp3",
-        "flac",
-        "alac",
-    ],
-    typing.Any,
-]
+CompressTargetParamsCodec = typing.Literal["auto", "av1", "hevc", "h264", "vp9", "avif", "jxl", "jpegli", "webp", "png", "opus", "aac", "mp3", "flac", "alac"]

@@ -15,7 +15,7 @@ class JobOutput(UniversalBaseModel):
     Job output. Present only when status is complete.
     """
 
-    data: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    data: typing.Optional[object] = pydantic.Field(default=None)
     """
     Job-type-specific computed result (probe result, detections, transcript). Shape varies per job type. Null when the job produced no structured data. For an ffprobe job it is an FfprobeResult (#/components/schemas/FfprobeResult).
     """

@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .image_upscale_params import ImageUpscaleParams
+from .job_input import JobInput
 
 
 class ImageUpscaleJob(UniversalBaseModel):
@@ -12,7 +13,7 @@ class ImageUpscaleJob(UniversalBaseModel):
     Submit a image.upscale job.
     """
 
-    inputs: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    inputs: typing.Optional[typing.Dict[str, JobInput]] = pydantic.Field(default=None)
     """
     Input files (e.g., { source: 'https://...' })
     """

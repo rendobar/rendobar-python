@@ -2,6 +2,4 @@
 
 import typing
 
-PrepareAwsStorageResponseDataChecksItemName = typing.Union[
-    typing.Literal["write", "read", "delete", "list"], typing.Any
-]
+PrepareAwsStorageResponseDataChecksItemName = typing.Literal["write", "read", "delete", "list"]

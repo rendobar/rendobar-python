@@ -13,7 +13,7 @@ class CreateAssetResponseParams(typing_extensions.TypedDict):
     """
 
     data: CreateAssetResponseDataParams
-    upload: typing_extensions.NotRequired[typing.Any]
+    upload: typing_extensions.NotRequired[object]
     """
     Presigned PUT URL or multipart part URLs
     """

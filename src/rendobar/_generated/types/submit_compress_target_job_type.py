@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitCompressTargetJobType = typing.Union[typing.Literal["compress.target"], typing.Any]
+SubmitCompressTargetJobType = typing.Literal["compress.target"]

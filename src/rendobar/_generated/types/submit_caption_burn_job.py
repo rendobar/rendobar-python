@@ -21,7 +21,7 @@ class SubmitCaptionBurnJob(UniversalBaseModel):
     Job type
     """
 
-    inputs: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    inputs: typing.Optional[typing.Dict[str, object]] = pydantic.Field(default=None)
     """
     Input files (e.g., { source: 'https://...' })
     """

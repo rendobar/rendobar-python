@@ -4,6 +4,7 @@ import typing
 
 import typing_extensions
 from .ffmpeg_params import FfmpegParamsParams
+from .job_input import JobInputParams
 
 
 class FfmpegJobParams(typing_extensions.TypedDict):
@@ -11,7 +12,7 @@ class FfmpegJobParams(typing_extensions.TypedDict):
     Submit a ffmpeg job.
     """
 
-    inputs: typing_extensions.NotRequired[typing.Dict[str, typing.Any]]
+    inputs: typing_extensions.NotRequired[typing.Dict[str, JobInputParams]]
     """
     Input files (e.g., { source: 'https://...' })
     """

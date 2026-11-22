@@ -2,11 +2,12 @@
 
 import typing_extensions
 from ..core.serialization import FieldMetadata
+from ..types.job_failed_webhook_event_version import JobFailedWebhookEventVersion
 from .job_failed_data import JobFailedDataParams
 
 
 class JobFailedWebhookEventParams(typing_extensions.TypedDict):
-    version: str
+    version: JobFailedWebhookEventVersion
     """
     Envelope version. A new version is a new shape
     """

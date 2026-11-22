@@ -14,7 +14,7 @@ class AddUploadSessionFileResponse(UniversalBaseModel):
     """
 
     data: AddUploadSessionFileResponseData
-    upload: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    upload: typing.Optional[object] = pydantic.Field(default=None)
     """
     Presigned PUT URL or multipart part URLs
     """
