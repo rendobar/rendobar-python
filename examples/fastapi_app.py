@@ -5,7 +5,6 @@
 """
 from __future__ import annotations
 
-import json
 import os
 from typing import Optional
 
@@ -13,7 +12,8 @@ from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 from rendobar import AsyncRendobar
-from rendobar.webhooks import verify
+from rendobar import WebhookSignatureError
+from rendobar.webhooks import JobCompletedWebhookEvent, parse
 
 
 class VideoIn(BaseModel):
@@ -29,16 +29,18 @@ def create_app(rb: Optional[AsyncRendobar] = None, webhook_secret: Optional[str]
     @app.post("/videos", status_code=202)
     async def submit(video: VideoIn) -> dict:
         # Answers at once. The result arrives on the webhook below.
-        job = await client.jobs.create("ffprobe", {"command": video.url})
+        job = await client.jobs.create({"type": "ffprobe", "params": {"command": video.url}})
         return {"job_id": job.id}
 
     @app.post("/rendobar-webhook", status_code=204)
     async def webhook(request: Request) -> None:
         body = await request.body()  # the exact bytes the signature covers
-        if not verify(body, dict(request.headers), secret):
-            raise HTTPException(status_code=401)
-        event = json.loads(body)
-        print(event["event"], event["data"]["jobId"])
+        try:
+            event = parse(body, dict(request.headers), secret)
+        except WebhookSignatureError:
+            raise HTTPException(status_code=401) from None
+        if isinstance(event, JobCompletedWebhookEvent):
+            print("complete", event.data.job_id)
 
     return app
 

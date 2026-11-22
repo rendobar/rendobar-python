@@ -2,19 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsPreset = typing.Union[
-    typing.Literal[
-        "hormozi",
-        "mrbeast",
-        "tiktok",
-        "pill",
-        "karaoke",
-        "word-pop",
-        "minimal",
-        "subtitle-block",
-        "neon",
-        "gold",
-        "reveal",
-    ],
-    typing.Any,
-]
+CaptionsAnimateParamsPreset = typing.Literal["hormozi", "mrbeast", "tiktok", "pill", "karaoke", "word-pop", "minimal", "subtitle-block", "neon", "gold", "reveal"]

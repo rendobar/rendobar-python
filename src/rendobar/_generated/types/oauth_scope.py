@@ -2,26 +2,4 @@
 
 import typing
 
-OauthScope = typing.Union[
-    typing.Literal[
-        "jobs:read",
-        "jobs:write",
-        "assets:read",
-        "assets:write",
-        "webhooks:read",
-        "webhooks:write",
-        "billing:read",
-        "billing:write",
-        "orgs:read",
-        "orgs:write",
-        "keys:read",
-        "keys:write",
-        "storage:read",
-        "storage:write",
-        "team:read",
-        "team:write",
-        "workspace:read",
-        "workspace:write",
-    ],
-    typing.Any,
-]
+OauthScope = typing.Literal["jobs:read", "jobs:write", "assets:read", "assets:write", "webhooks:read", "webhooks:write", "billing:read", "billing:write", "orgs:read", "orgs:write", "keys:read", "keys:write", "storage:read", "storage:write", "team:read", "team:write", "workspace:read", "workspace:write"]

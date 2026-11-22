@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsMetadata = typing.Union[typing.Literal["all", "colorOnly", "none"], typing.Any]
+CompressTargetParamsMetadata = typing.Literal["all", "colorOnly", "none"]

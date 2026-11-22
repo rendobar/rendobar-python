@@ -13,12 +13,24 @@ if typing.TYPE_CHECKING:
         GetAccountCapabilitiesResponseDataLimits,
         GetAccountCapabilitiesResponseDataPlan,
     )
+    from .requests import (
+        GetAccountCapabilitiesResponseDataFeaturesParams,
+        GetAccountCapabilitiesResponseDataLimitsParams,
+        GetAccountCapabilitiesResponseDataParams,
+        GetAccountCapabilitiesResponseDataPlanParams,
+        GetAccountCapabilitiesResponseParams,
+    )
 _dynamic_imports: typing.Dict[str, str] = {
     "GetAccountCapabilitiesResponse": ".types",
     "GetAccountCapabilitiesResponseData": ".types",
     "GetAccountCapabilitiesResponseDataFeatures": ".types",
+    "GetAccountCapabilitiesResponseDataFeaturesParams": ".requests",
     "GetAccountCapabilitiesResponseDataLimits": ".types",
+    "GetAccountCapabilitiesResponseDataLimitsParams": ".requests",
+    "GetAccountCapabilitiesResponseDataParams": ".requests",
     "GetAccountCapabilitiesResponseDataPlan": ".types",
+    "GetAccountCapabilitiesResponseDataPlanParams": ".requests",
+    "GetAccountCapabilitiesResponseParams": ".requests",
 }
 
 
@@ -47,6 +59,11 @@ __all__ = [
     "GetAccountCapabilitiesResponse",
     "GetAccountCapabilitiesResponseData",
     "GetAccountCapabilitiesResponseDataFeatures",
+    "GetAccountCapabilitiesResponseDataFeaturesParams",
     "GetAccountCapabilitiesResponseDataLimits",
+    "GetAccountCapabilitiesResponseDataLimitsParams",
+    "GetAccountCapabilitiesResponseDataParams",
     "GetAccountCapabilitiesResponseDataPlan",
+    "GetAccountCapabilitiesResponseDataPlanParams",
+    "GetAccountCapabilitiesResponseParams",
 ]

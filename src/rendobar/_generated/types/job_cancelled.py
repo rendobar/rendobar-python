@@ -6,11 +6,11 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
-from .job_cancelled_callback import JobCancelledCallback
-from .job_cancelled_cost import JobCancelledCost
-from .job_cancelled_deliveries_item import JobCancelledDeliveriesItem
+from .callback_status import CallbackStatus
 from .job_cancelled_output_category import JobCancelledOutputCategory
-from .job_cancelled_steps_item import JobCancelledStepsItem
+from .job_cost import JobCost
+from .job_delivery import JobDelivery
+from .job_step import JobStep
 
 
 class JobCancelled(UniversalBaseModel):
@@ -73,21 +73,17 @@ class JobCancelled(UniversalBaseModel):
     Detected media type (video | image | audio), or null
     """
 
-    inputs: typing.Dict[str, typing.Any] = pydantic.Field()
+    inputs: typing.Dict[str, object] = pydantic.Field()
     """
     Input file references
     """
 
-    params: typing.Dict[str, typing.Any] = pydantic.Field()
+    params: typing.Dict[str, object] = pydantic.Field()
     """
     Job parameters
     """
 
-    cost: typing.Optional[JobCancelledCost] = pydantic.Field(default=None)
-    """
-    Amount charged, or null when not yet billed
-    """
-
+    cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
         JobCancelledOutputCategory,
         FieldMetadata(alias="outputCategory"),
@@ -99,7 +95,7 @@ class JobCancelled(UniversalBaseModel):
     Output category. Clients should tolerate unknown future values.
     """
 
-    steps: typing.List[JobCancelledStepsItem] = pydantic.Field()
+    steps: typing.List[JobStep] = pydantic.Field()
     """
     Execution steps
     """
@@ -151,7 +147,7 @@ class JobCancelled(UniversalBaseModel):
     """
 
     created_at: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="createdAt"),
         pydantic.Field(alias="createdAt", description="Creation timestamp (Unix ms)"),
     ]
@@ -160,7 +156,7 @@ class JobCancelled(UniversalBaseModel):
     """
 
     dispatched_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="dispatchedAt"),
         pydantic.Field(alias="dispatchedAt", description="Dispatch timestamp (Unix ms)"),
     ] = None
@@ -169,7 +165,7 @@ class JobCancelled(UniversalBaseModel):
     """
 
     started_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="startedAt"),
         pydantic.Field(alias="startedAt", description="Start timestamp (Unix ms)"),
     ] = None
@@ -178,7 +174,7 @@ class JobCancelled(UniversalBaseModel):
     """
 
     completed_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="completedAt"),
         pydantic.Field(alias="completedAt", description="Completion timestamp (Unix ms)"),
     ] = None
@@ -187,7 +183,7 @@ class JobCancelled(UniversalBaseModel):
     """
 
     settled_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="settledAt"),
         pydantic.Field(alias="settledAt", description="CF Worker timestamp when terminal status written (Unix ms)"),
     ] = None
@@ -219,12 +215,13 @@ class JobCancelled(UniversalBaseModel):
     Resolved generation model id (image.generate / image.edit jobs only), else null
     """
 
-    callback: typing.Optional[JobCancelledCallback] = pydantic.Field(default=None)
+    terminal: bool = pydantic.Field()
     """
-    Per-job callback delivery status, populated by GET /jobs/:id when a callback.url was set at submit (else null/absent). Deliberately carries ONLY the status — the callback url and any custom headers are secret and are never returned by any response.
+    True once the job has ended (complete, failed or cancelled), false while it waits or runs. Stop waiting on this rather than on a list of statuses: it stays right when a status is added.
     """
 
-    deliveries: typing.Optional[typing.List[JobCancelledDeliveriesItem]] = pydantic.Field(default=None)
+    callback: typing.Optional[CallbackStatus] = None
+    deliveries: typing.Optional[typing.List[JobDelivery]] = pydantic.Field(default=None)
     """
     Where the output was or will be delivered, one entry per destination given at submit. Detail endpoint only; absent when the job had no destinations.
     """

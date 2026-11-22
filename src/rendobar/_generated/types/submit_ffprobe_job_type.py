@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitFfprobeJobType = typing.Union[typing.Literal["ffprobe"], typing.Any]
+SubmitFfprobeJobType = typing.Literal["ffprobe"]

@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitCaptionsAnimateJobType = typing.Union[typing.Literal["captions.animate"], typing.Any]
+SubmitCaptionsAnimateJobType = typing.Literal["captions.animate"]

@@ -2,4 +2,4 @@
 
 import typing
 
-GetJobStatsRequestWindow = typing.Union[typing.Literal["24h", "7d", "30d", "90d", "365d", "all"], typing.Any]
+GetJobStatsRequestWindow = typing.Literal["24h", "7d", "30d", "90d", "365d", "all"]

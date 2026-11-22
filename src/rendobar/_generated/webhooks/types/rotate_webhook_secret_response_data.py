@@ -28,7 +28,7 @@ class RotateWebhookSecretResponseData(UniversalBaseModel):
         typing.Optional[str], FieldMetadata(alias="disabledReason"), pydantic.Field(alias="disabledReason")
     ] = None
     consecutive_failures: typing_extensions.Annotated[
-        float, FieldMetadata(alias="consecutiveFailures"), pydantic.Field(alias="consecutiveFailures")
+        int, FieldMetadata(alias="consecutiveFailures"), pydantic.Field(alias="consecutiveFailures")
     ]
     subscribed_events: typing_extensions.Annotated[
         typing.List[str], FieldMetadata(alias="subscribedEvents"), pydantic.Field(alias="subscribedEvents")
@@ -37,10 +37,10 @@ class RotateWebhookSecretResponseData(UniversalBaseModel):
         bool, FieldMetadata(alias="rotationActive"), pydantic.Field(alias="rotationActive")
     ]
     secret_expires_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="secretExpiresAt"), pydantic.Field(alias="secretExpiresAt")
+        typing.Optional[int], FieldMetadata(alias="secretExpiresAt"), pydantic.Field(alias="secretExpiresAt")
     ] = None
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
-    updated_at: typing_extensions.Annotated[float, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    updated_at: typing_extensions.Annotated[int, FieldMetadata(alias="updatedAt"), pydantic.Field(alias="updatedAt")]
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

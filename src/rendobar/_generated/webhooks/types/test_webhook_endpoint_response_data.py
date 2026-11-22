@@ -11,10 +11,10 @@ from ...core.serialization import FieldMetadata
 class TestWebhookEndpointResponseData(UniversalBaseModel):
     delivered: bool
     status_code: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="statusCode"), pydantic.Field(alias="statusCode")
+        typing.Optional[int], FieldMetadata(alias="statusCode"), pydantic.Field(alias="statusCode")
     ] = None
     response_time_ms: typing_extensions.Annotated[
-        float, FieldMetadata(alias="responseTimeMs"), pydantic.Field(alias="responseTimeMs")
+        int, FieldMetadata(alias="responseTimeMs"), pydantic.Field(alias="responseTimeMs")
     ]
 
     if IS_PYDANTIC_V2:

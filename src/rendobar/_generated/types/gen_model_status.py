@@ -2,4 +2,4 @@
 
 import typing
 
-GenModelStatus = typing.Union[typing.Literal["active"], typing.Any]
+GenModelStatus = typing.Union[typing.Literal["active"], str]

@@ -6,8 +6,10 @@ No mock server: the HTTP side is an httpx.MockTransport.
 from __future__ import annotations
 
 import asyncio
+import io
 import json
-from typing import Any, Callable, Dict, List, Optional
+import typing
+from typing import Any, AsyncIterator, Callable, Dict, Iterator, List, Optional
 
 import httpx
 import pytest
@@ -16,15 +18,26 @@ from rendobar import (
     APIConnectionError,
     APITimeoutError,
     AsyncRendobar,
+    AuthenticationError,
     ConflictError,
+    InternalServerError,
+    InvalidArgumentError,
+    JobCancelled,
+    JobComplete,
+    JobDispatched,
+    JobError,
+    JobFailed,
     JobFailedError,
+    JobRunning,
+    JobWaiting,
     Rendobar,
     RendobarError,
     ResponseValidationError,
     UnknownJob,
+    UntypedJob,
     WaitTimeoutError,
 )
-from rendobar._client import WaitClock, WaitPoll, retry_delay, split_run_options
+from rendobar._client import SomeJob, WaitClock, WaitPoll, retry_delay
 from rendobar._generated.core.api_error import ApiError
 from rendobar._generated.core.parse_error import ParsingError
 
@@ -37,12 +50,16 @@ class FakeClock:
         return self.now
 
 
-class Job:
-    def __init__(self, status: str, timeout_ms: Optional[int] = None, job_id: str = "job_1") -> None:
-        self.id = job_id
-        self.status = status
-        self.timeout_ms = timeout_ms
-        self.error = None
+_BY_STATUS = {"waiting": JobWaiting, "dispatched": JobDispatched, "running": JobRunning,
+              "complete": JobComplete, "failed": JobFailed, "cancelled": JobCancelled}
+
+
+def model(status: str, timeout_ms: Any = None) -> SomeJob:
+    """A job with only the fields the wait logic reads (model_construct skips validation)."""
+    fields: Dict[str, Any] = {"id": "job_1", "status": status, "timeout_ms": timeout_ms, "terminal": status in ("complete", "failed", "cancelled")}
+    if status == "failed":
+        fields["error"] = JobError(code="FFMPEG_ERROR", message="exit 1", retryable=False)
+    return _BY_STATUS[status].model_construct(**fields)
 
 
 # ── WaitClock ─────────────────────────────────────────────────────────
@@ -52,7 +69,7 @@ def test_default_bound_is_five_minutes_from_the_start_even_while_queued() -> Non
     wait = WaitClock(None, clock=clock)
     for _ in range(10):
         clock.now += 60
-        wait.observe(Job("waiting"))
+        wait.observe(model("waiting"))
     assert wait.deadline == 1000 + 300  # queued polls never slide the bound
     assert wait.remaining() < 0
 
@@ -61,7 +78,7 @@ def test_budget_is_adopted_from_the_poll_that_reports_it() -> None:
     clock = FakeClock()
     wait = WaitClock(None, clock=clock)
     clock.now += 250  # the job sat in the queue for 250 s
-    wait.observe(Job("running", timeout_ms=600_000))
+    wait.observe(model("running", timeout_ms=600_000))
     assert wait.deadline == 1250 + 600 + 120  # now + budget + grace, not start + budget + grace
 
 
@@ -69,30 +86,30 @@ def test_budget_adoption_never_shortens_the_default_bound() -> None:
     clock = FakeClock()
     wait = WaitClock(None, clock=clock)
     clock.now += 10
-    wait.observe(Job("running", timeout_ms=1))
+    wait.observe(model("running", timeout_ms=1))
     assert wait.deadline == 1000 + 300
 
 
 def test_budget_is_adopted_once() -> None:
     clock = FakeClock()
     wait = WaitClock(None, clock=clock)
-    wait.observe(Job("running", timeout_ms=600_000))
+    wait.observe(model("running", timeout_ms=600_000))
     first = wait.deadline
     clock.now += 500
-    wait.observe(Job("running", timeout_ms=600_000))
+    wait.observe(model("running", timeout_ms=600_000))
     assert wait.deadline == first
 
 
 def test_explicit_timeout_ignores_the_budget() -> None:
     clock = FakeClock()
     wait = WaitClock(30, clock=clock)
-    wait.observe(Job("running", timeout_ms=600_000))
+    wait.observe(model("running", timeout_ms=600_000))
     assert wait.deadline == 1030 and wait.total() == 30
 
 
 def test_a_boolean_budget_is_not_a_number() -> None:
     wait = WaitClock(None, clock=FakeClock())
-    wait.observe(Job("running", timeout_ms=True))  # type: ignore[arg-type]
+    wait.observe(model("running", timeout_ms=True))
     assert not wait.adopted
 
 
@@ -107,26 +124,32 @@ def poll(clock: FakeClock, **kw: Any) -> WaitPoll:
 def test_poll_backs_off_to_the_max_interval() -> None:
     clock = FakeClock()
     p = poll(clock)
-    pauses = [p.step(Job("running")) for _ in range(6)]
+    pauses = [p.pause(model("running")) for _ in range(6)]
     assert pauses == [2.0, 3.0, 4.5, 6.75, 10.0, 10.0]
 
 
 def test_poll_never_sleeps_past_the_deadline() -> None:
     clock = FakeClock()
     p = poll(clock, timeout=1.0)
-    assert p.step(Job("running")) == 1.0
+    assert p.pause(model("running")) == 1.0
 
 
-def test_poll_returns_on_a_terminal_status() -> None:
+def test_poll_returns_the_job_on_a_terminal_status() -> None:
     p = poll(FakeClock(), throw_on_failure=True)
-    assert p.step(Job("complete")) is None
+    done = model("complete")
+    assert p.finished(done) is done
+    assert p.finished(model("running")) is None
 
 
 def test_poll_raises_on_failure_when_asked() -> None:
     with pytest.raises(JobFailedError) as info:
-        poll(FakeClock(), throw_on_failure=True).step(Job("cancelled"))
+        poll(FakeClock(), throw_on_failure=True).finished(model("cancelled"))
     assert info.value.code == "JOB_CANCELLED"
-    assert poll(FakeClock()).step(Job("failed")) is None
+    with pytest.raises(JobFailedError) as failed:
+        poll(FakeClock(), throw_on_failure=True).finished(model("failed"))
+    assert failed.value.code == "FFMPEG_ERROR" and str(failed.value) == "Job job_1 ended with status 'failed': exit 1"
+    job = model("failed")
+    assert poll(FakeClock()).finished(job) is job
 
 
 def test_poll_times_out_with_the_last_status() -> None:
@@ -134,18 +157,27 @@ def test_poll_times_out_with_the_last_status() -> None:
     p = poll(clock)
     clock.now += 301
     with pytest.raises(WaitTimeoutError) as info:
-        p.step(Job("waiting"))
+        p.pause(model("waiting"))
     assert info.value.last_status == "waiting" and isinstance(info.value, RendobarError)
     assert info.value.code == "WAIT_TIMEOUT"
 
 
-def test_an_unknown_status_is_not_terminal() -> None:
-    assert poll(FakeClock()).step(UnknownJob({"id": "job_1", "status": "paused"})) == 2.0
+def test_an_unknown_status_ends_the_wait_only_when_terminal() -> None:
+    p = poll(FakeClock())
+    waiting = UnknownJob({"id": "job_1", "status": "paused", "terminal": False})
+    assert p.finished(waiting) is None and p.pause(waiting) == 2.0
+    assert p.finished(UnknownJob({"id": "job_1", "status": "paused"})) is None  # no flag: not terminal
+    ended = UnknownJob({"id": "job_1", "status": "archived", "terminal": True})
+    assert p.finished(ended) is ended
+    with pytest.raises(JobFailedError) as info:
+        poll(FakeClock(), throw_on_failure=True).finished(ended)
+    assert info.value.code == "JOB_ENDED" and info.value.job is ended
 
 
-def test_split_run_options() -> None:
-    create, wait = split_run_options({"label": "a", "timeout": 5, "on_progress": print, "idempotency_key": "k"})
-    assert create == {"label": "a", "idempotency_key": "k"} and wait == {"timeout": 5, "on_progress": print}
+@pytest.mark.parametrize("seconds, shown", [(0.5, "0.5s"), (0.25, "0.25s"), (2.0, "2s"), (9.5, "9.5s"), (300.0, "300s"), (420.4, "420s")])
+def test_the_wait_timeout_message_shows_sub_second_bounds(seconds: float, shown: str) -> None:
+    err = WaitTimeoutError("job_1", "running", seconds, model("running"))
+    assert f"within {shown} " in str(err) and err.timeout == seconds
 
 
 # ── retry_delay ───────────────────────────────────────────────────────
@@ -198,6 +230,7 @@ def job(job_id: str, status: str, **extra: Any) -> Dict[str, Any]:
         "id": job_id, "status": status, "orgId": "org_1", "type": "ffprobe", "source": "api", "retryCount": 0,
         "inputs": {}, "params": {}, "outputCategory": "json", "steps": [], "logsAvailable": False,
         "resourcesAvailable": False, "createdAt": 1731000000000, "webUrl": "https://app.rendobar.com/jobs/x",
+        "terminal": status in ("complete", "failed", "cancelled"),
     }
     out.update(extra)
     return out
@@ -222,20 +255,20 @@ def _install(http: Any, handler: Handler) -> None:
 
 
 def sync_client(handler: Handler, **kw: Any) -> Rendobar:
-    client = Rendobar("k", base_url="https://api.test", **kw)
+    client = Rendobar("rb_k", base_url="https://api.test", **kw)
     _install(client._core._client_wrapper.httpx_client.httpx_client, handler)  # noqa: SLF001
     return client
 
 
 def async_client(handler: Handler, **kw: Any) -> AsyncRendobar:
-    client = AsyncRendobar("k", base_url="https://api.test", **kw)
+    client = AsyncRendobar("rb_k", base_url="https://api.test", **kw)
     _install(client._core._client_wrapper.httpx_client.httpx_client, handler)  # noqa: SLF001
     return client
 
 
 MIXED_PAGE = {
     "data": [job("job_1", "running"), job("job_2", "paused", brandNewField=1), job("job_3", "waiting")],
-    "meta": {"total": 3, "page": 1, "limit": 50},
+    "meta": {"total": 3, "page": 1, "limit": 50, "pages": 1},
 }
 PAGES = {
     "GET /jobs": (200, MIXED_PAGE),
@@ -247,7 +280,7 @@ PAGES = {
 
 def check_page(jobs: List[Any]) -> None:
     assert [j.id for j in jobs] == ["job_1", "job_2", "job_3"]
-    assert [type(j).__name__ for j in jobs] == ["Job_Running", "UnknownJob", "Job_Waiting"]
+    assert [type(j).__name__ for j in jobs] == ["JobRunning", "UnknownJob", "JobWaiting"]
     assert jobs[1].status == "paused" and jobs[1].raw["brandNewField"] == 1
 
 
@@ -280,7 +313,7 @@ def test_a_known_status_that_does_not_parse_is_not_hidden() -> None:
 
 def test_create_and_cancel_with_a_new_status_do_not_raise() -> None:
     rb = sync_client(routes(PAGES))
-    created = rb.jobs.create("ffprobe", {"command": "x"})
+    created = rb.jobs.create({"type": "ffprobe", "params": {"command": "x"}})
     assert created.id == "job_9" and created.status == "paused"
     cancelled = rb.jobs.cancel("job_2")
     assert cancelled.id == "job_2" and cancelled.status == "paused"
@@ -302,7 +335,7 @@ def test_one_job_is_the_single_fallback_for_get_create_and_cancel() -> None:
 def test_create_with_a_known_status_that_does_not_parse_raises() -> None:
     rb = sync_client(routes({"POST /jobs": (201, {"data": {"status": "waiting"}})}))
     with pytest.raises(ResponseValidationError):
-        rb.jobs.create("ffprobe", {"command": "x"})
+        rb.jobs.create({"type": "ffprobe", "params": {"command": "x"}})
 
 
 def test_an_error_with_an_unreadable_body_keeps_its_status() -> None:
@@ -365,5 +398,475 @@ def test_submit_retries_reuse_one_idempotency_key() -> None:
             return httpx.Response(502, json={"error": {"code": "BAD_GATEWAY", "message": "x"}}, headers={"Retry-After": "0"})
         return httpx.Response(201, json={"data": {"id": "job_1", "status": "waiting", "idempotent": True}})
 
-    asyncio.run(async_client(handle).jobs.create("ffprobe", {"command": "x"}))
+    asyncio.run(async_client(handle).jobs.create({"type": "ffprobe", "params": {"command": "x"}}))
     assert len(keys) == 2 and keys[0] == keys[1]
+
+
+# ── the API key ───────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("key", [None, "", "   "])
+def test_no_key_raises_locally_before_any_request(monkeypatch: pytest.MonkeyPatch, key: Optional[str]) -> None:
+    monkeypatch.delenv("RENDOBAR_API_KEY", raising=False)
+    sent: List[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request.url.path)
+        return httpx.Response(200, json={"data": []})
+
+    rb = Rendobar(key, base_url="https://api.test")
+    _install(rb._core._client_wrapper.httpx_client.httpx_client, handle)  # noqa: SLF001
+    with pytest.raises(AuthenticationError) as info:
+        rb.jobs.get("job_1")
+    assert info.value.code == "MISSING_API_KEY" and info.value.status_code is None
+    assert "RENDOBAR_API_KEY" in str(info.value)
+    rb.jobs.types()  # public: needs no key
+    assert sent == ["/jobs/types"]
+
+    arb = AsyncRendobar(key, base_url="https://api.test")
+    with pytest.raises(AuthenticationError):
+        asyncio.run(arb.jobs.run({"type": "ffprobe", "params": {"command": "x"}}))
+
+
+def test_an_empty_env_key_is_missing_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RENDOBAR_API_KEY", "")
+    with pytest.raises(AuthenticationError, match="RENDOBAR_API_KEY"):
+        Rendobar(base_url="https://api.test").account.capabilities()
+
+
+# ── public model names ────────────────────────────────────────────────
+
+def test_models_carry_their_public_names() -> None:
+    import pickle
+
+    import rendobar
+    from rendobar._models import PUBLIC_MODELS
+
+    for name, cls in PUBLIC_MODELS.items():
+        assert getattr(rendobar, name) is cls and name in rendobar.__all__
+        assert cls.__name__ == name and cls.__qualname__ == name
+        assert typing.get_type_hints(cls)  # annotations still resolve in the generated module
+    created = sync_client(routes({"POST /jobs": (201, {"data": {"id": "job_9", "status": "waiting"}})})).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
+    assert type(created).__name__ == "JobCreated" and repr(created).startswith("JobCreated(")
+    running = sync_client(routes({"GET /jobs/job_1": (200, {"data": job("job_1", "running")})})).jobs.get("job_1")
+    assert isinstance(running, rendobar.JobRunning) and pickle.loads(pickle.dumps(running)) == running
+
+
+@pytest.mark.parametrize("key", ["k", "sk_live_123", "Bearer rb_x"])
+def test_a_key_that_is_not_a_rendobar_key_raises_locally_and_is_never_sent(key: str) -> None:
+    sent: List[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, json={"data": []})
+
+    rb = Rendobar(key, base_url="https://api.test")
+    _install(rb._core._client_wrapper.httpx_client.httpx_client, handle)  # noqa: SLF001
+    with pytest.raises(AuthenticationError) as info:
+        rb.jobs.get("job_1")
+    assert info.value.code == "INVALID_API_KEY" and "rb_" in str(info.value)
+    rb.jobs.types()
+    assert [r.url.path for r in sent] == ["/jobs/types"] and "Authorization" not in sent[0].headers
+
+
+# ── arguments refused before any request ──────────────────────────────
+
+def refuse_all(request: httpx.Request) -> httpx.Response:
+    raise AssertionError(f"no request should be sent, got {request.url}")
+
+
+@pytest.mark.parametrize("job_id", ["../../etc", "..", ".", "", "job_1/cancel", "job_1?x=1", "job 1"])
+def test_an_unsafe_job_id_is_an_invalid_argument(job_id: str) -> None:
+    rb = sync_client(refuse_all)
+    calls: List[Callable[[str], object]] = [rb.jobs.get, rb.jobs.cancel, lambda i: rb.jobs.download(i, io.BytesIO()), rb.jobs.wait, rb.jobs.schema]
+    for call in calls:
+        with pytest.raises(InvalidArgumentError) as info:
+            call(job_id)
+        assert isinstance(info.value, RendobarError) and isinstance(info.value, ValueError)
+        assert info.value.code == "INVALID_ARGUMENT" and info.value.status_code is None
+    with pytest.raises(InvalidArgumentError):
+        asyncio.run(async_client(refuse_all).jobs.get(job_id))
+
+
+@pytest.mark.parametrize("limit, offset", [(0, None), (-1, None), (None, -1)])
+def test_a_page_window_below_its_minimum_is_an_invalid_argument(limit: Optional[int], offset: Optional[int]) -> None:
+    with pytest.raises(InvalidArgumentError):
+        sync_client(refuse_all).jobs.list(limit=limit, offset=offset)
+    with pytest.raises(InvalidArgumentError):
+        asyncio.run(async_client(refuse_all).jobs.list(limit=limit, offset=offset))
+    with pytest.raises(InvalidArgumentError):
+        list(sync_client(refuse_all).jobs.list_all(page_size=0))
+
+
+def test_other_client_side_problems_are_invalid_arguments_too() -> None:
+    with pytest.raises(InvalidArgumentError):
+        Rendobar("rb_k", app="has spaces")
+    with pytest.raises(InvalidArgumentError):
+        sync_client(refuse_all).jobs.create(123)  # type: ignore[arg-type]
+
+
+def test_a_page_prints_its_size_and_window() -> None:
+    page = sync_client(routes(PAGES)).jobs.list()
+    assert repr(page) == "Page(3 items, meta=PageMeta(total=3, page=1, limit=50, pages=1))"
+
+
+def test_a_page_from_a_server_that_sends_no_pages_still_reads() -> None:
+    meta = {"total": 3, "page": 1, "limit": 50}  # meta.pages is newer than the rest of the meta
+    page = sync_client(routes({**PAGES, "GET /jobs": (200, {**MIXED_PAGE, "meta": meta})})).jobs.list()
+    assert len(page) == 3 and page.meta.total == 3 and page.meta.pages is None
+
+
+# ── the cross-SDK behaviour standard ──────────────────────────────────
+
+@pytest.mark.parametrize("status", [501, 505, 507, 599])
+def test_only_429_500_502_503_504_are_retried(status: int) -> None:
+    assert retry_delay(api_error(status), 0, 5) is None
+
+
+def test_a_retry_after_on_a_503_is_honoured_and_a_long_one_is_raised_with_it() -> None:
+    assert retry_delay(api_error(503, {"Retry-After": "1"}), 0, 2) == 1.0
+    assert retry_delay(api_error(503, {"Retry-After": "3600"}), 0, 2) is None
+
+    def long_wait(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, json={"error": {"code": "RATE_LIMITED", "message": "x"}}, headers={"Retry-After": "3600"})
+
+    with pytest.raises(RendobarError) as info:
+        sync_client(long_wait).jobs.get("job_1")
+    assert info.value.retry_after == 3600
+
+
+def test_no_retry_sleeps_past_the_callers_deadline() -> None:
+    clock = FakeClock()
+    assert retry_delay(api_error(503, {"Retry-After": "5"}), 0, 2, deadline=clock.now + 4, clock=clock) is None
+    assert retry_delay(api_error(503, {"Retry-After": "5"}), 0, 2, deadline=clock.now + 6, clock=clock) == 5.0
+    assert retry_delay(api_error(503), 0, 2, deadline=clock.now + 0.1, clock=clock, rand=lambda: 0.0) is None
+
+
+def test_wait_does_not_retry_past_its_own_timeout() -> None:
+    seen: List[float] = []
+
+    def busy(request: httpx.Request) -> httpx.Response:
+        seen.append(1)
+        return httpx.Response(503, json={"error": {"code": "BUSY", "message": "x"}}, headers={"Retry-After": "30"})
+
+    with pytest.raises(InternalServerError):
+        sync_client(busy).jobs.wait("job_1", timeout=2)
+    assert len(seen) == 1  # a 30 s Retry-After would outlive the 2 s wait: raised, not slept
+
+
+def _down(request: httpx.Request) -> httpx.Response:
+    raise httpx.ConnectError("refused", request=request)
+
+
+def _answer(status: int) -> Handler:
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(status, json={"error": {"code": "X", "message": "x"}}, headers={"Retry-After": "0"})
+    return handle
+
+
+@pytest.mark.parametrize("handler", [_down, _answer(503), _answer(429)], ids=["connection", "503", "429"])
+def test_a_cut_off_submit_carries_the_key_it_sent(handler: Handler) -> None:
+    with pytest.raises(RendobarError) as info:
+        sync_client(handler, max_retries=1).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
+    assert (info.value.idempotency_key or "").startswith("sdk_")
+    with pytest.raises(RendobarError) as mine:
+        asyncio.run(async_client(handler, max_retries=0).jobs.create({"type": "ffprobe", "params": {"command": "x"}}, idempotency_key="order-7"))
+    assert mine.value.idempotency_key == "order-7"
+
+
+def test_a_refused_submit_carries_no_key() -> None:
+    with pytest.raises(RendobarError) as info:
+        sync_client(_answer(400)).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
+    assert info.value.idempotency_key is None
+
+
+def test_the_key_generator_is_exported() -> None:
+    from rendobar import generate_idempotency_key
+
+    assert generate_idempotency_key() != generate_idempotency_key()
+
+
+def test_problems_are_parsed_from_details_and_never_raise() -> None:
+    details = [
+        {"path": ["params", "command"], "message": "Required"},
+        {"path": ["params", "width"], "message": "Above your plan", "upgradeTo": "studio"},
+        {"path": "params.fps", "message": "Too high"},
+        {"path": [0, True, "x"], "message": "odd path"},
+        {"message": "no path"}, {"path": ["x"]}, "not a dict", None,
+    ]
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(400, json={"error": {"code": "VALIDATION_ERROR", "message": "x", "details": details}})
+
+    with pytest.raises(RendobarError) as info:
+        sync_client(refuse).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
+    problems = info.value.problems
+    assert [(p.path, p.message, p.upgrade_to) for p in problems] == [
+        (("params", "command"), "Required", None),
+        (("params", "width"), "Above your plan", "studio"),
+        (("params.fps",), "Too high", None),
+        ((0, "x"), "odd path", None),
+    ]
+    assert info.value.details == problems  # a list of problems is the typed details
+    other = RendobarError("x", code="X", details={"jobId": "job_1"})
+    assert other.problems == [] and other.details == {"jobId": "job_1"}
+    assert RendobarError("x", code="X", details="a sentence").details is None
+
+
+def test_a_wait_timeout_carries_the_last_job_read() -> None:
+    running = job("job_1", "running")
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"data": running})
+
+    with pytest.raises(WaitTimeoutError) as info:
+        sync_client(handle).jobs.wait("job_1", timeout=0.2, interval=0.05)
+    assert info.value.job_id == "job_1" and info.value.last_status == "running"
+    assert isinstance(info.value.job, JobRunning) and info.value.job.id == "job_1"
+
+
+def test_a_trailing_slash_on_base_url_never_doubles_the_path() -> None:
+    paths: List[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        paths.append(request.url.raw_path.decode())
+        return httpx.Response(200, json={"data": job("job_1", "running")})
+
+    rb = Rendobar("rb_k", base_url="https://api.test/")
+    _install(rb._core._client_wrapper.httpx_client.httpx_client, handle)  # noqa: SLF001
+    rb.jobs.get("job_1")
+    assert paths == ["/jobs/job_1"]
+
+
+def test_the_agent_headline_url_is_output_file_only() -> None:
+    from rendobar.agents import summarize
+
+    files = [{"url": "https://cdn.test/a.png", "type": "image", "path": "a.png", "size": 1}]
+    many = job("job_1", "complete", output={"file": None, "files": files})
+    rb = sync_client(routes({"GET /jobs/job_1": (200, {"data": many})}))
+    summary = summarize(rb.jobs.get("job_1"))
+    assert summary["url"] is None and summary["files"] == [{"url": "https://cdn.test/a.png", "type": "image", "path": "a.png", "size": 1}]
+
+
+# ── round four: strict submits, streaming, closed clients ─────────────
+
+def test_a_submit_sends_the_wire_names_and_only_what_was_set() -> None:
+    sent: List[Dict[str, Any]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(201, json={"data": {"id": "job_1", "status": "waiting"}})
+
+    rb = sync_client(handle)
+    rb.jobs.create({"type": "ffprobe", "params": {"command": "x"}}, idempotency_key="k1", label="probe",
+                   destinations=["storage://media"], force_async=True, callback={"url": "https://hook.test"})
+    rb.jobs.create(UntypedJob("video.newthing", {"quality": "high"}, {"source": "https://x/a.mp4"}))
+    assert sent[0] == {"type": "ffprobe", "params": {"command": "x"}, "idempotencyKey": "k1", "label": "probe",
+                       "destinations": ["storage://media"], "forceAsync": True, "callback": {"url": "https://hook.test"}}
+    assert sent[1]["type"] == "video.newthing" and sent[1]["params"] == {"quality": "high"}
+    assert sent[1]["inputs"] == {"source": "https://x/a.mp4"} and sent[1]["idempotencyKey"].startswith("sdk_")
+
+
+@pytest.mark.parametrize("job, why", [
+    ({"type": "ffprobe", "params": {"command": "x"}, "label": "in the job"}, "not part of a job"),
+    ({"type": "ffprobe", "params": "command=x"}, "params"),
+    ({"params": {"command": "x"}}, "type"),
+    ("ffprobe", "job dict"),
+    (UntypedJob("ffprobe", ["not", "a", "mapping"]), "params"),  # type: ignore[arg-type]
+])
+def test_a_malformed_job_is_an_invalid_argument(job: Any, why: str) -> None:
+    with pytest.raises(InvalidArgumentError, match=why):
+        sync_client(refuse_all).jobs.create(job)
+
+
+@pytest.mark.parametrize("options", [{"destinations": "storage://media"}, {"destinations": [1]}, {"label": 5},
+                                     {"force_async": "yes"}, {"callback": {"headers": {}}}])
+def test_a_malformed_submit_option_is_an_invalid_argument(options: Dict[str, Any]) -> None:
+    with pytest.raises(InvalidArgumentError):
+        sync_client(refuse_all).jobs.create({"type": "ffprobe", "params": {"command": "x"}}, **options)
+
+
+@pytest.mark.parametrize("call", [
+    lambda rb: rb.jobs.list(limit="5"), lambda rb: rb.jobs.list(offset=1.5), lambda rb: rb.jobs.list(status=3),
+    lambda rb: list(rb.jobs.list_all(page_size="x")), lambda rb: rb.jobs.wait("job_1", interval=0),
+    lambda rb: rb.jobs.wait("job_1", timeout=-1),
+])
+def test_a_wrong_argument_type_is_an_invalid_argument_not_a_type_error(call: Callable[[Rendobar], object]) -> None:
+    with pytest.raises(InvalidArgumentError):
+        call(sync_client(refuse_all))
+
+
+def test_a_2xx_the_sdk_cannot_read_keeps_the_submit_key() -> None:
+    def garbled(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(201, text="<html>proxy page</html>", headers={"x-request-id": "req_2xx"})
+
+    with pytest.raises(ResponseValidationError) as info:
+        sync_client(garbled).jobs.create({"type": "ffprobe", "params": {"command": "x"}}, idempotency_key="order-9")
+    assert info.value.idempotency_key == "order-9" and info.value.status_code == 201
+    assert info.value.request_id == "req_2xx" and info.value.body == "<html>proxy page</html>"
+    with pytest.raises(ResponseValidationError):
+        sync_client(garbled).jobs.get("job_1")
+
+
+def test_a_closed_client_raises_client_closed() -> None:
+    rb = sync_client(routes(PAGES))
+    rb.close()
+    for call in (lambda: rb.jobs.get("job_2"), rb.jobs.types, rb.account.capabilities):
+        with pytest.raises(RendobarError) as info:
+            call()
+        assert info.value.code == "CLIENT_CLOSED"
+
+    async def go() -> None:
+        arb = async_client(routes(PAGES))
+        await arb.aclose()
+        with pytest.raises(RendobarError, match="closed"):
+            await arb.jobs.get("job_2")
+
+    asyncio.run(go())
+
+
+_BIG = 1024 * 1024  # bytes per chunk
+
+
+def _streamed(chunks: int, fail_after: Optional[int] = None) -> Handler:
+    def body() -> Iterator[bytes]:
+        for i in range(chunks):
+            if fail_after is not None and i == fail_after:
+                raise httpx.ReadError("connection reset mid-body")
+            yield bytes([i % 256]) * _BIG
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        calls.append(request.url.path)
+        return httpx.Response(200, content=body(), headers={"content-type": "video/mp4"})
+
+    calls: List[str] = []
+    handle.calls = calls  # type: ignore[attr-defined]
+    return handle
+
+
+def test_download_streams_a_large_body_to_a_file(tmp_path: Any) -> None:
+    target = tmp_path / "out.mp4"
+    assert sync_client(_streamed(24)).jobs.download("job_1", target) == 24 * _BIG
+    assert target.stat().st_size == 24 * _BIG
+    sink = io.BytesIO()
+    assert sync_client(_streamed(3)).jobs.download("job_1", sink) == 3 * _BIG and sink.getvalue()[_BIG] == 1
+
+
+def test_a_body_that_breaks_is_raised_once_and_its_file_removed(tmp_path: Any) -> None:
+    handler = _streamed(10, fail_after=4)
+    target = tmp_path / "out.mp4"
+    with pytest.raises(APIConnectionError):
+        sync_client(handler, max_retries=3).jobs.download("job_1", str(target))
+    assert handler.calls == ["/jobs/job_1/download"] and not target.exists()  # type: ignore[attr-defined]
+
+
+def test_async_download_streams_too() -> None:
+    async def body() -> AsyncIterator[bytes]:
+        for i in range(8):
+            yield bytes([i]) * _BIG
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=body())
+
+    async def go() -> int:
+        return await async_client(handle).jobs.download("job_1", io.BytesIO())
+
+    assert asyncio.run(go()) == 8 * _BIG
+
+
+# ── round five: the named spec components ─────────────────────────────
+
+@pytest.mark.parametrize("status, data, kind", [
+    (201, {"id": "job_1", "status": "waiting"}, "JobCreated"),
+    (200, {"id": "job_1", "status": "complete", "url": "data:application/json,{}"}, "JobCompletedOnSubmit"),
+    (200, {"id": "job_1", "status": "running", "idempotent": True}, "JobReplayed"),
+])
+def test_a_submit_is_typed_by_its_status_code(status: int, data: Dict[str, Any], kind: str) -> None:
+    created = sync_client(routes({"POST /jobs": (status, {"data": data})})).jobs.create({"type": "ffprobe", "params": {"command": "x"}})
+    assert type(created).__name__ == kind and created.id == "job_1"
+
+
+def test_a_submit_body_without_data_keeps_the_key() -> None:
+    with pytest.raises(ResponseValidationError) as info:
+        sync_client(routes({"POST /jobs": (201, {"nope": True})})).jobs.create({"type": "ffprobe", "params": {"command": "x"}}, idempotency_key="k7")
+    assert info.value.idempotency_key == "k7"
+
+
+PROBE = {"format": {"format_name": "mov,mp4"}, "streams": [], "brandNew": 1}
+
+
+def test_output_data_reads_a_typed_result() -> None:
+    from rendobar import FfprobeResult, JobComplete, output_data
+
+    done = job("job_1", "complete", output={"data": PROBE, "files": []}, cost={"amount": 2_100_000, "currency": "USD", "formatted": "$0.0021"})
+    got = sync_client(routes({"GET /jobs/job_1": (200, {"data": done})})).jobs.get("job_1")
+    assert isinstance(got, JobComplete)
+    result = output_data(got, FfprobeResult)
+    assert isinstance(result, FfprobeResult) and result.format is not None and result.streams == []
+    assert got.cost is not None and got.cost.amount == 2_100_000 and isinstance(got.cost.amount, int)
+    with pytest.raises(ResponseValidationError):
+        output_data(got.model_copy(update={"output": got.output.model_copy(update={"data": "not a probe"})}), FfprobeResult)
+
+
+# ── final round: bodies exactly as meant ──────────────────────────────
+
+def _sent_body(job: Any) -> Dict[str, Any]:
+    sent: List[Dict[str, Any]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        sent.append(json.loads(request.content))
+        return httpx.Response(201, json={"data": {"id": "job_1", "status": "waiting"}})
+
+    sync_client(handle).jobs.create(job, idempotency_key="k")
+    return sent[0]
+
+
+def test_an_untyped_job_is_sent_verbatim() -> None:
+    params = {"dry_run": True, "max_resolution": "1080p", "enhance_prompt": True, "for_": "web",
+              "translate_to": "de", "nested": {"max_resolution": 1, "dry_run": False}}
+    inputs = {"source": "https://x/a.mp4", "images": ["https://x/1.png", "https://x/2.png"], "script": {"content": "hi"}}
+    body = _sent_body(UntypedJob("video.newthing", params, inputs))
+    assert body == {"type": "video.newthing", "params": params, "inputs": inputs, "idempotencyKey": "k"}
+
+
+@pytest.mark.parametrize("job, wire_params", [
+    ({"type": "ffprobe", "params": {"command": "x"}}, {"command": "x"}),
+    ({"type": "ffmpeg", "params": {"command": "ffmpeg -i x out.mp4"}}, {"command": "ffmpeg -i x out.mp4"}),
+    ({"type": "compress.target", "params": {"max_resolution": "1080p", "dry_run": True, "for_": "web"}},
+     {"maxResolution": "1080p", "dryRun": True, "for": "web"}),
+    ({"type": "captions.animate", "params": {"translate_to": "de", "auto_emphasis": True}}, {"translateTo": "de", "autoEmphasis": True}),
+    ({"type": "caption.burn", "params": {"font_size": 32, "box_enabled": True}}, {"fontSize": 32, "boxEnabled": True}),
+    ({"type": "image.generate", "params": {"prompt": "a cat", "enhance_prompt": True}}, {"prompt": "a cat", "enhancePrompt": True}),
+    ({"type": "image.edit", "params": {"prompt": "make it blue", "enhance_prompt": False}}, {"prompt": "make it blue", "enhancePrompt": False}),
+    ({"type": "image.upscale", "params": {}}, {}),
+], ids=lambda value: value["type"] if isinstance(value, dict) and "type" in value else "")
+def test_a_typed_job_is_serialised_by_its_own_type(job: Dict[str, Any], wire_params: Dict[str, Any]) -> None:
+    assert _sent_body(job)["params"] == wire_params
+
+
+def test_image_edit_takes_a_list_input() -> None:
+    images = ["https://x/1.png", "https://x/2.png", {"job": "job_prev"}]
+    body = _sent_body({"type": "image.edit", "params": {"prompt": "merge"}, "inputs": {"images": images}})
+    assert body["inputs"] == {"images": images}
+
+
+def test_a_status_newer_than_the_sdk_filters_as_given() -> None:
+    queries: List[str] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        queries.append(str(request.url.params.get("status")))
+        return httpx.Response(200, json={"data": [], "meta": {"total": 0, "page": 1, "limit": 50}})
+
+    sync_client(handle).jobs.list(status="archived")
+    assert queries == ["archived"]
+
+
+def test_a_summary_of_a_new_kind_leaves_the_rest_of_the_result_typed() -> None:
+    from rendobar import FfprobeResult, JobComplete, output_data
+
+    data = {"format": {"format_name": "mov,mp4"}, "streams": [], "summary": {"kind": "hologram", "depth": 3}}
+    done = job("job_1", "complete", output={"data": data, "files": []})
+    got = sync_client(routes({"GET /jobs/job_1": (200, {"data": done})})).jobs.get("job_1")
+    assert isinstance(got, JobComplete)
+    result = output_data(got, FfprobeResult)
+    assert result.summary is None and result.format is not None
+    assert (result.model_extra or {})["unknown_summary"] == {"kind": "hologram", "depth": 3}

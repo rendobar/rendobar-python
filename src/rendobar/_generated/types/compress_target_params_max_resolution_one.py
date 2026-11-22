@@ -2,6 +2,4 @@
 
 import typing
 
-CompressTargetParamsMaxResolutionOne = typing.Union[
-    typing.Literal["4320p", "2160p", "1440p", "1080p", "720p", "480p", "360p"], typing.Any
-]
+CompressTargetParamsMaxResolutionOne = typing.Literal["4320p", "2160p", "1440p", "1080p", "720p", "480p", "360p"]

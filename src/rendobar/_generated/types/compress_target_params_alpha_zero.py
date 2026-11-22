@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsAlphaZero = typing.Union[typing.Literal["preserve", "flatten"], typing.Any]
+CompressTargetParamsAlphaZero = typing.Literal["preserve", "flatten"]

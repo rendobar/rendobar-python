@@ -2,4 +2,4 @@
 
 import typing
 
-CancelJobResponseDataStatus = typing.Union[typing.Literal["cancelled"], typing.Any]
+CancelJobResponseDataStatus = typing.Union[typing.Literal["cancelled"], str]

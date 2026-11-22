@@ -48,12 +48,17 @@ jobs:
       - name: Public-surface deny-list
         if: matrix.python == '3.13'
         run: python3 -I .openapi/scripts/deny_list.py
+      - name: Fern overrides match the spec, and the generated core is post-processed
+        if: matrix.python == '3.13'
+        run: |
+          python3 -I fern/derive_overrides.py --check
+          python3 -I fern/postprocess.py --check
       - name: Build
         if: matrix.python == '3.13'
         run: uv build
   agents:
-    # The agent adapters, the framework examples and the full type check, with
-    # the optional frameworks installed. Separate from the matrix so a plain install stays the common path.
+    # The agent adapters, realtime, the framework examples and the full type check, with
+    # the optional extras installed. Separate from the matrix so a plain install stays the common path.
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -78,8 +83,38 @@ jobs:
       - name: Install with the agent extras
         run: |
           uv venv
-          uv pip install -e ".[langchain,crewai]" pytest pyright "fastapi>=0.115" "django>=5.2" django-stubs
+          uv pip install -e ".[langchain,crewai,realtime]" pytest pyright mypy "fastapi>=0.115" "django>=5.2" django-stubs
       - name: Full suite with the adapters and examples (LangChain, CrewAI, FastAPI, Django)
         run: .venv/bin/python -m pytest -q
-      - name: Types
+      - name: Types (pyright; every hand-written module and tests/typing_check.py are strict)
         run: .venv/bin/pyright --pythonpath .venv/bin/python
+      - name: Types (mypy --strict on the package and a user's code)
+        run: |
+          .venv/bin/python -m mypy
+          .venv/bin/python -m mypy tests/typing_check.py
+  examples:
+    # The example projects (examples/README.md), on the built wheel in a fresh venv:
+    # pyright strict, mypy --strict, then each one run against the conformance mock.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: rendobar/openapi
+          path: .openapi
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - name: Start the conformance mock
+        # The mock script and deny-list come from rendobar/openapi; the spec it serves is
+        # fern/openapi.json, the one this core was generated from, so a newer published
+        # spec cannot fail CI before its regeneration PR exists.
+        run: |
+          python3 -I .openapi/conformance/mock_server.py fern/openapi.json 4100 requests.jsonl > mock.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -sf -X POST http://127.0.0.1:4100/__reset > /dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          echo "The conformance mock did not come up:"; cat mock.log; exit 1
+      - name: Examples (mock)
+        run: python3 examples/run.py --mode mock

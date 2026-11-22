@@ -2,6 +2,4 @@
 
 import typing
 
-ImageUpscaleParamsColorCorrection = typing.Union[
-    typing.Literal["lab", "wavelet", "wavelet_adaptive", "hsv", "adain", "none"], typing.Any
-]
+ImageUpscaleParamsColorCorrection = typing.Literal["lab", "wavelet", "wavelet_adaptive", "hsv", "adain", "none"]

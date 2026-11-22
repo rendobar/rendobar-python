@@ -19,7 +19,8 @@ from ..errors.not_found_error import NotFoundError
 from ..errors.service_unavailable_error import ServiceUnavailableError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..types.error_response import ErrorResponse
-from .types.create_storage_request import CreateStorageRequest
+from .requests.create_storage_request import CreateStorageRequestParams
+from .requests.update_storage_request_credentials import UpdateStorageRequestCredentialsParams
 from .types.create_storage_response import CreateStorageResponse
 from .types.finish_supabase_storage_response import FinishSupabaseStorageResponse
 from .types.get_storage_response import GetStorageResponse
@@ -35,7 +36,6 @@ from .types.prepare_aws_storage_request_access import PrepareAwsStorageRequestAc
 from .types.prepare_aws_storage_response import PrepareAwsStorageResponse
 from .types.start_supabase_storage_response import StartSupabaseStorageResponse
 from .types.test_storage_response import TestStorageResponse
-from .types.update_storage_request_credentials import UpdateStorageRequestCredentials
 from .types.update_storage_request_on_conflict import UpdateStorageRequestOnConflict
 from .types.update_storage_response import UpdateStorageResponse
 from pydantic import ValidationError
@@ -98,14 +98,14 @@ class RawStorageClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create_storage(
-        self, *, request: CreateStorageRequest, request_options: typing.Optional[RequestOptions] = None
+        self, *, request: CreateStorageRequestParams, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[CreateStorageResponse]:
         """
         Connect your own bucket under an id you choose. The credentials are verified with a write, read and delete probe before anything is stored, encrypted at rest, and never returned. For R2, a Cloudflare API token may stand in for the keys: it is exchanged for the key pair it represents and not kept.
 
         Parameters
         ----------
-        request : CreateStorageRequest
+        request : CreateStorageRequestParams
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -119,7 +119,7 @@ class RawStorageClient:
             "storage",
             method="POST",
             json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=CreateStorageRequest, direction="write"
+                object_=request, annotation=CreateStorageRequestParams, direction="write"
             ),
             request_options=request_options,
             omit=OMIT,
@@ -931,7 +931,7 @@ class RawStorageClient:
         self,
         id: str,
         *,
-        credentials: typing.Optional[UpdateStorageRequestCredentials] = OMIT,
+        credentials: typing.Optional[UpdateStorageRequestCredentialsParams] = OMIT,
         public_base_url: typing.Optional[str] = OMIT,
         path_template: typing.Optional[str] = OMIT,
         on_conflict: typing.Optional[UpdateStorageRequestOnConflict] = OMIT,
@@ -945,7 +945,7 @@ class RawStorageClient:
         ----------
         id : str
 
-        credentials : typing.Optional[UpdateStorageRequestCredentials]
+        credentials : typing.Optional[UpdateStorageRequestCredentialsParams]
 
         public_base_url : typing.Optional[str]
 
@@ -968,7 +968,7 @@ class RawStorageClient:
             method="PATCH",
             json={
                 "credentials": convert_and_respect_annotation_metadata(
-                    object_=credentials, annotation=UpdateStorageRequestCredentials, direction="write"
+                    object_=credentials, annotation=UpdateStorageRequestCredentialsParams, direction="write"
                 ),
                 "publicBaseUrl": public_base_url,
                 "pathTemplate": path_template,
@@ -1363,14 +1363,14 @@ class AsyncRawStorageClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create_storage(
-        self, *, request: CreateStorageRequest, request_options: typing.Optional[RequestOptions] = None
+        self, *, request: CreateStorageRequestParams, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[CreateStorageResponse]:
         """
         Connect your own bucket under an id you choose. The credentials are verified with a write, read and delete probe before anything is stored, encrypted at rest, and never returned. For R2, a Cloudflare API token may stand in for the keys: it is exchanged for the key pair it represents and not kept.
 
         Parameters
         ----------
-        request : CreateStorageRequest
+        request : CreateStorageRequestParams
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1384,7 +1384,7 @@ class AsyncRawStorageClient:
             "storage",
             method="POST",
             json=convert_and_respect_annotation_metadata(
-                object_=request, annotation=CreateStorageRequest, direction="write"
+                object_=request, annotation=CreateStorageRequestParams, direction="write"
             ),
             request_options=request_options,
             omit=OMIT,
@@ -2198,7 +2198,7 @@ class AsyncRawStorageClient:
         self,
         id: str,
         *,
-        credentials: typing.Optional[UpdateStorageRequestCredentials] = OMIT,
+        credentials: typing.Optional[UpdateStorageRequestCredentialsParams] = OMIT,
         public_base_url: typing.Optional[str] = OMIT,
         path_template: typing.Optional[str] = OMIT,
         on_conflict: typing.Optional[UpdateStorageRequestOnConflict] = OMIT,
@@ -2212,7 +2212,7 @@ class AsyncRawStorageClient:
         ----------
         id : str
 
-        credentials : typing.Optional[UpdateStorageRequestCredentials]
+        credentials : typing.Optional[UpdateStorageRequestCredentialsParams]
 
         public_base_url : typing.Optional[str]
 
@@ -2235,7 +2235,7 @@ class AsyncRawStorageClient:
             method="PATCH",
             json={
                 "credentials": convert_and_respect_annotation_metadata(
-                    object_=credentials, annotation=UpdateStorageRequestCredentials, direction="write"
+                    object_=credentials, annotation=UpdateStorageRequestCredentialsParams, direction="write"
                 ),
                 "publicBaseUrl": public_base_url,
                 "pathTemplate": path_template,

@@ -11,7 +11,7 @@ from .validate_compose_response_data_problems_warnings_item import ValidateCompo
 class ValidateComposeResponseDataProblems(UniversalBaseModel):
     valid: bool
     problems: typing.List[ValidateComposeResponseDataProblemsProblemsItem]
-    params: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    params: typing.Optional[typing.Dict[str, object]] = pydantic.Field(default=None)
     """
     Null when the document did not parse.
     """

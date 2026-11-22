@@ -21,7 +21,7 @@ class SubmitCompressTargetJob(UniversalBaseModel):
     Job type
     """
 
-    inputs: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
+    inputs: typing.Optional[typing.Dict[str, object]] = pydantic.Field(default=None)
     """
     Input files (e.g., { source: 'https://...' })
     """
@@ -39,10 +39,13 @@ class SubmitCompressTargetJob(UniversalBaseModel):
     idempotency_key: typing_extensions.Annotated[
         typing.Optional[str],
         FieldMetadata(alias="idempotencyKey"),
-        pydantic.Field(alias="idempotencyKey", description="Idempotency key to prevent duplicate job creation"),
+        pydantic.Field(
+            alias="idempotencyKey",
+            description="Idempotency key to prevent duplicate job creation. Resending the same request with the same key returns the job it created. Reusing the key with a different type, inputs or params is a 409 CONFLICT naming that job.",
+        ),
     ] = None
     """
-    Idempotency key to prevent duplicate job creation
+    Idempotency key to prevent duplicate job creation. Resending the same request with the same key returns the job it created. Reusing the key with a different type, inputs or params is a 409 CONFLICT naming that job.
     """
 
     label: typing.Optional[str] = pydantic.Field(default=None)

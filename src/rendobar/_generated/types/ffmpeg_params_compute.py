@@ -2,4 +2,4 @@
 
 import typing
 
-FfmpegParamsCompute = typing.Union[typing.Literal["auto", "cpu", "gpu"], typing.Any]
+FfmpegParamsCompute = typing.Literal["auto", "cpu", "gpu"]

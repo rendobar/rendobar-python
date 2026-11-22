@@ -19,7 +19,7 @@ class GetJobTypeSchemaResponseData(UniversalBaseModel):
     """
 
     json_schema: typing_extensions.Annotated[
-        typing.Optional[typing.Any], FieldMetadata(alias="jsonSchema"), pydantic.Field(alias="jsonSchema")
+        typing.Optional[object], FieldMetadata(alias="jsonSchema"), pydantic.Field(alias="jsonSchema")
     ] = None
     discriminator: typing.Optional[str] = pydantic.Field(default=None)
     """

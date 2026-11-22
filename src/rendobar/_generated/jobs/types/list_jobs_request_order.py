@@ -2,4 +2,4 @@
 
 import typing
 
-ListJobsRequestOrder = typing.Union[typing.Literal["asc", "desc"], typing.Any]
+ListJobsRequestOrder = typing.Literal["asc", "desc"]

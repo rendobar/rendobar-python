@@ -5,8 +5,8 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawUploadSessionsClient, RawUploadSessionsClient
+from .requests.complete_upload_session_file_request_parts_item import CompleteUploadSessionFileRequestPartsItemParams
 from .types.add_upload_session_file_response import AddUploadSessionFileResponse
-from .types.complete_upload_session_file_request_parts_item import CompleteUploadSessionFileRequestPartsItem
 from .types.complete_upload_session_file_response import CompleteUploadSessionFileResponse
 from .types.complete_upload_session_response import CompleteUploadSessionResponse
 from .types.get_upload_session_response import GetUploadSessionResponse
@@ -120,7 +120,7 @@ class UploadSessionsClient:
         token: str,
         asset_id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CompleteUploadSessionFileResponse:
         """
@@ -134,7 +134,7 @@ class UploadSessionsClient:
         asset_id : str
             Asset ID returned by POST /files
 
-        parts : typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]
@@ -317,7 +317,7 @@ class AsyncUploadSessionsClient:
         token: str,
         asset_id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CompleteUploadSessionFileResponse:
         """
@@ -331,7 +331,7 @@ class AsyncUploadSessionsClient:
         asset_id : str
             Asset ID returned by POST /files
 
-        parts : typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]

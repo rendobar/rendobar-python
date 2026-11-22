@@ -50,9 +50,6 @@ if typing.TYPE_CHECKING:
     from .submit_job_request import SubmitJobRequest
     from .submit_job_response import SubmitJobResponse
     from .submit_job_response_data import SubmitJobResponseData
-    from .submit_job_response_data_idempotent import SubmitJobResponseDataIdempotent
-    from .submit_job_response_data_url import SubmitJobResponseDataUrl
-    from .submit_job_response_data_url_status import SubmitJobResponseDataUrlStatus
 _dynamic_imports: typing.Dict[str, str] = {
     "CancelJobResponse": ".cancel_job_response",
     "CancelJobResponseData": ".cancel_job_response_data",
@@ -98,9 +95,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SubmitJobRequest": ".submit_job_request",
     "SubmitJobResponse": ".submit_job_response",
     "SubmitJobResponseData": ".submit_job_response_data",
-    "SubmitJobResponseDataIdempotent": ".submit_job_response_data_idempotent",
-    "SubmitJobResponseDataUrl": ".submit_job_response_data_url",
-    "SubmitJobResponseDataUrlStatus": ".submit_job_response_data_url_status",
 }
 
 
@@ -170,7 +164,4 @@ __all__ = [
     "SubmitJobRequest",
     "SubmitJobResponse",
     "SubmitJobResponseData",
-    "SubmitJobResponseDataIdempotent",
-    "SubmitJobResponseDataUrl",
-    "SubmitJobResponseDataUrlStatus",
 ]

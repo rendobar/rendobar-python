@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionBurnParamsAlignment = typing.Union[typing.Literal["left", "center", "right"], typing.Any]
+CaptionBurnParamsAlignment = typing.Literal["left", "center", "right"]

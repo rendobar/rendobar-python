@@ -9,7 +9,7 @@ from ...core.serialization import FieldMetadata
 
 
 class GetJobMetricsResponseDataItem(UniversalBaseModel):
-    timestamp: float
+    timestamp: int
     cpu_pct: typing_extensions.Annotated[
         typing.Optional[float], FieldMetadata(alias="cpuPct"), pydantic.Field(alias="cpuPct")
     ] = None

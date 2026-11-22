@@ -7,9 +7,27 @@ from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class ListWebhookDeliveriesResponseMeta(UniversalBaseModel):
-    total: float
-    limit: float
-    offset: float
+    total: int = pydantic.Field()
+    """
+    Total number of items
+    """
+
+    page: int = pydantic.Field()
+    """
+    Current page number (1-indexed)
+    """
+
+    limit: int = pydantic.Field()
+    """
+    Items per page
+    """
+
+    pages: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Total number of pages
+    """
+
+    offset: int
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

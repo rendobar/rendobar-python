@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsVideoSubtitles = typing.Union[typing.Literal["preserve", "strip"], typing.Any]
+CompressTargetParamsVideoSubtitles = typing.Literal["preserve", "strip"]

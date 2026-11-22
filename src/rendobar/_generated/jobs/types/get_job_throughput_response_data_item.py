@@ -7,7 +7,7 @@ from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class GetJobThroughputResponseDataItem(UniversalBaseModel):
-    timestamp: float
+    timestamp: int
     fps: typing.Optional[float] = None
     speed: typing.Optional[float] = None
     frame: typing.Optional[float] = None

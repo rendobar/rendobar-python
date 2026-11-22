@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitImageGenerateJobType = typing.Union[typing.Literal["image.generate"], typing.Any]
+SubmitImageGenerateJobType = typing.Literal["image.generate"]

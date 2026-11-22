@@ -18,7 +18,7 @@ class GetStorageResponseDataDeliverySummary(UniversalBaseModel):
         int, FieldMetadata(alias="bytesLast30d"), pydantic.Field(alias="bytesLast30d")
     ]
     last_at: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="lastAt"), pydantic.Field(alias="lastAt")
+        typing.Optional[int], FieldMetadata(alias="lastAt"), pydantic.Field(alias="lastAt")
     ] = None
     last_status: typing_extensions.Annotated[
         typing.Optional[GetStorageResponseDataDeliverySummaryLastStatus],

@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsFor = typing.Union[typing.Literal["web", "archive"], typing.Any]
+CompressTargetParamsFor = typing.Literal["web", "archive"]

@@ -1,13 +1,12 @@
 """Deprecation notices are advisory: they never change the outcome of a call."""
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 from rendobar._client import _Deprecations, _parse_deprecation, _route_of
+from rendobar._plumbing import Fetched as _Fetched
 
 
-def response(value: str) -> SimpleNamespace:
-    return SimpleNamespace(headers={"deprecation": value})
+def response(value: str) -> _Fetched[bytes]:
+    return _Fetched({"deprecation": value}, b"")
 
 
 def test_a_handler_that_raises_does_not_escape() -> None:

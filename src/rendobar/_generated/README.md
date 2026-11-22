@@ -35,19 +35,19 @@ A full reference for this library is available [here](./reference.md).
 Instantiate and use the client with the following:
 
 ```python
-from rendobar import GeneratedClient, SubmitFfprobeJob, FfprobeParams
+from rendobar import GeneratedClient
 
 client = GeneratedClient(
     token="<token>",
 )
 
 client.jobs.submit_job(
-    request=SubmitFfprobeJob(
-        type="ffprobe",
-        params=FfprobeParams(
-            command="https://cdn.rendobar.com/assets/examples/sample.mp4",
-        ),
-    ),
+    request={
+        "type": "ffprobe",
+        "params": {
+            "command": "https://cdn.rendobar.com/assets/examples/sample.mp4"
+        }
+    },
 )
 ```
 
@@ -71,7 +71,7 @@ The SDK also exports an `async` client so that you can make non-blocking calls t
 ```python
 import asyncio
 
-from rendobar import AsyncGeneratedClient, SubmitFfprobeJob, FfprobeParams
+from rendobar import AsyncGeneratedClient
 
 client = AsyncGeneratedClient(
     token="<token>",
@@ -80,12 +80,12 @@ client = AsyncGeneratedClient(
 
 async def main() -> None:
     await client.jobs.submit_job(
-        request=SubmitFfprobeJob(
-            type="ffprobe",
-            params=FfprobeParams(
-                command="https://cdn.rendobar.com/assets/examples/sample.mp4",
-            ),
-        ),
+        request={
+            "type": "ffprobe",
+            "params": {
+                "command": "https://cdn.rendobar.com/assets/examples/sample.mp4"
+            }
+        },
     )
 
 

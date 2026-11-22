@@ -2,4 +2,4 @@
 
 import typing
 
-ListComposeEffectsResponseDataEffectsItemMedium = typing.Union[typing.Literal["picture", "sound"], typing.Any]
+ListComposeEffectsResponseDataEffectsItemMedium = typing.Union[typing.Literal["picture", "sound"], str]

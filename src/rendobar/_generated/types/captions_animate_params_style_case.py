@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsStyleCase = typing.Union[typing.Literal["upper", "normal"], typing.Any]
+CaptionsAnimateParamsStyleCase = typing.Literal["upper", "normal"]

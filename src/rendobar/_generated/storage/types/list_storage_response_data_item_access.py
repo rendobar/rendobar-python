@@ -2,4 +2,4 @@
 
 import typing
 
-ListStorageResponseDataItemAccess = typing.Union[typing.Literal["read"], typing.Any]
+ListStorageResponseDataItemAccess = typing.Union[typing.Literal["read"], str]

@@ -2,9 +2,4 @@
 
 import typing
 
-SendExitFeedbackRequestReason = typing.Union[
-    typing.Literal[
-        "missing_feature", "too_expensive", "switched", "not_needed", "too_hard", "quality", "just_testing", "other"
-    ],
-    typing.Any,
-]
+SendExitFeedbackRequestReason = typing.Literal["missing_feature", "too_expensive", "switched", "not_needed", "too_hard", "quality", "just_testing", "other"]

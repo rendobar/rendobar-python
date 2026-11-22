@@ -1,10 +1,14 @@
 # The generated core lives in src/rendobar/_generated and is never edited by hand.
-# Regenerate: fern generate --local --group python --force (CI does this on every spec change).
+# Regenerate: python fern/derive_overrides.py && fern generate --local --group python --force
+# (CI does both on every spec change). overrides.yml is derived from openapi.json by
+# derive_overrides.py, never edited: it types each submit's `type` as a literal and adds
+# SubmitTypedJob, the strict union the SDK's jobs.create() takes.
 # The generator is pinned by version here, and the fern CLI by version in .github/workflows/regenerate.yml.
 # Neither is pinned by image digest (the generator is closed source since 2026-11-04).
 api:
   specs:
     - openapi: ./openapi.json
+      overrides: ./overrides.yml
 groups:
   python:
     generators:
@@ -16,3 +20,5 @@ groups:
         config:
           client_class_name: GeneratedClient
           package_name: rendobar
+          # Request bodies as TypedDicts: a misspelt or missing param fails the type check.
+          use_typeddict_requests: true

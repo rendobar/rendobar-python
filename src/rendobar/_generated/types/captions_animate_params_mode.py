@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsMode = typing.Union[typing.Literal["fast", "balanced", "accurate"], typing.Any]
+CaptionsAnimateParamsMode = typing.Literal["fast", "balanced", "accurate"]

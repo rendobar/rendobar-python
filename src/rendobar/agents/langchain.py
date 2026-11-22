@@ -5,6 +5,7 @@
 
 Needs ``pip install "rendobar[langchain]"``.
 """
+# pyright: strict
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional

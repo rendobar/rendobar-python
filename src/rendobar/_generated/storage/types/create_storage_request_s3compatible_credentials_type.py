@@ -2,4 +2,4 @@
 
 import typing
 
-CreateStorageRequestS3CompatibleCredentialsType = typing.Union[typing.Literal["keys"], typing.Any]
+CreateStorageRequestS3CompatibleCredentialsType = typing.Literal["keys"]

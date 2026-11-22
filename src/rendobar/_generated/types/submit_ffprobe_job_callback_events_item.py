@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitFfprobeJobCallbackEventsItem = typing.Union[typing.Literal["job.started"], typing.Any]
+SubmitFfprobeJobCallbackEventsItem = typing.Literal["job.started"]

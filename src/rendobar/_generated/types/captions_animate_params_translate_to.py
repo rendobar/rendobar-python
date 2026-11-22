@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsTranslateTo = typing.Union[typing.Literal["es", "fr", "de", "pt", "it", "nl"], typing.Any]
+CaptionsAnimateParamsTranslateTo = typing.Literal["es", "fr", "de", "pt", "it", "nl"]

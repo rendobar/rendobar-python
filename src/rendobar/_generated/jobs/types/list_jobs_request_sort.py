@@ -2,4 +2,4 @@
 
 import typing
 
-ListJobsRequestSort = typing.Union[typing.Literal["created", "duration", "cost"], typing.Any]
+ListJobsRequestSort = typing.Literal["created", "duration", "cost"]

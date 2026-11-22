@@ -2,4 +2,4 @@
 
 import typing
 
-CompressTargetParamsEffort = typing.Union[typing.Literal["fast", "balanced", "thorough"], typing.Any]
+CompressTargetParamsEffort = typing.Literal["fast", "balanced", "thorough"]

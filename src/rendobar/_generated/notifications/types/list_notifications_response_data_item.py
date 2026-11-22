@@ -46,7 +46,7 @@ class ListNotificationsResponseDataItem(UniversalBaseModel):
     """
 
     created_at: typing_extensions.Annotated[
-        float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt", description="Unix ms")
+        int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt", description="Unix ms")
     ]
     """
     Unix ms

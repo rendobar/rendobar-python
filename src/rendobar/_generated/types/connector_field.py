@@ -26,23 +26,23 @@ class ConnectorField(UniversalBaseModel):
     type: ConnectorFieldType
     required: bool
     nullable: typing.Optional[bool] = None
-    default: typing.Optional[typing.Any] = None
+    default: typing.Optional[object] = None
     options: typing.Optional[typing.List[ConnectorFieldOptionsItem]] = None
     min: typing.Optional[float] = None
     max: typing.Optional[float] = None
     min_length: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="minLength"), pydantic.Field(alias="minLength")
+        typing.Optional[int], FieldMetadata(alias="minLength"), pydantic.Field(alias="minLength")
     ] = None
     max_length: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="maxLength"), pydantic.Field(alias="maxLength")
+        typing.Optional[int], FieldMetadata(alias="maxLength"), pydantic.Field(alias="maxLength")
     ] = None
     description: typing.Optional[str] = None
-    example: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    example: typing.Optional[object] = pydantic.Field(default=None)
     """
     Example value, for placeholder text
     """
 
-    order: typing.Optional[float] = pydantic.Field(default=None)
+    order: typing.Optional[int] = pydantic.Field(default=None)
     """
     Render position; fields are already returned in this order
     """

@@ -301,7 +301,7 @@ Create a new media processing job. Specify the job type, input files, and proces
 <dd>
 
 ```python
-from rendobar import GeneratedClient, SubmitFfprobeJob, FfprobeParams
+from rendobar import GeneratedClient
 from rendobar.environment import GeneratedClientEnvironment
 
 client = GeneratedClient(
@@ -310,12 +310,12 @@ client = GeneratedClient(
 )
 
 client.jobs.submit_job(
-    request=SubmitFfprobeJob(
-        type="ffprobe",
-        params=FfprobeParams(
-            command="https://cdn.rendobar.com/assets/examples/sample.mp4",
-        ),
-    ),
+    request={
+        "type": "ffprobe",
+        "params": {
+            "command": "https://cdn.rendobar.com/assets/examples/sample.mp4"
+        }
+    },
 )
 
 ```
@@ -4760,7 +4760,7 @@ client.assets.list_assets()
 </dl>
 </details>
 
-<details><summary><code>client.assets.<a href="src/rendobar/assets/client.py">create_asset</a>(...) -> CreateAssetResponse</code></summary>
+<details><summary><code>client.assets.<a href="src/rendobar/assets/client.py">create_asset</a>(...) -> CreateAssetAnswer</code></summary>
 <dl>
 <dd>
 
@@ -6518,7 +6518,6 @@ Connect your own bucket under an id you choose. The credentials are verified wit
 ```python
 from rendobar import GeneratedClient
 from rendobar.environment import GeneratedClientEnvironment
-from rendobar.storage import CreateStorageRequest_R2, CreateStorageRequestR2Credentials_Keys
 
 client = GeneratedClient(
     token="<token>",
@@ -6526,14 +6525,16 @@ client = GeneratedClient(
 )
 
 client.storage.create_storage(
-    request=CreateStorageRequest_R2(
-        credentials=CreateStorageRequestR2Credentials_Keys(
-            access_key_id="accessKeyId",
-            secret_access_key="secretAccessKey",
-        ),
-        id="id",
-        bucket="bucket",
-    ),
+    request={
+        "provider": "r2",
+        "credentials": {
+            "type": "keys",
+            "access_key_id": "accessKeyId",
+            "secret_access_key": "secretAccessKey"
+        },
+        "id": "id",
+        "bucket": "bucket"
+    },
 )
 
 ```

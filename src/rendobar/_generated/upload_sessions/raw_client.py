@@ -18,8 +18,8 @@ from ..errors.forbidden_error import ForbiddenError
 from ..errors.gone_error import GoneError
 from ..errors.not_found_error import NotFoundError
 from ..types.error_response import ErrorResponse
+from .requests.complete_upload_session_file_request_parts_item import CompleteUploadSessionFileRequestPartsItemParams
 from .types.add_upload_session_file_response import AddUploadSessionFileResponse
-from .types.complete_upload_session_file_request_parts_item import CompleteUploadSessionFileRequestPartsItem
 from .types.complete_upload_session_file_response import CompleteUploadSessionFileResponse
 from .types.complete_upload_session_response import CompleteUploadSessionResponse
 from .types.get_upload_session_response import GetUploadSessionResponse
@@ -214,7 +214,7 @@ class RawUploadSessionsClient:
         token: str,
         asset_id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[CompleteUploadSessionFileResponse]:
         """
@@ -228,7 +228,7 @@ class RawUploadSessionsClient:
         asset_id : str
             Asset ID returned by POST /files
 
-        parts : typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]
@@ -245,7 +245,7 @@ class RawUploadSessionsClient:
             json={
                 "parts": convert_and_respect_annotation_metadata(
                     object_=parts,
-                    annotation=typing.Sequence[CompleteUploadSessionFileRequestPartsItem],
+                    annotation=typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams],
                     direction="write",
                 ),
             },
@@ -580,7 +580,7 @@ class AsyncRawUploadSessionsClient:
         token: str,
         asset_id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[CompleteUploadSessionFileResponse]:
         """
@@ -594,7 +594,7 @@ class AsyncRawUploadSessionsClient:
         asset_id : str
             Asset ID returned by POST /files
 
-        parts : typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]
@@ -611,7 +611,7 @@ class AsyncRawUploadSessionsClient:
             json={
                 "parts": convert_and_respect_annotation_metadata(
                     object_=parts,
-                    annotation=typing.Sequence[CompleteUploadSessionFileRequestPartsItem],
+                    annotation=typing.Sequence[CompleteUploadSessionFileRequestPartsItemParams],
                     direction="write",
                 ),
             },

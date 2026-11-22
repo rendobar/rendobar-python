@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsStyleHighlightMode = typing.Union[typing.Literal["color", "box"], typing.Any]
+CaptionsAnimateParamsStyleHighlightMode = typing.Literal["color", "box"]

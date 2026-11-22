@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsStyleLayout = typing.Union[typing.Literal["word", "phrase"], typing.Any]
+CaptionsAnimateParamsStyleLayout = typing.Literal["word", "phrase"]

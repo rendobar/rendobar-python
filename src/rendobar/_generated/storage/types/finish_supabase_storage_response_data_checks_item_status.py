@@ -2,6 +2,4 @@
 
 import typing
 
-FinishSupabaseStorageResponseDataChecksItemStatus = typing.Union[
-    typing.Literal["passed", "failed", "skipped"], typing.Any
-]
+FinishSupabaseStorageResponseDataChecksItemStatus = typing.Union[typing.Literal["passed", "failed", "skipped"], str]

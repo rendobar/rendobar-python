@@ -11,7 +11,7 @@ from ...core.serialization import FieldMetadata
 class GetJobShareResponseData(UniversalBaseModel):
     share_id: typing_extensions.Annotated[str, FieldMetadata(alias="shareId"), pydantic.Field(alias="shareId")]
     share_url: typing_extensions.Annotated[str, FieldMetadata(alias="shareUrl"), pydantic.Field(alias="shareUrl")]
-    created_at: typing_extensions.Annotated[float, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
+    created_at: typing_extensions.Annotated[int, FieldMetadata(alias="createdAt"), pydantic.Field(alias="createdAt")]
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

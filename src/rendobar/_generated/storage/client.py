@@ -5,7 +5,8 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawStorageClient, RawStorageClient
-from .types.create_storage_request import CreateStorageRequest
+from .requests.create_storage_request import CreateStorageRequestParams
+from .requests.update_storage_request_credentials import UpdateStorageRequestCredentialsParams
 from .types.create_storage_response import CreateStorageResponse
 from .types.finish_supabase_storage_response import FinishSupabaseStorageResponse
 from .types.get_storage_response import GetStorageResponse
@@ -21,7 +22,6 @@ from .types.prepare_aws_storage_request_access import PrepareAwsStorageRequestAc
 from .types.prepare_aws_storage_response import PrepareAwsStorageResponse
 from .types.start_supabase_storage_response import StartSupabaseStorageResponse
 from .types.test_storage_response import TestStorageResponse
-from .types.update_storage_request_credentials import UpdateStorageRequestCredentials
 from .types.update_storage_request_on_conflict import UpdateStorageRequestOnConflict
 from .types.update_storage_response import UpdateStorageResponse
 
@@ -69,14 +69,14 @@ class StorageClient:
         return _response.data
 
     def create_storage(
-        self, *, request: CreateStorageRequest, request_options: typing.Optional[RequestOptions] = None
+        self, *, request: CreateStorageRequestParams, request_options: typing.Optional[RequestOptions] = None
     ) -> CreateStorageResponse:
         """
         Connect your own bucket under an id you choose. The credentials are verified with a write, read and delete probe before anything is stored, encrypted at rest, and never returned. For R2, a Cloudflare API token may stand in for the keys: it is exchanged for the key pair it represents and not kept.
 
         Parameters
         ----------
-        request : CreateStorageRequest
+        request : CreateStorageRequestParams
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -89,23 +89,21 @@ class StorageClient:
         Examples
         --------
         from rendobar import GeneratedClient
-        from rendobar.storage import (
-            CreateStorageRequest_R2,
-            CreateStorageRequestR2Credentials_Keys,
-        )
 
         client = GeneratedClient(
             token="YOUR_TOKEN",
         )
         client.storage.create_storage(
-            request=CreateStorageRequest_R2(
-                credentials=CreateStorageRequestR2Credentials_Keys(
-                    access_key_id="accessKeyId",
-                    secret_access_key="secretAccessKey",
-                ),
-                id="id",
-                bucket="bucket",
-            ),
+            request={
+                "credentials": {
+                    "access_key_id": "accessKeyId",
+                    "secret_access_key": "secretAccessKey",
+                    "type": "keys",
+                },
+                "id": "id",
+                "bucket": "bucket",
+                "provider": "r2",
+            },
         )
         """
         _response = self._raw_client.create_storage(request=request, request_options=request_options)
@@ -449,7 +447,7 @@ class StorageClient:
         self,
         id: str,
         *,
-        credentials: typing.Optional[UpdateStorageRequestCredentials] = OMIT,
+        credentials: typing.Optional[UpdateStorageRequestCredentialsParams] = OMIT,
         public_base_url: typing.Optional[str] = OMIT,
         path_template: typing.Optional[str] = OMIT,
         on_conflict: typing.Optional[UpdateStorageRequestOnConflict] = OMIT,
@@ -463,7 +461,7 @@ class StorageClient:
         ----------
         id : str
 
-        credentials : typing.Optional[UpdateStorageRequestCredentials]
+        credentials : typing.Optional[UpdateStorageRequestCredentialsParams]
 
         public_base_url : typing.Optional[str]
 
@@ -660,14 +658,14 @@ class AsyncStorageClient:
         return _response.data
 
     async def create_storage(
-        self, *, request: CreateStorageRequest, request_options: typing.Optional[RequestOptions] = None
+        self, *, request: CreateStorageRequestParams, request_options: typing.Optional[RequestOptions] = None
     ) -> CreateStorageResponse:
         """
         Connect your own bucket under an id you choose. The credentials are verified with a write, read and delete probe before anything is stored, encrypted at rest, and never returned. For R2, a Cloudflare API token may stand in for the keys: it is exchanged for the key pair it represents and not kept.
 
         Parameters
         ----------
-        request : CreateStorageRequest
+        request : CreateStorageRequestParams
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -682,10 +680,6 @@ class AsyncStorageClient:
         import asyncio
 
         from rendobar import AsyncGeneratedClient
-        from rendobar.storage import (
-            CreateStorageRequest_R2,
-            CreateStorageRequestR2Credentials_Keys,
-        )
 
         client = AsyncGeneratedClient(
             token="YOUR_TOKEN",
@@ -694,14 +688,16 @@ class AsyncStorageClient:
 
         async def main() -> None:
             await client.storage.create_storage(
-                request=CreateStorageRequest_R2(
-                    credentials=CreateStorageRequestR2Credentials_Keys(
-                        access_key_id="accessKeyId",
-                        secret_access_key="secretAccessKey",
-                    ),
-                    id="id",
-                    bucket="bucket",
-                ),
+                request={
+                    "credentials": {
+                        "access_key_id": "accessKeyId",
+                        "secret_access_key": "secretAccessKey",
+                        "type": "keys",
+                    },
+                    "id": "id",
+                    "bucket": "bucket",
+                    "provider": "r2",
+                },
             )
 
 
@@ -1122,7 +1118,7 @@ class AsyncStorageClient:
         self,
         id: str,
         *,
-        credentials: typing.Optional[UpdateStorageRequestCredentials] = OMIT,
+        credentials: typing.Optional[UpdateStorageRequestCredentialsParams] = OMIT,
         public_base_url: typing.Optional[str] = OMIT,
         path_template: typing.Optional[str] = OMIT,
         on_conflict: typing.Optional[UpdateStorageRequestOnConflict] = OMIT,
@@ -1136,7 +1132,7 @@ class AsyncStorageClient:
         ----------
         id : str
 
-        credentials : typing.Optional[UpdateStorageRequestCredentials]
+        credentials : typing.Optional[UpdateStorageRequestCredentialsParams]
 
         public_base_url : typing.Optional[str]
 

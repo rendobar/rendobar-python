@@ -2,6 +2,4 @@
 
 import typing
 
-JobCompleteOutputCategory = typing.Union[
-    typing.Literal["video", "image", "audio", "json", "captions", "raw"], typing.Any
-]
+JobCompleteOutputCategory = typing.Union[typing.Literal["video", "image", "audio", "json", "captions", "raw"], str]

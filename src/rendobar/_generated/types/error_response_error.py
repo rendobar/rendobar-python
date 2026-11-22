@@ -17,7 +17,7 @@ class ErrorResponseError(UniversalBaseModel):
     Human-readable error message
     """
 
-    details: typing.Optional[typing.Any] = pydantic.Field(default=None)
+    details: typing.Optional[object] = pydantic.Field(default=None)
     """
     More about the error when there is more to say. A refusal lists its problems here as `{ path, message, upgradeTo? }`, where `upgradeTo` names the cheapest plan that runs it (null when only an enterprise plan does).
     """

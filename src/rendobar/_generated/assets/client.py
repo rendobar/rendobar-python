@@ -4,11 +4,11 @@ import typing
 
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
+from ..types.create_asset_answer import CreateAssetAnswer
 from .raw_client import AsyncRawAssetsClient, RawAssetsClient
-from .types.complete_asset_upload_request_parts_item import CompleteAssetUploadRequestPartsItem
+from .requests.complete_asset_upload_request_parts_item import CompleteAssetUploadRequestPartsItemParams
 from .types.complete_asset_upload_response import CompleteAssetUploadResponse
 from .types.create_asset_request_lifecycle import CreateAssetRequestLifecycle
-from .types.create_asset_response import CreateAssetResponse
 from .types.delete_asset_response import DeleteAssetResponse
 from .types.download_asset_response import DownloadAssetResponse
 from .types.get_asset_response import GetAssetResponse
@@ -109,7 +109,7 @@ class AssetsClient:
         checksum: typing.Optional[str] = OMIT,
         lifecycle: typing.Optional[CreateAssetRequestLifecycle] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateAssetResponse:
+    ) -> CreateAssetAnswer:
         """
         Creates a pending asset and returns presigned upload URL(s). Files at or below the single-PUT threshold get one PUT URL; larger files get multipart part URLs. If a ready asset with the same checksum already exists, the existing asset is returned (deduplicated).
 
@@ -135,7 +135,7 @@ class AssetsClient:
 
         Returns
         -------
-        CreateAssetResponse
+        CreateAssetAnswer
             Deduplicated — a ready asset with this checksum already exists
 
         Examples
@@ -264,7 +264,7 @@ class AssetsClient:
         self,
         id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CompleteAssetUploadResponse:
         """
@@ -275,7 +275,7 @@ class AssetsClient:
         id : str
             Asset ID
 
-        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]
@@ -488,7 +488,7 @@ class AsyncAssetsClient:
         checksum: typing.Optional[str] = OMIT,
         lifecycle: typing.Optional[CreateAssetRequestLifecycle] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> CreateAssetResponse:
+    ) -> CreateAssetAnswer:
         """
         Creates a pending asset and returns presigned upload URL(s). Files at or below the single-PUT threshold get one PUT URL; larger files get multipart part URLs. If a ready asset with the same checksum already exists, the existing asset is returned (deduplicated).
 
@@ -514,7 +514,7 @@ class AsyncAssetsClient:
 
         Returns
         -------
-        CreateAssetResponse
+        CreateAssetAnswer
             Deduplicated — a ready asset with this checksum already exists
 
         Examples
@@ -679,7 +679,7 @@ class AsyncAssetsClient:
         self,
         id: str,
         *,
-        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]] = OMIT,
+        parts: typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CompleteAssetUploadResponse:
         """
@@ -690,7 +690,7 @@ class AsyncAssetsClient:
         id : str
             Asset ID
 
-        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItem]]
+        parts : typing.Optional[typing.Sequence[CompleteAssetUploadRequestPartsItemParams]]
             Multipart part etags (required for multipart uploads)
 
         request_options : typing.Optional[RequestOptions]

@@ -2,18 +2,4 @@
 
 import typing
 
-CreateWebhookEndpointRequestSubscribedEventsItem = typing.Union[
-    typing.Literal[
-        "job.created",
-        "job.started",
-        "job.completed",
-        "job.failed",
-        "job.cancelled",
-        "job.delivery_succeeded",
-        "job.delivery_failed",
-        "job.deliveries_settled",
-        "balance.low",
-        "balance.depleted",
-    ],
-    typing.Any,
-]
+CreateWebhookEndpointRequestSubscribedEventsItem = typing.Literal["job.created", "job.started", "job.completed", "job.failed", "job.cancelled", "job.delivery_succeeded", "job.delivery_failed", "job.deliveries_settled", "balance.low", "balance.depleted"]

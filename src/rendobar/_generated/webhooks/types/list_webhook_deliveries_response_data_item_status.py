@@ -2,6 +2,4 @@
 
 import typing
 
-ListWebhookDeliveriesResponseDataItemStatus = typing.Union[
-    typing.Literal["pending", "delivered", "failed", "cancelled"], typing.Any
-]
+ListWebhookDeliveriesResponseDataItemStatus = typing.Union[typing.Literal["pending", "delivered", "failed", "cancelled"], str]

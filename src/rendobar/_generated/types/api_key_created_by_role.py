@@ -2,4 +2,4 @@
 
 import typing
 
-ApiKeyCreatedByRole = typing.Union[typing.Literal["owner", "admin", "member"], typing.Any]
+ApiKeyCreatedByRole = typing.Union[typing.Literal["owner", "admin", "member"], str]

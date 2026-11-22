@@ -2,4 +2,4 @@
 
 import typing
 
-SubmitImageUpscaleJobCallbackEventsItem = typing.Union[typing.Literal["job.started"], typing.Any]
+SubmitImageUpscaleJobCallbackEventsItem = typing.Literal["job.started"]

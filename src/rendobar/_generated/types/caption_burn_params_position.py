@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionBurnParamsPosition = typing.Union[typing.Literal["bottom", "center", "top"], typing.Any]
+CaptionBurnParamsPosition = typing.Literal["bottom", "center", "top"]

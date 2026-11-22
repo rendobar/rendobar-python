@@ -2,4 +2,4 @@
 
 import typing
 
-CaptionsAnimateParamsStylePosition = typing.Union[typing.Literal["top", "center", "bottom"], typing.Any]
+CaptionsAnimateParamsStylePosition = typing.Literal["top", "center", "bottom"]

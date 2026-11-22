@@ -9,15 +9,15 @@ from ...core.serialization import FieldMetadata
 
 
 class GetJobLogsResponseDataItem(UniversalBaseModel):
-    timestamp: float
+    timestamp: int
     level: str
     step: typing.Optional[str] = None
     event: str
     message: str
     duration_ms: typing_extensions.Annotated[
-        typing.Optional[float], FieldMetadata(alias="durationMs"), pydantic.Field(alias="durationMs")
+        typing.Optional[int], FieldMetadata(alias="durationMs"), pydantic.Field(alias="durationMs")
     ] = None
-    meta: typing.Optional[typing.Dict[str, typing.Any]] = None
+    meta: typing.Optional[typing.Dict[str, object]] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

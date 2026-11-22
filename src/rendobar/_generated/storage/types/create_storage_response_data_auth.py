@@ -2,4 +2,4 @@
 
 import typing
 
-CreateStorageResponseDataAuth = typing.Union[typing.Literal["role"], typing.Any]
+CreateStorageResponseDataAuth = typing.Union[typing.Literal["role"], str]

@@ -2,4 +2,4 @@
 
 import typing
 
-ListAssetsRequestScope = typing.Union[typing.Literal["org", "system"], typing.Any]
+ListAssetsRequestScope = typing.Literal["org", "system"]

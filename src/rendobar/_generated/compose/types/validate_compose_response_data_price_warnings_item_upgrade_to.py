@@ -2,4 +2,4 @@
 
 import typing
 
-ValidateComposeResponseDataPriceWarningsItemUpgradeTo = typing.Union[typing.Literal["pro", "studio"], typing.Any]
+ValidateComposeResponseDataPriceWarningsItemUpgradeTo = typing.Union[typing.Literal["pro", "studio"], str]

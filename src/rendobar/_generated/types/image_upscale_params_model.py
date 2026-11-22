@@ -2,4 +2,4 @@
 
 import typing
 
-ImageUpscaleParamsModel = typing.Union[typing.Literal["seedvr2-3b", "seedvr2-7b"], typing.Any]
+ImageUpscaleParamsModel = typing.Literal["seedvr2-3b", "seedvr2-7b"]

@@ -2,4 +2,4 @@
 
 import typing
 
-ListAssetsRequestKind = typing.Union[typing.Literal["media", "psd_template", "font", "other"], typing.Any]
+ListAssetsRequestKind = typing.Literal["media", "psd_template", "font", "other"]

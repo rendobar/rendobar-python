@@ -6,12 +6,12 @@ import pydantic
 import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
-from .job_complete_callback import JobCompleteCallback
-from .job_complete_cost import JobCompleteCost
-from .job_complete_deliveries_item import JobCompleteDeliveriesItem
-from .job_complete_output import JobCompleteOutput
+from .callback_status import CallbackStatus
 from .job_complete_output_category import JobCompleteOutputCategory
-from .job_complete_steps_item import JobCompleteStepsItem
+from .job_cost import JobCost
+from .job_delivery import JobDelivery
+from .job_output import JobOutput
+from .job_step import JobStep
 
 
 class JobComplete(UniversalBaseModel):
@@ -74,21 +74,17 @@ class JobComplete(UniversalBaseModel):
     Detected media type (video | image | audio), or null
     """
 
-    inputs: typing.Dict[str, typing.Any] = pydantic.Field()
+    inputs: typing.Dict[str, object] = pydantic.Field()
     """
     Input file references
     """
 
-    params: typing.Dict[str, typing.Any] = pydantic.Field()
+    params: typing.Dict[str, object] = pydantic.Field()
     """
     Job parameters
     """
 
-    cost: typing.Optional[JobCompleteCost] = pydantic.Field(default=None)
-    """
-    Amount charged, or null when not yet billed
-    """
-
+    cost: typing.Optional[JobCost] = None
     output_category: typing_extensions.Annotated[
         JobCompleteOutputCategory,
         FieldMetadata(alias="outputCategory"),
@@ -100,7 +96,7 @@ class JobComplete(UniversalBaseModel):
     Output category. Clients should tolerate unknown future values.
     """
 
-    steps: typing.List[JobCompleteStepsItem] = pydantic.Field()
+    steps: typing.List[JobStep] = pydantic.Field()
     """
     Execution steps
     """
@@ -152,7 +148,7 @@ class JobComplete(UniversalBaseModel):
     """
 
     created_at: typing_extensions.Annotated[
-        float,
+        int,
         FieldMetadata(alias="createdAt"),
         pydantic.Field(alias="createdAt", description="Creation timestamp (Unix ms)"),
     ]
@@ -161,7 +157,7 @@ class JobComplete(UniversalBaseModel):
     """
 
     dispatched_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="dispatchedAt"),
         pydantic.Field(alias="dispatchedAt", description="Dispatch timestamp (Unix ms)"),
     ] = None
@@ -170,7 +166,7 @@ class JobComplete(UniversalBaseModel):
     """
 
     started_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="startedAt"),
         pydantic.Field(alias="startedAt", description="Start timestamp (Unix ms)"),
     ] = None
@@ -179,7 +175,7 @@ class JobComplete(UniversalBaseModel):
     """
 
     completed_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="completedAt"),
         pydantic.Field(alias="completedAt", description="Completion timestamp (Unix ms)"),
     ] = None
@@ -188,7 +184,7 @@ class JobComplete(UniversalBaseModel):
     """
 
     settled_at: typing_extensions.Annotated[
-        typing.Optional[float],
+        typing.Optional[int],
         FieldMetadata(alias="settledAt"),
         pydantic.Field(alias="settledAt", description="CF Worker timestamp when terminal status written (Unix ms)"),
     ] = None
@@ -220,20 +216,18 @@ class JobComplete(UniversalBaseModel):
     Resolved generation model id (image.generate / image.edit jobs only), else null
     """
 
-    callback: typing.Optional[JobCompleteCallback] = pydantic.Field(default=None)
+    terminal: bool = pydantic.Field()
     """
-    Per-job callback delivery status, populated by GET /jobs/:id when a callback.url was set at submit (else null/absent). Deliberately carries ONLY the status — the callback url and any custom headers are secret and are never returned by any response.
+    True once the job has ended (complete, failed or cancelled), false while it waits or runs. Stop waiting on this rather than on a list of statuses: it stays right when a status is added.
     """
 
-    deliveries: typing.Optional[typing.List[JobCompleteDeliveriesItem]] = pydantic.Field(default=None)
+    callback: typing.Optional[CallbackStatus] = None
+    deliveries: typing.Optional[typing.List[JobDelivery]] = pydantic.Field(default=None)
     """
     Where the output was or will be delivered, one entry per destination given at submit. Detail endpoint only; absent when the job had no destinations.
     """
 
-    output: JobCompleteOutput = pydantic.Field()
-    """
-    Job output (data + file + files). Present only here.
-    """
+    output: JobOutput
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

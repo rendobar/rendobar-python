@@ -2,4 +2,4 @@
 
 import typing
 
-TestStorageResponseDataChecksItemStatus = typing.Union[typing.Literal["passed", "failed", "skipped"], typing.Any]
+TestStorageResponseDataChecksItemStatus = typing.Union[typing.Literal["passed", "failed", "skipped"], str]

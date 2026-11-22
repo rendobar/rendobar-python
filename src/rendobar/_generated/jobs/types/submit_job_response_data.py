@@ -2,7 +2,7 @@
 
 import typing
 
-from .submit_job_response_data_idempotent import SubmitJobResponseDataIdempotent
-from .submit_job_response_data_url import SubmitJobResponseDataUrl
+from ...types.job_completed_on_submit import JobCompletedOnSubmit
+from ...types.job_replayed import JobReplayed
 
-SubmitJobResponseData = typing.Union[SubmitJobResponseDataUrl, SubmitJobResponseDataIdempotent]
+SubmitJobResponseData = typing.Union[JobCompletedOnSubmit, JobReplayed]
