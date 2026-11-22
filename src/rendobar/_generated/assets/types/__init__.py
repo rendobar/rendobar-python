@@ -10,8 +10,6 @@ if typing.TYPE_CHECKING:
     from .complete_asset_upload_response import CompleteAssetUploadResponse
     from .complete_asset_upload_response_data import CompleteAssetUploadResponseData
     from .create_asset_request_lifecycle import CreateAssetRequestLifecycle
-    from .create_asset_response import CreateAssetResponse
-    from .create_asset_response_data import CreateAssetResponseData
     from .delete_asset_response import DeleteAssetResponse
     from .delete_asset_response_data import DeleteAssetResponseData
     from .download_asset_response import DownloadAssetResponse
@@ -33,8 +31,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CompleteAssetUploadResponse": ".complete_asset_upload_response",
     "CompleteAssetUploadResponseData": ".complete_asset_upload_response_data",
     "CreateAssetRequestLifecycle": ".create_asset_request_lifecycle",
-    "CreateAssetResponse": ".create_asset_response",
-    "CreateAssetResponseData": ".create_asset_response_data",
     "DeleteAssetResponse": ".delete_asset_response",
     "DeleteAssetResponseData": ".delete_asset_response_data",
     "DownloadAssetResponse": ".download_asset_response",
@@ -80,8 +76,6 @@ __all__ = [
     "CompleteAssetUploadResponse",
     "CompleteAssetUploadResponseData",
     "CreateAssetRequestLifecycle",
-    "CreateAssetResponse",
-    "CreateAssetResponseData",
     "DeleteAssetResponse",
     "DeleteAssetResponseData",
     "DownloadAssetResponse",

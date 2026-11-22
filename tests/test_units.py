@@ -268,7 +268,7 @@ def async_client(handler: Handler, **kw: Any) -> AsyncRendobar:
 
 MIXED_PAGE = {
     "data": [job("job_1", "running"), job("job_2", "paused", brandNewField=1), job("job_3", "waiting")],
-    "meta": {"total": 3, "page": 1, "limit": 50},
+    "meta": {"total": 3, "page": 1, "limit": 50, "pages": 1},
 }
 PAGES = {
     "GET /jobs": (200, MIXED_PAGE),
@@ -506,7 +506,13 @@ def test_other_client_side_problems_are_invalid_arguments_too() -> None:
 
 def test_a_page_prints_its_size_and_window() -> None:
     page = sync_client(routes(PAGES)).jobs.list()
-    assert repr(page) == "Page(3 items, meta=PageMeta(total=3, page=1, limit=50))"
+    assert repr(page) == "Page(3 items, meta=PageMeta(total=3, page=1, limit=50, pages=1))"
+
+
+def test_a_page_from_a_server_that_sends_no_pages_still_reads() -> None:
+    meta = {"total": 3, "page": 1, "limit": 50}  # meta.pages is newer than the rest of the meta
+    page = sync_client(routes({**PAGES, "GET /jobs": (200, {**MIXED_PAGE, "meta": meta})})).jobs.list()
+    assert len(page) == 3 and page.meta.total == 3 and page.meta.pages is None
 
 
 # ── the cross-SDK behaviour standard ──────────────────────────────────

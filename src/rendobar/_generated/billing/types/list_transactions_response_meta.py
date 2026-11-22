@@ -7,9 +7,25 @@ from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 
 
 class ListTransactionsResponseMeta(UniversalBaseModel):
-    total: int
-    page: int
-    limit: int
+    total: int = pydantic.Field()
+    """
+    Total number of items
+    """
+
+    page: int = pydantic.Field()
+    """
+    Current page number (1-indexed)
+    """
+
+    limit: int = pydantic.Field()
+    """
+    Items per page
+    """
+
+    pages: typing.Optional[int] = pydantic.Field(default=None)
+    """
+    Total number of pages
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

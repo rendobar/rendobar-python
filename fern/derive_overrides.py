@@ -19,6 +19,16 @@ Each typed job's `inputs` is typed as the input forms the API accepts (a URL,
 list of those), defined once here as `InputSource` and `JobInput` until the
 spec names them. The spec types inputs as a free-form object.
 
+Fern types an operation's answer from its first 2xx response only. Where the
+2xx responses are different components (POST /assets: 200 deduplicated, 201
+presigned or multipart), the first one would refuse the others, so each such
+operation gets `<OperationId>Answer`, the union of all of them, as its 200
+schema.
+
+A list's `meta.pages` is read as optional. The API added it after the rest of
+the meta, so a server (or the conformance mock) that predates it must still
+read as a page, rather than refusing the whole list over a count.
+
 Enum and `Any` annotations are tightened after generation by postprocess.py.
 
 Usage: python fern/derive_overrides.py [--check]
@@ -59,6 +69,60 @@ def variant_name(submit_schema: str) -> str:
     return submit_schema.removeprefix("Submit")
 
 
+def _refs(schema: dict) -> list:
+    """The component refs `schema` is: itself when a ref, its members when a oneOf of refs, else none."""
+    if set(schema) == {"$ref"}:
+        return [schema]
+    members = schema.get("oneOf") or []
+    return list(members) if members and all(set(m) == {"$ref"} for m in members) else []
+
+
+def answer_unions(spec: dict) -> tuple:
+    """`<OperationId>Answer` unions, and the paths override pointing each operation's 200 at its union."""
+    schemas: dict = {}
+    paths: dict = {}
+    for path, operations in spec["paths"].items():
+        for method, operation in operations.items():
+            if not isinstance(operation, dict) or "operationId" not in operation:
+                continue
+            answers = [r for code, r in sorted(operation.get("responses", {}).items()) if code.startswith("2")]
+            found = [_refs(a.get("content", {}).get("application/json", {}).get("schema", {})) for a in answers]
+            if len(found) < 2 or not all(found) or "200" not in operation["responses"]:
+                continue
+            members = [ref for refs in found for ref in refs]
+            if len({m["$ref"] for m in members}) < 2:
+                continue
+            op_id = operation["operationId"]
+            name = f"{op_id[:1].upper()}{op_id[1:]}Answer"
+            schemas[name] = {"description": f"Every successful answer of {method.upper()} {path}.", "oneOf": members}
+            paths.setdefault(path, {})[method] = {"responses": {"200": {"content": {"application/json": {
+                "schema": {"$ref": f"{REF}{name}"}}}}}}
+    return schemas, paths
+
+
+def _merge(into: dict, more: dict) -> None:
+    for key, value in more.items():
+        if isinstance(value, dict) and isinstance(into.get(key), dict):
+            _merge(into[key], value)
+        else:
+            into[key] = value
+
+
+def optional_pages(spec: dict) -> dict:
+    """The paths override reading `meta.pages` of every list as an optional integer."""
+    paths: dict = {}
+    for path, operations in spec["paths"].items():
+        for method, operation in operations.items():
+            if not isinstance(operation, dict):
+                continue
+            for code, response in operation.get("responses", {}).items():
+                schema = response.get("content", {}).get("application/json", {}).get("schema", {})
+                if code.startswith("2") and "pages" in schema.get("properties", {}).get("meta", {}).get("properties", {}):
+                    pages = {"properties": {"meta": {"properties": {"pages": {"x-fern-type": "optional<integer>"}}}}}
+                    _merge(paths, {path: {method: {"responses": {code: {"content": {"application/json": {"schema": pages}}}}}}})
+    return paths
+
+
 def derive(spec: dict) -> dict:
     body = spec["paths"]["/jobs"]["post"]["requestBody"]["content"]["application/json"]["schema"]
     members = body.get("anyOf") or body.get("oneOf")
@@ -90,10 +154,13 @@ def derive(spec: dict) -> dict:
         "anyOf": [{"$ref": f"{REF}{variant}"} for variant in added],
     }
     added.update(INPUT_SCHEMAS)
+    unions, paths = answer_unions(spec)
+    added.update(unions)
+    _merge(paths, optional_pages(spec))
     clash = sorted(set(added) & set(schemas))
     if clash:
         raise SystemExit(f"the spec now has schemas named {clash}: rename the derived ones (or use the spec's)")
-    return {"components": {"schemas": added}}
+    return {"components": {"schemas": added}, "paths": paths}
 
 
 def main() -> None:

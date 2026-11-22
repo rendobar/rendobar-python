@@ -4760,7 +4760,7 @@ client.assets.list_assets()
 </dl>
 </details>
 
-<details><summary><code>client.assets.<a href="src/rendobar/assets/client.py">create_asset</a>(...) -> CreateAssetResponse</code></summary>
+<details><summary><code>client.assets.<a href="src/rendobar/assets/client.py">create_asset</a>(...) -> CreateAssetAnswer</code></summary>
 <dl>
 <dd>
 

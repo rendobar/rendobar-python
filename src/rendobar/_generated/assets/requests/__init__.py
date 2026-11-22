@@ -9,8 +9,6 @@ if typing.TYPE_CHECKING:
     from .complete_asset_upload_request_parts_item import CompleteAssetUploadRequestPartsItemParams
     from .complete_asset_upload_response import CompleteAssetUploadResponseParams
     from .complete_asset_upload_response_data import CompleteAssetUploadResponseDataParams
-    from .create_asset_response import CreateAssetResponseParams
-    from .create_asset_response_data import CreateAssetResponseDataParams
     from .delete_asset_response import DeleteAssetResponseParams
     from .delete_asset_response_data import DeleteAssetResponseDataParams
     from .download_asset_response import DownloadAssetResponseParams
@@ -27,8 +25,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CompleteAssetUploadRequestPartsItemParams": ".complete_asset_upload_request_parts_item",
     "CompleteAssetUploadResponseDataParams": ".complete_asset_upload_response_data",
     "CompleteAssetUploadResponseParams": ".complete_asset_upload_response",
-    "CreateAssetResponseDataParams": ".create_asset_response_data",
-    "CreateAssetResponseParams": ".create_asset_response",
     "DeleteAssetResponseDataParams": ".delete_asset_response_data",
     "DeleteAssetResponseParams": ".delete_asset_response",
     "DownloadAssetResponseDataParams": ".download_asset_response_data",
@@ -69,8 +65,6 @@ __all__ = [
     "CompleteAssetUploadRequestPartsItemParams",
     "CompleteAssetUploadResponseDataParams",
     "CompleteAssetUploadResponseParams",
-    "CreateAssetResponseDataParams",
-    "CreateAssetResponseParams",
     "DeleteAssetResponseDataParams",
     "DeleteAssetResponseParams",
     "DownloadAssetResponseDataParams",

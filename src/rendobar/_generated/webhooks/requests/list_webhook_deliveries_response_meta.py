@@ -5,5 +5,23 @@ import typing_extensions
 
 class ListWebhookDeliveriesResponseMetaParams(typing_extensions.TypedDict):
     total: int
+    """
+    Total number of items
+    """
+
+    page: int
+    """
+    Current page number (1-indexed)
+    """
+
     limit: int
-    offset: float
+    """
+    Items per page
+    """
+
+    pages: typing_extensions.NotRequired[int]
+    """
+    Total number of pages
+    """
+
+    offset: int

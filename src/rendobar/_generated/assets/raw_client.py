@@ -20,11 +20,11 @@ from ..errors.not_implemented_error import NotImplementedError
 from ..errors.payment_required_error import PaymentRequiredError
 from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unauthorized_error import UnauthorizedError
+from ..types.create_asset_answer import CreateAssetAnswer
 from ..types.error_response import ErrorResponse
 from .requests.complete_asset_upload_request_parts_item import CompleteAssetUploadRequestPartsItemParams
 from .types.complete_asset_upload_response import CompleteAssetUploadResponse
 from .types.create_asset_request_lifecycle import CreateAssetRequestLifecycle
-from .types.create_asset_response import CreateAssetResponse
 from .types.delete_asset_response import DeleteAssetResponse
 from .types.download_asset_response import DownloadAssetResponse
 from .types.get_asset_response import GetAssetResponse
@@ -138,7 +138,7 @@ class RawAssetsClient:
         checksum: typing.Optional[str] = OMIT,
         lifecycle: typing.Optional[CreateAssetRequestLifecycle] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[CreateAssetResponse]:
+    ) -> HttpResponse[CreateAssetAnswer]:
         """
         Creates a pending asset and returns presigned upload URL(s). Files at or below the single-PUT threshold get one PUT URL; larger files get multipart part URLs. If a ready asset with the same checksum already exists, the existing asset is returned (deduplicated).
 
@@ -164,7 +164,7 @@ class RawAssetsClient:
 
         Returns
         -------
-        HttpResponse[CreateAssetResponse]
+        HttpResponse[CreateAssetAnswer]
             Deduplicated — a ready asset with this checksum already exists
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -186,9 +186,9 @@ class RawAssetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    CreateAssetResponse,
+                    CreateAssetAnswer,
                     parse_obj_as(
-                        type_=CreateAssetResponse,  # type: ignore
+                        type_=CreateAssetAnswer,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -857,7 +857,7 @@ class AsyncRawAssetsClient:
         checksum: typing.Optional[str] = OMIT,
         lifecycle: typing.Optional[CreateAssetRequestLifecycle] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[CreateAssetResponse]:
+    ) -> AsyncHttpResponse[CreateAssetAnswer]:
         """
         Creates a pending asset and returns presigned upload URL(s). Files at or below the single-PUT threshold get one PUT URL; larger files get multipart part URLs. If a ready asset with the same checksum already exists, the existing asset is returned (deduplicated).
 
@@ -883,7 +883,7 @@ class AsyncRawAssetsClient:
 
         Returns
         -------
-        AsyncHttpResponse[CreateAssetResponse]
+        AsyncHttpResponse[CreateAssetAnswer]
             Deduplicated — a ready asset with this checksum already exists
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -905,9 +905,9 @@ class AsyncRawAssetsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    CreateAssetResponse,
+                    CreateAssetAnswer,
                     parse_obj_as(
-                        type_=CreateAssetResponse,  # type: ignore
+                        type_=CreateAssetAnswer,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

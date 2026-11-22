@@ -4,11 +4,11 @@ import typing
 
 import pydantic
 import typing_extensions
-from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from ...core.serialization import FieldMetadata
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ..core.serialization import FieldMetadata
 
 
-class CreateAssetResponseData(UniversalBaseModel):
+class AssetUploadMultipartData(UniversalBaseModel):
     id: str = pydantic.Field()
     """
     Asset ID (e.g., asset_abc123def456)

@@ -9,6 +9,15 @@ if typing.TYPE_CHECKING:
     from .api_key import ApiKeyParams
     from .api_key_created_by import ApiKeyCreatedByParams
     from .api_key_disabled_by import ApiKeyDisabledByParams
+    from .asset_upload_deduplicated import AssetUploadDeduplicatedParams
+    from .asset_upload_deduplicated_data import AssetUploadDeduplicatedDataParams
+    from .asset_upload_multipart import AssetUploadMultipartParams
+    from .asset_upload_multipart_data import AssetUploadMultipartDataParams
+    from .asset_upload_multipart_upload import AssetUploadMultipartUploadParams
+    from .asset_upload_multipart_upload_parts_item import AssetUploadMultipartUploadPartsItemParams
+    from .asset_upload_presigned import AssetUploadPresignedParams
+    from .asset_upload_presigned_data import AssetUploadPresignedDataParams
+    from .asset_upload_presigned_upload import AssetUploadPresignedUploadParams
     from .balance_depleted_data import BalanceDepletedDataParams
     from .balance_depleted_webhook_event import BalanceDepletedWebhookEventParams
     from .balance_low_data import BalanceLowDataParams
@@ -38,6 +47,12 @@ if typing.TYPE_CHECKING:
     from .connector_field_options_item import ConnectorFieldOptionsItemParams
     from .connector_field_show_when import ConnectorFieldShowWhenParams
     from .connector_input import ConnectorInputParams
+    from .create_asset_answer import (
+        CreateAssetAnswerParams,
+        CreateAssetAnswer_DeduplicatedParams,
+        CreateAssetAnswer_MultipartParams,
+        CreateAssetAnswer_PresignedParams,
+    )
     from .error_response import ErrorResponseParams
     from .error_response_error import ErrorResponseErrorParams
     from .ffmpeg_job import FfmpegJobParams
@@ -216,6 +231,15 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiKeyCreatedByParams": ".api_key_created_by",
     "ApiKeyDisabledByParams": ".api_key_disabled_by",
     "ApiKeyParams": ".api_key",
+    "AssetUploadDeduplicatedDataParams": ".asset_upload_deduplicated_data",
+    "AssetUploadDeduplicatedParams": ".asset_upload_deduplicated",
+    "AssetUploadMultipartDataParams": ".asset_upload_multipart_data",
+    "AssetUploadMultipartParams": ".asset_upload_multipart",
+    "AssetUploadMultipartUploadParams": ".asset_upload_multipart_upload",
+    "AssetUploadMultipartUploadPartsItemParams": ".asset_upload_multipart_upload_parts_item",
+    "AssetUploadPresignedDataParams": ".asset_upload_presigned_data",
+    "AssetUploadPresignedParams": ".asset_upload_presigned",
+    "AssetUploadPresignedUploadParams": ".asset_upload_presigned_upload",
     "BalanceDepletedDataParams": ".balance_depleted_data",
     "BalanceDepletedWebhookEventParams": ".balance_depleted_webhook_event",
     "BalanceLowDataParams": ".balance_low_data",
@@ -245,6 +269,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConnectorFieldParams": ".connector_field",
     "ConnectorFieldShowWhenParams": ".connector_field_show_when",
     "ConnectorInputParams": ".connector_input",
+    "CreateAssetAnswerParams": ".create_asset_answer",
+    "CreateAssetAnswer_DeduplicatedParams": ".create_asset_answer",
+    "CreateAssetAnswer_MultipartParams": ".create_asset_answer",
+    "CreateAssetAnswer_PresignedParams": ".create_asset_answer",
     "ErrorResponseErrorParams": ".error_response_error",
     "ErrorResponseParams": ".error_response",
     "FfmpegJobParams": ".ffmpeg_job",
@@ -435,6 +463,15 @@ __all__ = [
     "ApiKeyCreatedByParams",
     "ApiKeyDisabledByParams",
     "ApiKeyParams",
+    "AssetUploadDeduplicatedDataParams",
+    "AssetUploadDeduplicatedParams",
+    "AssetUploadMultipartDataParams",
+    "AssetUploadMultipartParams",
+    "AssetUploadMultipartUploadParams",
+    "AssetUploadMultipartUploadPartsItemParams",
+    "AssetUploadPresignedDataParams",
+    "AssetUploadPresignedParams",
+    "AssetUploadPresignedUploadParams",
     "BalanceDepletedDataParams",
     "BalanceDepletedWebhookEventParams",
     "BalanceLowDataParams",
@@ -464,6 +501,10 @@ __all__ = [
     "ConnectorFieldParams",
     "ConnectorFieldShowWhenParams",
     "ConnectorInputParams",
+    "CreateAssetAnswerParams",
+    "CreateAssetAnswer_DeduplicatedParams",
+    "CreateAssetAnswer_MultipartParams",
+    "CreateAssetAnswer_PresignedParams",
     "ErrorResponseErrorParams",
     "ErrorResponseParams",
     "FfmpegJobParams",

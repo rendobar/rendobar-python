@@ -10,6 +10,16 @@ if typing.TYPE_CHECKING:
     from .api_key_created_by import ApiKeyCreatedBy
     from .api_key_created_by_role import ApiKeyCreatedByRole
     from .api_key_disabled_by import ApiKeyDisabledBy
+    from .asset_upload_deduplicated import AssetUploadDeduplicated
+    from .asset_upload_deduplicated_data import AssetUploadDeduplicatedData
+    from .asset_upload_multipart import AssetUploadMultipart
+    from .asset_upload_multipart_data import AssetUploadMultipartData
+    from .asset_upload_multipart_upload import AssetUploadMultipartUpload
+    from .asset_upload_multipart_upload_parts_item import AssetUploadMultipartUploadPartsItem
+    from .asset_upload_presigned import AssetUploadPresigned
+    from .asset_upload_presigned_data import AssetUploadPresignedData
+    from .asset_upload_presigned_upload import AssetUploadPresignedUpload
+    from .asset_upload_presigned_upload_method import AssetUploadPresignedUploadMethod
     from .balance_depleted_data import BalanceDepletedData
     from .balance_depleted_webhook_event import BalanceDepletedWebhookEvent
     from .balance_depleted_webhook_event_version import BalanceDepletedWebhookEventVersion
@@ -69,6 +79,12 @@ if typing.TYPE_CHECKING:
     from .connector_field_show_when import ConnectorFieldShowWhen
     from .connector_field_type import ConnectorFieldType
     from .connector_input import ConnectorInput
+    from .create_asset_answer import (
+        CreateAssetAnswer,
+        CreateAssetAnswer_Deduplicated,
+        CreateAssetAnswer_Multipart,
+        CreateAssetAnswer_Presigned,
+    )
     from .error_response import ErrorResponse
     from .error_response_error import ErrorResponseError
     from .ffmpeg_job import FfmpegJob
@@ -297,6 +313,16 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ApiKeyCreatedBy": ".api_key_created_by",
     "ApiKeyCreatedByRole": ".api_key_created_by_role",
     "ApiKeyDisabledBy": ".api_key_disabled_by",
+    "AssetUploadDeduplicated": ".asset_upload_deduplicated",
+    "AssetUploadDeduplicatedData": ".asset_upload_deduplicated_data",
+    "AssetUploadMultipart": ".asset_upload_multipart",
+    "AssetUploadMultipartData": ".asset_upload_multipart_data",
+    "AssetUploadMultipartUpload": ".asset_upload_multipart_upload",
+    "AssetUploadMultipartUploadPartsItem": ".asset_upload_multipart_upload_parts_item",
+    "AssetUploadPresigned": ".asset_upload_presigned",
+    "AssetUploadPresignedData": ".asset_upload_presigned_data",
+    "AssetUploadPresignedUpload": ".asset_upload_presigned_upload",
+    "AssetUploadPresignedUploadMethod": ".asset_upload_presigned_upload_method",
     "BalanceDepletedData": ".balance_depleted_data",
     "BalanceDepletedWebhookEvent": ".balance_depleted_webhook_event",
     "BalanceDepletedWebhookEventVersion": ".balance_depleted_webhook_event_version",
@@ -356,6 +382,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ConnectorFieldShowWhen": ".connector_field_show_when",
     "ConnectorFieldType": ".connector_field_type",
     "ConnectorInput": ".connector_input",
+    "CreateAssetAnswer": ".create_asset_answer",
+    "CreateAssetAnswer_Deduplicated": ".create_asset_answer",
+    "CreateAssetAnswer_Multipart": ".create_asset_answer",
+    "CreateAssetAnswer_Presigned": ".create_asset_answer",
     "ErrorResponse": ".error_response",
     "ErrorResponseError": ".error_response_error",
     "FfmpegJob": ".ffmpeg_job",
@@ -604,6 +634,16 @@ __all__ = [
     "ApiKeyCreatedBy",
     "ApiKeyCreatedByRole",
     "ApiKeyDisabledBy",
+    "AssetUploadDeduplicated",
+    "AssetUploadDeduplicatedData",
+    "AssetUploadMultipart",
+    "AssetUploadMultipartData",
+    "AssetUploadMultipartUpload",
+    "AssetUploadMultipartUploadPartsItem",
+    "AssetUploadPresigned",
+    "AssetUploadPresignedData",
+    "AssetUploadPresignedUpload",
+    "AssetUploadPresignedUploadMethod",
     "BalanceDepletedData",
     "BalanceDepletedWebhookEvent",
     "BalanceDepletedWebhookEventVersion",
@@ -663,6 +703,10 @@ __all__ = [
     "ConnectorFieldShowWhen",
     "ConnectorFieldType",
     "ConnectorInput",
+    "CreateAssetAnswer",
+    "CreateAssetAnswer_Deduplicated",
+    "CreateAssetAnswer_Multipart",
+    "CreateAssetAnswer_Presigned",
     "ErrorResponse",
     "ErrorResponseError",
     "FfmpegJob",

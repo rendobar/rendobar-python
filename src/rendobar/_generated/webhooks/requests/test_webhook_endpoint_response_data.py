@@ -8,5 +8,5 @@ from ...core.serialization import FieldMetadata
 
 class TestWebhookEndpointResponseDataParams(typing_extensions.TypedDict):
     delivered: bool
-    status_code: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="statusCode")]
+    status_code: typing_extensions.Annotated[typing.Optional[int], FieldMetadata(alias="statusCode")]
     response_time_ms: typing_extensions.Annotated[int, FieldMetadata(alias="responseTimeMs")]

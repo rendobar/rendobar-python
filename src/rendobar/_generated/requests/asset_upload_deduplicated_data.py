@@ -3,10 +3,10 @@
 import typing
 
 import typing_extensions
-from ...core.serialization import FieldMetadata
+from ..core.serialization import FieldMetadata
 
 
-class CreateAssetResponseDataParams(typing_extensions.TypedDict):
+class AssetUploadDeduplicatedDataParams(typing_extensions.TypedDict):
     id: str
     """
     Asset ID (e.g., asset_abc123def456)

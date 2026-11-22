@@ -5,5 +5,21 @@ import typing_extensions
 
 class ListInvoicesResponseMetaParams(typing_extensions.TypedDict):
     total: int
+    """
+    Total number of items
+    """
+
     page: int
+    """
+    Current page number (1-indexed)
+    """
+
     limit: int
+    """
+    Items per page
+    """
+
+    pages: typing_extensions.NotRequired[int]
+    """
+    Total number of pages
+    """

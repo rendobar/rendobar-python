@@ -77,6 +77,20 @@
         ],
         "type": "object"
       },
+      "CreateAssetAnswer": {
+        "description": "Every successful answer of POST /assets.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/AssetUploadDeduplicated"
+          },
+          {
+            "$ref": "#/components/schemas/AssetUploadPresigned"
+          },
+          {
+            "$ref": "#/components/schemas/AssetUploadMultipart"
+          }
+        ]
+      },
       "FfmpegJob": {
         "description": "Submit a ffmpeg job.",
         "properties": {
@@ -298,6 +312,115 @@
           }
         ],
         "description": "A job of a type this SDK knows: what to run, typed per job type."
+      }
+    }
+  },
+  "paths": {
+    "/assets": {
+      "post": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateAssetAnswer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/history": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "meta": {
+                      "properties": {
+                        "pages": {
+                          "x-fern-type": "optional<integer>"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/billing/transactions": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "meta": {
+                      "properties": {
+                        "pages": {
+                          "x-fern-type": "optional<integer>"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "meta": {
+                      "properties": {
+                        "pages": {
+                          "x-fern-type": "optional<integer>"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/deliveries": {
+      "get": {
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "meta": {
+                      "properties": {
+                        "pages": {
+                          "x-fern-type": "optional<integer>"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
