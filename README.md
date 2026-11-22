@@ -10,25 +10,28 @@
 <h1 align="center">Rendobar Python SDK</h1>
 
 <p align="center">
-  <strong>Media processing and AI generation API for Python.</strong>
+  <strong>The official Python client for Rendobar's media processing and AI generation API.</strong><br>
+  <code>pip install rendobar</code>
 </p>
 
 <p align="center">
+  <a href="https://rendobar.com/docs/sdk/python">Docs</a> &nbsp;·&nbsp;
   <a href="https://rendobar.com/integrations/python-sdk/">Guide</a> &nbsp;·&nbsp;
-  <a href="https://rendobar.com/docs/quickstart">Quickstart</a> &nbsp;·&nbsp;
+  <a href="https://api.rendobar.com/reference">API reference</a> &nbsp;·&nbsp;
   <a href="https://pypi.org/project/rendobar/">PyPI</a> &nbsp;·&nbsp;
-  <a href="https://discord.gg/kAGqjBzx8N">Discord</a>
+  <a href="https://app.rendobar.com">Get an API key</a> &nbsp;·&nbsp;
+  <a href="https://discord.com/invite/kAGqjBzx8N">Discord</a>
 </p>
 
 <p align="center">
   <a href="https://pypi.org/project/rendobar/"><img src="https://img.shields.io/pypi/v/rendobar?style=flat-square&color=059669" alt="PyPI version"></a>
   <a href="https://pypi.org/project/rendobar/"><img src="https://img.shields.io/pypi/pyversions/rendobar?style=flat-square&color=059669" alt="Python versions"></a>
-  <a href="https://github.com/rendobar/rendobar-python/actions"><img src="https://img.shields.io/github/actions/workflow/status/rendobar/rendobar-python/ci.yml?style=flat-square" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/pypi/l/rendobar?style=flat-square&color=059669" alt="License"></a>
 </p>
 
-`rendobar` is the official Python client for [Rendobar](https://rendobar.com), a serverless media processing API. Submit a job, wait for it, and get back a hosted file. It has sync and asyncio clients with full types, retries rate limits, server errors and failed connections on its own, and never turns a retried submit into a second job.
+The official Python client for Rendobar's media processing and AI generation API. With the `rendobar` package you submit a job, wait for it, and get back a hosted file URL. It has sync and asyncio clients with full types, retries rate limits, server errors and failed connections on its own, and never turns a retried submit into a second job.
 
-It covers the whole API that `@rendobar/sdk` covers: jobs, uploads and assets, webhook endpoints, connected storage, API keys, organizations, billing, compose, notifications, the account and realtime events. See [What the client covers](#what-the-client-covers).
+It covers the same resources as `@rendobar/sdk`: jobs, uploads and assets, webhook endpoints, connected storage, API keys, organizations, billing, compose, notifications, the account and realtime events. See [What the client covers](#what-the-client-covers).
 
 ## Install
 
@@ -76,96 +79,13 @@ asyncio.run(main())
 
 `AsyncRendobar` takes the same arguments and has the same methods as `Rendobar`, awaited. `await rb.aclose()` does the same as the `async with` block for a client you keep open. A call on a closed client raises `RendobarError` with code `CLIENT_CLOSED`.
 
-## Client options
+## Let your AI assistant do it
 
-```python
-from rendobar import Rendobar
+Paste this one line into Claude, ChatGPT, or Cursor and the assistant reads the integration playbook and wires Rendobar into your codebase. Your API key stays in your env file, never in the chat.
 
-rb = Rendobar(
-    api_key="rb_...",                  # default: the RENDOBAR_API_KEY environment variable
-    base_url="https://api.rendobar.com",
-    timeout=30.0,                      # seconds per HTTP request
-    max_retries=2,                     # retries of a 429, a 5xx or a failed connection
-    app="my-app",                      # sent in X-Rendobar-Client, so your jobs show where they came from
-    on_deprecation=print,              # called once per deprecated endpoint, see Support policy
-)
+```text
+Add Rendobar to my app: read and follow https://rendobar.com/prompts/integrate.md
 ```
-
-`base_url` points the client at another server, such as a staging deployment or a local mock: `Rendobar(base_url="https://api.staging.example.com")`.
-
-With no key passed and no `RENDOBAR_API_KEY` set (or an empty one), the client still works for `jobs.types()` and `jobs.schema()`, which need no key. Every other call raises `AuthenticationError` with code `MISSING_API_KEY` before it sends anything. A key that does not start with `rb_` gets code `INVALID_API_KEY` the same way, and the client never sends it.
-
-## What the client covers
-
-Each resource is an attribute of the client, with the same names as `@rendobar/sdk` in snake case. `AsyncRendobar` has the same resources and methods, awaited.
-
-| Resource | Methods |
-|---|---|
-| `jobs` | `create`, `run`, `wait`, `get`, `list`, `list_all`, `cancel`, `download`, `logs`, `get_timings`, `stats`, `retry_deliveries`, `types`, `schema` |
-| `uploads` | `create` |
-| `assets` | `list`, `get`, `delete`, `download`, `templates` |
-| `webhooks` | `create`, `list`, `get`, `update`, `delete`, `rotate_secret`, `test`, `list_deliveries`, `retry_delivery` |
-| `storage` | `create`, `list`, `get`, `update`, `delete`, `test`, `stats`, `list_objects`, `prepare_aws`, `list_account_buckets`, `look_up_s3_bucket`, `start_supabase`, `list_supabase_projects`, `list_supabase_buckets`, `finish_supabase` |
-| `api_keys` | `create`, `list`, `revoke`, `update` |
-| `orgs` | `list`, `current`, `create`, `update`, `delete`, `get_settings`, `update_settings`, `members.invite`, `members.change_role`, `members.remove`, `invitations.revoke` |
-| `billing` | `state`, `usage`, `usage_by_client`, `transactions`, `history`, `checkout_credits`, `checkout_plan`, `cancel_subscription`, `reactivate_subscription`, `cancel_credit_schedule`, `payment_methods`, `delete_payment_method`, `set_default_payment_method`, `portal_url` |
-| `compose` | `effects`, `engine_effects`, `validate` |
-| `notifications` | `list`, `mark_read` |
-| `account` | `capabilities` |
-| `realtime` | `connect`, `subscribe_job` (the `realtime` extra, see [Realtime events](#realtime-events)) |
-
-The first argument of a method is the id it acts on, when it has one. Everything else is a keyword argument, so a new option never breaks a call you wrote. An argument left out, or passed as `None`, is not sent.
-
-A list comes back as a `Page`: iterate it, or read `data` (the items) and `meta` (the totals the API reports, such as `total`). A list the API does not page, such as `api_keys.list()`, is a plain list.
-
-```python
-from rendobar import Rendobar
-
-rb = Rendobar()
-page = rb.webhooks.list_deliveries(status="failed", limit=20)
-print(page.meta.total, [delivery.event for delivery in page])
-for key in rb.api_keys.list():
-    print(key.prefix, key.scopes)
-```
-
-Billing amounts (`billing.state().balance.amount`, transactions, invoices) are US dollars, as the API sends them. Job costs are integer nanodollars (see [Results](#results)).
-
-### Uploads and assets
-
-`uploads.create()` sends a local file (a path, or bytes with a `filename`) straight to storage on presigned URLs and returns the ready `Asset`. A large file goes up in parts, in parallel, and a file on disk is streamed, never read into memory whole. A job reads the asset as `asset://<id>`:
-
-```python
-from rendobar import Rendobar
-
-
-def trim(rb: Rendobar, path: str) -> str:
-    asset = rb.uploads.create(path, content_type="video/mp4", on_progress=lambda p: print(p.loaded, "of", p.total))
-    job = rb.jobs.run({
-        "type": "ffmpeg",
-        "inputs": {"clip.mp4": f"asset://{asset.id}"},
-        "params": {"command": "ffmpeg -i clip.mp4 -t 5 out.mp4"},
-    })
-    rb.assets.delete(asset.id)
-    return job.output.files[0].url
-```
-
-An upload is ephemeral unless you pass `persist=True`: it expires on its own after 24 hours. A PUT to storage that fails is tried three times, then raises `RendobarError` with code `UPLOAD_FAILED`.
-
-### Webhook endpoints
-
-`webhooks.create()` returns a `WebhookEndpointWithSecret`. Its `signing_secret` is in plaintext only there and in `rotate_secret()`, so store it then. `webhooks.test()` sends a `test` event and reports whether your URL answered with a 2xx. To read a delivery your server receives, use `rendobar.webhooks.parse()` ([Webhooks](#webhooks)).
-
-```python
-from rendobar import Rendobar
-
-rb = Rendobar()
-endpoint = rb.webhooks.create(name="prod", url="https://example.com/rendobar-webhook", subscribed_events=["job.completed", "job.failed"])
-print(endpoint.signing_secret)  # put it in your server's RENDOBAR_WEBHOOK_SECRET
-print(rb.webhooks.test(endpoint.id).delivered)
-rb.webhooks.delete(endpoint.id)
-```
-
-Creating an API key needs the `keys:write` scope, which no API key holds. With an API key, `api_keys.create()` raises `PermissionDeniedError` with code `INSUFFICIENT_SCOPE`. An OAuth access token or a dashboard session can create one.
 
 ## Submitting a job
 
@@ -181,10 +101,12 @@ from rendobar import Rendobar, UntypedJob
 rb = Rendobar()
 rb.jobs.create({"type": "ffprobe", "params": {"command": "https://cdn.rendobar.com/assets/examples/sample.mp4"}}, label="probe")
 
-# A job type the SDK does not type: UntypedJob is the one way to submit it.
+# A job type newer than your SDK version: UntypedJob is the one way to submit it.
 # It skips the type check, so the API is the first to see a mistake.
-rb.jobs.create(UntypedJob("captions.translate", {"language": "de"}))
+rb.jobs.create(UntypedJob("your.new_job_type", {"option": "value"}))
 ```
+
+`"your.new_job_type"` is a placeholder. It stands for a job type newer than your SDK version, one that `rb.jobs.types()` lists and the SDK has no typed dict for yet.
 
 `UntypedJob` covers two cases: a job type newer than your installed SDK, and `compose`. Compose params nest timelines, tracks and effects that the spec does not name one by one, so the SDK leaves them untyped rather than ship generated names that change with every spec revision. `rb.jobs.schema("compose")` describes them, and the API validates every compose submit.
 
@@ -277,6 +199,78 @@ if isinstance(job, JobComplete) and job.cost is not None:
 `jobs.download(job_id, to)` streams a completed job's output file to a path or to a binary file you opened, and returns the bytes written. It never holds the file in memory. A connection that breaks mid-file raises at once rather than retrying, and a file the call created is removed.
 
 A job whose status is newer than your installed SDK comes back as `UnknownJob` with `id`, `status` and `raw`, rather than raising. That holds for every call that returns jobs (`get`, `list`, `list_all`, `create`, `cancel`, `wait`): in a list, only the job with the new status is an `UnknownJob`, the rest of the page is typed as usual. Every job says whether it has ended (`terminal`), so `jobs.wait()` also stops on a status it does not know when that job is terminal, and returns it as an `UnknownJob`. `jobs.run()` raises `JobFailedError` (code `JOB_ENDED`) for it, since only `JobComplete` counts as success. A status that is not terminal is polled until the timeout.
+
+## What the client covers
+
+Each resource is an attribute of the client, with the same names as `@rendobar/sdk` in snake case. `AsyncRendobar` has the same resources and methods, awaited.
+
+| Resource | Methods |
+|---|---|
+| `jobs` | `create`, `run`, `wait`, `get`, `list`, `list_all`, `cancel`, `download`, `logs`, `get_timings`, `stats`, `retry_deliveries`, `types`, `schema` |
+| `uploads` | `create` |
+| `assets` | `list`, `get`, `delete`, `download`, `templates` |
+| `webhooks` | `create`, `list`, `get`, `update`, `delete`, `rotate_secret`, `test`, `list_deliveries`, `retry_delivery` |
+| `storage` | `create`, `list`, `get`, `update`, `delete`, `test`, `stats`, `list_objects`, `prepare_aws`, `list_account_buckets`, `look_up_s3_bucket`, `start_supabase`, `list_supabase_projects`, `list_supabase_buckets`, `finish_supabase` |
+| `api_keys` | `create`, `list`, `revoke`, `update` |
+| `orgs` | `list`, `current`, `create`, `update`, `delete`, `get_settings`, `update_settings`, `members.invite`, `members.change_role`, `members.remove`, `invitations.revoke` |
+| `billing` | `state`, `usage`, `usage_by_client`, `transactions`, `history`, `checkout_credits`, `checkout_plan`, `cancel_subscription`, `reactivate_subscription`, `cancel_credit_schedule`, `payment_methods`, `delete_payment_method`, `set_default_payment_method`, `portal_url` |
+| `compose` | `effects`, `engine_effects`, `validate` |
+| `notifications` | `list`, `mark_read` |
+| `account` | `capabilities` |
+| `realtime` | `connect`, `subscribe_job` (the `realtime` extra, see [Realtime events](#realtime-events)) |
+
+The first argument of a method is the id it acts on, when it has one. Everything else is a keyword argument, so a new option never breaks a call you wrote. An argument left out, or passed as `None`, is not sent.
+
+A list comes back as a `Page`: iterate it, or read `data` (the items) and `meta` (the totals the API reports, such as `total`). A list the API does not page, such as `api_keys.list()`, is a plain list.
+
+```python
+from rendobar import Rendobar
+
+rb = Rendobar()
+page = rb.webhooks.list_deliveries(status="failed", limit=20)
+print(page.meta.total, [delivery.event for delivery in page])
+for key in rb.api_keys.list():
+    print(key.prefix, key.scopes)
+```
+
+Billing amounts (`billing.state().balance.amount`, transactions, invoices) are US dollars, as the API sends them. Job costs are integer nanodollars (see [Results](#results)).
+
+### Uploads and assets
+
+`uploads.create()` sends a local file (a path, or bytes with a `filename`) straight to storage on presigned URLs and returns the ready `Asset`. A large file goes up in parts, in parallel, and a file on disk is streamed, never read into memory whole. A job reads the asset as `asset://<id>`:
+
+```python
+from rendobar import Rendobar
+
+
+def trim(rb: Rendobar, path: str) -> str:
+    asset = rb.uploads.create(path, content_type="video/mp4", on_progress=lambda p: print(p.loaded, "of", p.total))
+    job = rb.jobs.run({
+        "type": "ffmpeg",
+        "inputs": {"clip.mp4": f"asset://{asset.id}"},
+        "params": {"command": "ffmpeg -i clip.mp4 -t 5 out.mp4"},
+    })
+    rb.assets.delete(asset.id)
+    return job.output.files[0].url
+```
+
+An upload is ephemeral unless you pass `persist=True`: it expires on its own after 24 hours. A PUT to storage that fails is tried three times, then raises `RendobarError` with code `UPLOAD_FAILED`.
+
+### Webhook endpoints
+
+`webhooks.create()` returns a `WebhookEndpointWithSecret`. Its `signing_secret` is in plaintext only there and in `rotate_secret()`, so store it then. `webhooks.test()` sends a `test` event and reports whether your URL answered with a 2xx. To read a delivery your server receives, use `rendobar.webhooks.parse()` ([Webhooks](#webhooks)).
+
+```python
+from rendobar import Rendobar
+
+rb = Rendobar()
+endpoint = rb.webhooks.create(name="prod", url="https://example.com/rendobar-webhook", subscribed_events=["job.completed", "job.failed"])
+print(endpoint.signing_secret)  # put it in your server's RENDOBAR_WEBHOOK_SECRET
+print(rb.webhooks.test(endpoint.id).delivered)
+rb.webhooks.delete(endpoint.id)
+```
+
+Creating an API key needs the `keys:write` scope, which no API key holds. With an API key, `api_keys.create()` raises `PermissionDeniedError` with code `INSUFFICIENT_SCOPE`. An OAuth access token or a dashboard session can create one.
 
 ## Errors
 
@@ -403,7 +397,7 @@ Without the extra, both methods raise `ImportError` naming it. The rest of the S
 
 ## AI agents
 
-Give an agent Rendobar's four tools (`list_job_types`, `run_job`, `get_job`, `probe_media`), the same ones as the Rendobar MCP server. Failures come back to the model as data (`{"error": {"code", "message", "request_id"}}`), so one bad call does not end the run. Once a job exists, a failure while waiting returns its `id` and tells the model to call `get_job`, so a dropped connection never leads to a second billed job.
+Give an agent Rendobar's four tools: `list_job_types`, `run_job`, `get_job` and `probe_media`. They match the Rendobar MCP server's tools, and `run_job` is the MCP server's `submit_job` followed by a wait. Failures come back to the model as data (`{"error": {"code", "message", "request_id"}}`), so one bad call does not end the run. Once a job exists, a failure while waiting returns its `id` and tells the model to call `get_job`, so a dropped connection never leads to a second billed job.
 
 ```bash
 pip install "rendobar[langchain]"
@@ -445,24 +439,52 @@ The `crewai` extra installs CrewAI itself, which brings about 120 packages and t
 
 Frameworks that speak MCP (the OpenAI Agents SDK, the Claude Agent SDK) can connect to `https://api.rendobar.com/mcp` with no package.
 
-## Examples
+## Client options
 
-[`examples/`](examples) has small projects that use the SDK end to end: a quickstart, an upload trimmed by ffmpeg and streamed back to disk, a batch worker with idempotency keys, logs and error handling, a webhook receiver that manages a real endpoint, an account admin script (billing, usage, API keys, org settings, notifications), and a job followed live over the event stream. It also has a FastAPI app and Django views that submit a job and verify Rendobar's webhook. CI runs all of them against the conformance mock.
+```python
+from rendobar import Rendobar
 
-## Let your AI assistant do it
-
-Paste this one line into Claude, ChatGPT, or Cursor and the assistant reads the integration playbook and wires Rendobar into your codebase. Your API key stays in your env file, never in the chat.
-
-```text
-Add Rendobar to my app: read and follow https://rendobar.com/prompts/integrate.md
+rb = Rendobar(
+    api_key="rb_...",                  # default: the RENDOBAR_API_KEY environment variable
+    base_url="https://api.rendobar.com",
+    timeout=30.0,                      # seconds per HTTP request
+    max_retries=2,                     # retries of a 429, a 5xx or a failed connection
+    app="my-app",                      # sent in X-Rendobar-Client, so your jobs show where they came from
+    on_deprecation=print,              # called once per deprecated endpoint, see Versioning and support
+)
 ```
 
-## Support policy
+`base_url` points the client at another server, such as a staging deployment or a local mock: `Rendobar(base_url="https://api.staging.example.com")`.
 
+With no key passed and no `RENDOBAR_API_KEY` set (or an empty one), the client still works for `jobs.types()` and `jobs.schema()`, which need no key. Every other call raises `AuthenticationError` with code `MISSING_API_KEY` before it sends anything. A key that does not start with `rb_` gets code `INVALID_API_KEY` the same way, and the client never sends it.
+
+## Examples
+
+[`examples/`](examples) has small projects that use the SDK end to end. CI runs all of them against the conformance mock.
+
+- [`quickstart`](examples/quickstart): probe a public video and print its duration, resolution and codecs.
+- [`upload-process-download`](examples/upload-process-download): upload a clip, trim it with ffmpeg and stream the output back to disk.
+- [`batch-worker`](examples/batch-worker): submit with idempotency keys, read logs, page through jobs and handle each error.
+- [`webhook-receiver`](examples/webhook-receiver): manage a real webhook endpoint and verify the deliveries it receives.
+- [`account-admin`](examples/account-admin): read billing, usage, API keys, org settings and notifications.
+- [`realtime-progress`](examples/realtime-progress): follow a job live over the event stream.
+- [`fastapi_app.py`](examples/fastapi_app.py): a FastAPI app that submits a job and verifies Rendobar's webhook.
+- [`django_views.py`](examples/django_views.py): the same submit and webhook as Django views.
+
+## Other Rendobar SDKs
+
+- TypeScript: [`@rendobar/sdk`](https://www.npmjs.com/package/@rendobar/sdk) on npm.
+- Go: [`github.com/rendobar/rendobar-go`](https://pkg.go.dev/github.com/rendobar/rendobar-go) on pkg.go.dev.
+- NestJS module: [`@rendobar/nestjs`](https://www.npmjs.com/package/@rendobar/nestjs) on npm.
+- Agent toolkit: [`@rendobar/agent-toolkit`](https://www.npmjs.com/package/@rendobar/agent-toolkit) on npm, tools for the Vercel AI SDK, Mastra and LangChain.js.
+
+## Versioning and support
+
+- Semantic versioning. Before 1.0, a minor release may tighten types, so code that type-checked before can fail the check after it. The changelog says so when one does.
+- A deprecation is announced before anything is removed. See [rendobar.com/docs/support/versioning](https://rendobar.com/docs/support/versioning) and the [changelog](https://rendobar.com/changelog/).
 - Python 3.10 to 3.13, tested on each. A Python version is dropped only after its end of life.
-- Semantic versioning. A breaking change ships only in a major release, after at least 12 months of deprecation notices.
 - A deprecated endpoint is reported once per endpoint through `on_deprecation` or a `RendobarDeprecationWarning` (a `FutureWarning`, so Python shows it by default), with the day it was deprecated.
 
 ## License
 
-MIT. Rendobar is a product of Craftobar LLC.
+MIT. See [LICENSE](LICENSE). Rendobar is a product of Craftobar LLC.
