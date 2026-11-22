@@ -38,6 +38,37 @@ from rendobar import (
     UntypedJob,
     WaitTimeoutError,
 )
+from rendobar import (
+    ApiKey,
+    Asset,
+    AssetDeleted,
+    BillingState,
+    ClientUsage,
+    ComposeInvalid,
+    ComposeValid,
+    CreatedApiKey,
+    CurrentOrg,
+    Invoice,
+    JobLogEntry,
+    JobStats,
+    JobTimings,
+    ListMeta,
+    Notification,
+    NotificationsMeta,
+    OffsetPageMeta,
+    OrgMembership,
+    OrgSettings,
+    Page,
+    PlanChanged,
+    PlanCheckoutStarted,
+    StorageConnection,
+    Transaction,
+    UsageSummary,
+    WebhookDelivery,
+    WebhookEndpoint,
+    WebhookEndpointWithSecret,
+    WebhookTestResult,
+)
 from rendobar.webhooks import JobCompletedWebhookEvent, UnknownWebhookEvent, WebhookEvent, parse
 
 Finished = Union[JobComplete, JobFailed, JobCancelled, UnknownJob]
@@ -100,6 +131,7 @@ def results(rb: Rendobar) -> None:
 
     rb.jobs.list(status="complete")
     page = rb.jobs.list()
+    assert_type(page, Page[Union[Job, UnknownJob], PageMeta])
     assert_type(page.data, List[Union[Job, UnknownJob]])
     assert_type(page.meta, PageMeta)
     assert_type(page.meta.total, int)
@@ -150,3 +182,72 @@ async def async_client(rb: AsyncRendobar) -> None:
     assert_type(await rb.jobs.types(), List[JobType])
     assert_type(await rb.jobs.schema("ffprobe"), JobTypeSchema)
     assert_type(await rb.account.capabilities(), AccountCapabilities)
+
+
+def resources(rb: Rendobar) -> None:
+    assert_type(rb.jobs.logs("job_1"), List[JobLogEntry])
+    assert_type(rb.jobs.get_timings("job_1"), JobTimings)
+    assert_type(rb.jobs.stats(window="7d"), JobStats)
+    rb.jobs.stats(window="1y")  # type: ignore[arg-type]
+    rb.jobs.list(sort="duration", order="asc", client="python", from_=0, to=1)
+    rb.jobs.list(sort="name")  # type: ignore[arg-type]
+
+    assert_type(rb.billing.state(), BillingState)
+    assert_type(rb.billing.state().usage.job_count, int)
+    assert_type(rb.billing.usage(), UsageSummary)
+    assert_type(rb.billing.usage_by_client(days=30), List[ClientUsage])
+    assert_type(rb.billing.transactions(), Page[Transaction, PageMeta])
+    assert_type(rb.billing.history(), Page[Invoice, PageMeta])
+    assert_type(rb.billing.checkout_plan("pro"), Union[PlanCheckoutStarted, PlanChanged])
+    rb.billing.checkout_plan("platinum")  # type: ignore[arg-type]
+    rb.billing.checkout_credits(10, interval="year")  # type: ignore[arg-type]
+
+    asset = rb.uploads.create("clip.mp4", content_type="video/mp4", on_progress=lambda p: print(p.loaded, p.total))
+    assert_type(asset, Asset)
+    rb.uploads.create(b"bytes", filename="a.bin")
+    rb.uploads.create(42)  # type: ignore[arg-type]
+    assert_type(rb.assets.list(kind="media", limit=10), Page[Asset, OffsetPageMeta])
+    rb.assets.list(kind="hologram")  # type: ignore[arg-type]
+    assert_type(rb.assets.delete(asset.id), AssetDeleted)
+
+    created = rb.webhooks.create(name="hook", url="https://example.com/h", subscribed_events=["job.completed", "balance.low"])
+    assert_type(created, WebhookEndpointWithSecret)
+    assert_type(created.signing_secret, str)
+    rb.webhooks.create(name="hook", url="https://example.com/h", subscribed_events=["job.teleported"])  # type: ignore[list-item]
+    assert_type(rb.webhooks.list(), Page[WebhookEndpoint, ListMeta])
+    assert_type(rb.webhooks.update(created.id, active=False), WebhookEndpoint)
+    assert_type(rb.webhooks.test(created.id), WebhookTestResult)
+    deliveries = rb.webhooks.list_deliveries(endpoint_id=created.id, status="failed")
+    assert_type(deliveries.data, List[WebhookDelivery])
+    assert_type(rb.webhooks.delete(created.id), None)
+
+    connection = rb.storage.create({"provider": "s3", "id": "media", "bucket": "b",
+                                    "credentials": {"type": "keys", "access_key_id": "AK", "secret_access_key": "SK"}})
+    assert_type(connection, StorageConnection)
+    rb.storage.create({"provider": "s3", "id": "media", "bucket": "b"})  # type: ignore[arg-type]
+    assert_type(rb.storage.list().data, List[StorageConnection])
+
+    assert_type(rb.api_keys.list(), List[ApiKey])
+    assert_type(rb.api_keys.create(scopes=["jobs:read"]), CreatedApiKey)
+    assert_type(rb.orgs.list(), List[OrgMembership])
+    assert_type(rb.orgs.current(), CurrentOrg)
+    assert_type(rb.orgs.update_settings(default_region="eu-central-1"), OrgSettings)
+    rb.orgs.update_settings(default_region="mars-1")  # type: ignore[arg-type]
+    rb.orgs.members.invite(email="a@example.com", role="superuser")  # type: ignore[arg-type]
+
+    validation = rb.compose.validate({"width": 1280})
+    assert_type(validation, Union[ComposeValid, ComposeInvalid])
+    notifications = rb.notifications.list()
+    assert_type(notifications, Page[Notification, NotificationsMeta])
+    assert_type(notifications.meta.unread, int)
+
+
+async def async_resources(rb: AsyncRendobar) -> None:
+    assert_type(await rb.jobs.logs("job_1"), List[JobLogEntry])
+    assert_type(await rb.billing.state(), BillingState)
+    assert_type(await rb.uploads.create("clip.mp4"), Asset)
+    assert_type(await rb.webhooks.create(name="h", url="https://x", subscribed_events=["job.failed"]), WebhookEndpointWithSecret)
+    assert_type(await rb.storage.get("media"), StorageConnection)
+    assert_type(await rb.orgs.get_settings(), OrgSettings)
+    assert_type(await rb.compose.validate({}), Union[ComposeValid, ComposeInvalid])
+    assert_type((await rb.notifications.list()).meta, NotificationsMeta)

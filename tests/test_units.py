@@ -506,7 +506,7 @@ def test_other_client_side_problems_are_invalid_arguments_too() -> None:
 
 def test_a_page_prints_its_size_and_window() -> None:
     page = sync_client(routes(PAGES)).jobs.list()
-    assert repr(page) == "Page(3 jobs, total=3, page=1, limit=50)"
+    assert repr(page) == "Page(3 items, meta=PageMeta(total=3, page=1, limit=50))"
 
 
 # ── the cross-SDK behaviour standard ──────────────────────────────────

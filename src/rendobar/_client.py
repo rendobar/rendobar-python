@@ -39,13 +39,10 @@ from typing import (
     IO,
     Callable,
     Dict,
-    Generic,
     Iterator,
     List,
     Literal,
-    Mapping,
     Optional,
-    Protocol,
     Set,
     Tuple,
     Type,
@@ -108,6 +105,32 @@ from ._models import (
     UnknownJob,
     UntypedJob,
 )
+from ._plumbing import (
+    Envelope,
+    Fetched,
+    Page,
+    Reader,
+    Response,
+    Sent,
+    one,
+    listed,
+    page_window,
+    path_segment,
+    text,
+    whole,
+)
+from ._resource_models import DeliveriesRetried, JobLogEntry, JobSort, JobStats, JobTimings, SortOrder, StatsWindow
+from ._resources import (
+    ApiKeys,
+    Assets,
+    Billing,
+    Compose,
+    Notifications,
+    Orgs,
+    Storage,
+    Uploads,
+    Webhooks,
+)
 from ._version import __version__
 
 DEFAULT_BASE_URL = "https://api.rendobar.com"
@@ -146,23 +169,6 @@ class DeprecationNotice:
         return f"DeprecationNotice({self.method} {self.path}, since {self.deprecated_at.date()})"
 
 
-class Page:
-    """One page of jobs.list(): `data` plus `meta` (`total`, `page`, `limit`)."""
-
-    def __init__(self, data: List[SomeJob], meta: PageMeta) -> None:
-        self.data = data
-        self.meta = meta
-
-    def __iter__(self) -> Iterator[SomeJob]:
-        return iter(self.data)
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-    def __repr__(self) -> str:
-        return f"Page({len(self.data)} jobs, total={self.meta.total}, page={self.meta.page}, limit={self.meta.limit})"
-
-
 def generate_idempotency_key() -> str:
     """`sdk_` plus 32 hex characters: unique per call, not secret."""
     return f"sdk_{secrets.token_hex(16)}"
@@ -194,24 +200,6 @@ def _route_of(path: str) -> str:
 
 
 T = TypeVar("T")
-T_co = TypeVar("T_co", covariant=True)
-
-
-class Response(Protocol[T_co]):
-    """What a call through the core returns: the core's HttpResponse, or a `_Fetched` download."""
-
-    @property
-    def headers(self) -> Mapping[str, str]: ...
-
-    @property
-    def data(self) -> T_co: ...
-
-
-class Envelope(Protocol[T_co]):
-    """A response body that wraps its payload in `data`."""
-
-    @property
-    def data(self) -> T_co: ...
 
 
 class _Deprecations:
@@ -342,27 +330,11 @@ def submit_options(body: Dict[str, object]) -> RequestOptions:
     return RequestOptions(additional_body_parameters=body)
 
 
-_PATH_SEGMENT = re.compile(r"^[A-Za-z0-9._-]+$")
-
-
-def path_segment(name: str, value: str) -> str:
-    """`value` when it is safe as one URL path segment (a job id, a job type), else InvalidArgumentError."""
-    if not is_text(value) or not _PATH_SEGMENT.match(value) or value in (".", ".."):
-        raise InvalidArgumentError(f"{name} must be letters, digits, '.', '_' or '-', such as job_abc123. Got {value!r}.")
-    return value
-
-
-def _whole(name: str, value: object, minimum: int) -> None:
-    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
-        raise InvalidArgumentError(f"{name} must be a whole number of {minimum} or more. Got {value!r}.")
-
-
-def page_window(limit: Optional[int], offset: Optional[int]) -> None:
-    """InvalidArgumentError for a page size below 1, a negative offset, or either not a whole number. The API sets the maximum."""
-    if limit is not None:
-        _whole("limit", limit, 1)
-    if offset is not None:
-        _whole("offset", offset, 0)
+def job_filters(client: Optional[str], from_: Optional[int], to: Optional[int]) -> None:
+    """InvalidArgumentError for a jobs.list() client filter that is not a string, or a time that is not a whole number."""
+    text("client", client)
+    whole("from_", from_, 0)
+    whole("to", to, 0)
 
 
 def list_filters(status: Optional[str], kind: Optional[str]) -> None:
@@ -495,7 +467,7 @@ def one_job(err: ResponseValidationError) -> UnknownJob:
 _META_ADAPTER: pydantic.TypeAdapter[PageMeta] = pydantic.TypeAdapter(PageMeta)
 
 
-def job_page(err: ResponseValidationError) -> Page:
+def job_page(err: ResponseValidationError) -> Page[SomeJob, PageMeta]:
     """Recovers a list response the core could not parse: each job on its own, so one new status costs one item, not the page."""
     body = as_mapping(err.body)
     data = as_list(body.get("data")) if body is not None else None
@@ -511,7 +483,8 @@ def job_page(err: ResponseValidationError) -> Page:
 # ── retries ───────────────────────────────────────────────────────────
 
 def retry_delay(err: BaseException, attempt: int, max_retries: int, *, deadline: Optional[float] = None,
-                clock: Callable[[], float] = time.monotonic, rand: Callable[[], float] = random.random) -> Optional[float]:
+                replayable: bool = True, clock: Callable[[], float] = time.monotonic,
+                rand: Callable[[], float] = random.random) -> Optional[float]:
     """Seconds to wait before retry number `attempt + 1`, or None to raise now.
 
     `deadline` (on `clock`, monotonic seconds) is the caller's: a retry that
@@ -521,13 +494,16 @@ def retry_delay(err: BaseException, attempt: int, max_retries: int, *, deadline:
     exponential backoff with jitter) and connection failures where the request
     never reached the API. Never retried: any other status (a 409 conflict, a
     501, a 408), a read timeout (the API may still be working on it), and a
-    response this SDK cannot read.
+    response this SDK cannot read. A request that is not `replayable` (a write
+    that is not keyed, such as creating a webhook endpoint) is retried only
+    after a 429 or a connection that was never made: after a 5xx it may have
+    taken effect, and repeating it could do it twice.
     """
     if attempt >= max_retries:
         return None
     err = normalize(err)
     if isinstance(err, _GeneratedApiError):
-        if err.status_code not in RETRIED_STATUSES:
+        if err.status_code not in RETRIED_STATUSES or (not replayable and err.status_code != 429):
             return None
         headers = {k.lower(): v for k, v in (err.headers or {}).items()}
         after = parse_retry_after(headers.get("retry-after"))
@@ -537,6 +513,11 @@ def retry_delay(err: BaseException, attempt: int, max_retries: int, *, deadline:
         return None
     backoff = min(_BACKOFF_BASE * (2 ** attempt), _BACKOFF_CAP)
     return _within(backoff * (0.75 + 0.5 * rand()), deadline, clock)
+
+
+def is_read(method: str) -> bool:
+    """A method that changes nothing, so repeating it after a 5xx is safe."""
+    return method in ("GET", "HEAD")
 
 
 def _within(delay: Optional[float], deadline: Optional[float], clock: Callable[[], float]) -> Optional[float]:
@@ -668,14 +649,6 @@ def core_options(key: Optional[str], *, base_url: str, timeout: float, app: Opti
 
 # ── downloads ─────────────────────────────────────────────────────────
 
-class _Fetched(Generic[T]):
-    """A downloaded body's result with the headers the deprecation check reads."""
-
-    def __init__(self, headers: Mapping[str, str], data: T) -> None:
-        self.headers = headers
-        self.data = data
-
-
 class Sink:
     """Where a download's bytes go: the file the caller passed, or one opened (and on failure removed) here."""
 
@@ -766,6 +739,15 @@ class Rendobar:
         self._deprecations = _Deprecations(on_deprecation)
         self.jobs = Jobs(self)
         self.account = Account(self)
+        self.billing = Billing(self)
+        self.uploads = Uploads(self)
+        self.assets = Assets(self)
+        self.webhooks = Webhooks(self)
+        self.storage = Storage(self)
+        self.api_keys = ApiKeys(self)
+        self.orgs = Orgs(self)
+        self.compose = Compose(self)
+        self.notifications = Notifications(self)
 
     def close(self) -> None:
         """Close the underlying HTTP connections. Every call after raises RendobarError (code `CLIENT_CLOSED`)."""
@@ -780,22 +762,25 @@ class Rendobar:
 
     # ── shared plumbing ──────────────────────────────────────────────
 
-    def _call(self, method: str, path: str, fn: Callable[[], Response[T]], *, public: bool = False, deadline: Optional[float] = None) -> T:
+    def _call(self, method: str, path: str, fn: Callable[[], Response[T]], *, public: bool = False,
+              deadline: Optional[float] = None, replayable: Optional[bool] = None) -> T:
         """One API call: retried per `retry_delay`, failures raised as RendobarError, deprecation noted.
 
         A call that needs a key (every one but `public`) raises at once when the client has none.
-        No retry sleeps past `deadline` (time.monotonic seconds).
+        No retry sleeps past `deadline` (time.monotonic seconds). `replayable` defaults to
+        whether the method is a read (GET); a keyed submit and a cancel say so themselves.
         """
         if self._closed:
             raise client_closed()
         if not public:
             require_key(self._api_key)
+        safe = replayable if replayable is not None else is_read(method)
         attempt = 0
         while True:
             try:
                 response = fn()
             except _CORE_FAILURES as err:
-                delay = retry_delay(err, attempt, self._max_retries, deadline=deadline)
+                delay = retry_delay(err, attempt, self._max_retries, deadline=deadline, replayable=safe)
                 if delay is None:
                     raise to_public(err) from err
                 attempt += 1
@@ -803,6 +788,14 @@ class Rendobar:
                 continue
             self._deprecations.note(response, method, path)
             return response.data
+
+    def _read(self, method: str, path: str, call: Callable[[], Sent], read: Reader[T], *, replayable: Optional[bool] = None) -> T:
+        """`_call` for a generated core call whose answer `read` parses into the public model."""
+        def fetch() -> Fetched[T]:
+            sent = call()
+            return Fetched(sent.headers, read(sent.response))
+
+        return self._call(method, path, fetch, replayable=replayable)
 
 
 class Jobs:
@@ -824,7 +817,7 @@ class Jobs:
 
     def _job(self, method: str, path: str, fn: Callable[[], Response[Envelope[T]]], deadline: Optional[float] = None) -> Union[T, UnknownJob]:
         try:
-            return self._client._call(method, path, fn, deadline=deadline).data
+            return self._client._call(method, path, fn, deadline=deadline, replayable=True).data
         except ResponseValidationError as err:
             return one_job(err)
 
@@ -865,12 +858,12 @@ class Jobs:
         key = idempotency_key if idempotency_key is not None else generate_idempotency_key()
         request = submit_body(job, idempotency_key=key, label=label, destinations=destinations,
                               callback=callback, force_async=force_async)
-        def submit() -> _Fetched[Submitted]:
+        def submit() -> Fetched[Submitted]:
             sent = self._raw.submit_job(request=_EMPTY_REQUEST, request_options=submit_options(request))
-            return _Fetched(sent.headers, submitted(sent.response))
+            return Fetched(sent.headers, submitted(sent.response))
 
         try:
-            return self._client._call("POST", "/jobs", submit)
+            return self._client._call("POST", "/jobs", submit, replayable=True)  # keyed: a repeat replays the first job
         except RendobarError as err:
             mark_cut_off(err, key)
             raise
@@ -887,26 +880,62 @@ class Jobs:
         safe = path_segment("job_id", job_id)
         return self._job("GET", f"/jobs/{safe}", lambda: self._raw.get_job(safe), deadline)
 
-    def list(self, *, status: Union[JobStatus, str, None] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
+    def list(
+        self,
+        *,
+        status: Union[JobStatus, str, None] = None,
+        type: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        sort: Optional[JobSort] = None,
+        order: Optional[SortOrder] = None,
+        client: Optional[str] = None,
+        from_: Optional[int] = None,
+        to: Optional[int] = None,
+    ) -> Page[SomeJob, PageMeta]:
         """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page.
 
-        `limit` is the page size (1 or more, the API sets the maximum) and `offset` the jobs to skip.
+        Args:
+            status: Only jobs in this status.
+            type: Only jobs of this job type.
+            limit: The page size (1 or more, the API sets the maximum).
+            offset: The jobs to skip.
+            sort: `"created"` (default), `"duration"` or `"cost"`.
+            order: `"desc"` (default) or `"asc"`.
+            client: Only jobs submitted from this client, such as `"python"`, `"cli"` or `"dashboard"`.
+            from_: Only jobs created at or after this time, in Unix milliseconds.
+            to: Only jobs created at or before this time, in Unix milliseconds.
         """
         page_window(limit, offset)
         list_filters(status, type)
+        job_filters(client, from_, to)
         try:
-            res = self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(type=type, limit=limit, offset=offset, request_options=status_filter(status)))
+            res = self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(
+                type=type, limit=limit, offset=offset, sort=sort, order=order, client=client, from_=from_, to=to,
+                request_options=status_filter(status)))
         except ResponseValidationError as err:
             return job_page(err)
         jobs: List[SomeJob] = list(res.data)
         return Page(jobs, res.meta)
 
-    def list_all(self, *, status: Union[JobStatus, str, None] = None, type: Optional[str] = None, page_size: int = 100) -> Iterator[SomeJob]:
-        """Every matching job, fetching pages as you iterate."""
+    def list_all(
+        self,
+        *,
+        status: Union[JobStatus, str, None] = None,
+        type: Optional[str] = None,
+        sort: Optional[JobSort] = None,
+        order: Optional[SortOrder] = None,
+        client: Optional[str] = None,
+        from_: Optional[int] = None,
+        to: Optional[int] = None,
+        page_size: int = 100,
+    ) -> Iterator[SomeJob]:
+        """Every matching job, fetching pages of `page_size` as you iterate. Takes the filters of `list()`."""
         page_window(page_size, None)
         offset = 0
         while True:
-            page = self.list(status=status, type=type, limit=page_size, offset=offset)
+            page = self.list(status=status, type=type, sort=sort, order=order, client=client, from_=from_, to=to,
+                             limit=page_size, offset=offset)
             yield from page.data
             offset += len(page.data)
             if not page.data or offset >= page.meta.total:
@@ -916,6 +945,26 @@ class Jobs:
         """Cancel a job that has not finished."""
         safe = path_segment("job_id", job_id)
         return self._job("POST", f"/jobs/{safe}/cancel", lambda: self._raw.cancel_job(safe))
+
+    def retry_deliveries(self, job_id: str) -> DeliveriesRetried:
+        """Put a completed job's failed storage deliveries back on the queue. `retried` says how many."""
+        safe = path_segment("job_id", job_id)
+        return self._client._read("POST", f"/jobs/{safe}/deliveries/retry", lambda: self._raw.retry_deliveries(safe),
+                                  one(DeliveriesRetried))
+
+    def logs(self, job_id: str) -> List[JobLogEntry]:
+        """The job's log lines, oldest first: `timestamp` (Unix ms), `level`, `event`, `message` and the `step` it came from."""
+        safe = path_segment("job_id", job_id)
+        return self._client._read("GET", f"/jobs/{safe}/logs", lambda: self._raw.get_job_logs(safe), listed(JobLogEntry))
+
+    def get_timings(self, job_id: str) -> JobTimings:
+        """Where the job's time went, in milliseconds: the API's checks, the queue, download, execute and upload."""
+        safe = path_segment("job_id", job_id)
+        return self._client._read("GET", f"/jobs/{safe}/timings", lambda: self._raw.get_job_timings(safe), one(JobTimings))
+
+    def stats(self, *, window: Optional[StatsWindow] = None) -> JobStats:
+        """Totals, success rate, average duration and spend over `window` (default `"24h"`; `"all"` is the workspace's whole history)."""
+        return self._client._read("GET", "/jobs/stats", lambda: self._raw.get_job_stats(window=window), one(JobStats))
 
     def download(self, job_id: str, to: DownloadTarget) -> int:
         """Stream a completed job's output file to `to` and return the bytes written.
@@ -927,7 +976,7 @@ class Jobs:
         """
         safe = path_segment("job_id", job_id)
 
-        def fetch() -> _Fetched[int]:
+        def fetch() -> Fetched[int]:
             with self._raw.download_job_output(safe) as response:
                 sink = Sink(to)
                 try:
@@ -936,7 +985,7 @@ class Jobs:
                 except BaseException as err:
                     sink.fail()
                     raise body_failed(err) from err
-                return _Fetched(response.headers, sink.finish())
+                return Fetched(response.headers, sink.finish())
 
         return self._client._call("GET", f"/jobs/{safe}/download", fetch)
 

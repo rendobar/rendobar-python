@@ -19,23 +19,19 @@ from ._client import (
     DEFAULT_BASE_URL,
     DeprecationNotice,
     DownloadTarget,
-    Envelope,
-    Page,
     ProgressCallback,
-    Response,
     Sink,
     WaitPoll,
     _Deprecations,
-    _Fetched,
     body_failed,
     core_options,
     generate_idempotency_key,
+    is_read,
+    job_filters,
     job_page,
     list_filters,
     mark_cut_off,
     one_job,
-    page_window,
-    path_segment,
     require_key,
     resolve_api_key,
     retry_delay,
@@ -46,8 +42,21 @@ from ._client import (
     submitted,
     wait_options,
 )
+from ._async_resources import (
+    AsyncApiKeys,
+    AsyncAssets,
+    AsyncBilling,
+    AsyncCompose,
+    AsyncNotifications,
+    AsyncOrgs,
+    AsyncStorage,
+    AsyncUploads,
+    AsyncWebhooks,
+)
 from ._errors import RendobarError, ResponseValidationError, client_closed, to_public
 from ._generated.client import AsyncGeneratedClient
+from ._plumbing import Envelope, Fetched, Page, Reader, Response, Sent, listed, one, page_window, path_segment
+from ._resource_models import DeliveriesRetried, JobLogEntry, JobSort, JobStats, JobTimings, SortOrder, StatsWindow
 from ._models import (
     AccountCapabilities,
     Callback,
@@ -57,6 +66,7 @@ from ._models import (
     JobStatus,
     JobType,
     JobTypeSchema,
+    PageMeta,
     SomeJob,
     SubmitJob,
     Submitted,
@@ -96,6 +106,15 @@ class AsyncRendobar:
         self._deprecations = _Deprecations(on_deprecation)
         self.jobs = AsyncJobs(self)
         self.account = AsyncAccount(self)
+        self.billing = AsyncBilling(self)
+        self.uploads = AsyncUploads(self)
+        self.assets = AsyncAssets(self)
+        self.webhooks = AsyncWebhooks(self)
+        self.storage = AsyncStorage(self)
+        self.api_keys = AsyncApiKeys(self)
+        self.orgs = AsyncOrgs(self)
+        self.compose = AsyncCompose(self)
+        self.notifications = AsyncNotifications(self)
 
     async def aclose(self) -> None:
         """Close the underlying HTTP connections. Every call after raises RendobarError (code `CLIENT_CLOSED`)."""
@@ -108,18 +127,20 @@ class AsyncRendobar:
     async def __aexit__(self, exc_type: Optional[Type[BaseException]], exc: Optional[BaseException], tb: Optional[TracebackType]) -> None:
         await self.aclose()
 
-    async def _call(self, method: str, path: str, fn: Callable[[], Awaitable[Response[T]]], *, public: bool = False, deadline: Optional[float] = None) -> T:
+    async def _call(self, method: str, path: str, fn: Callable[[], Awaitable[Response[T]]], *, public: bool = False,
+                    deadline: Optional[float] = None, replayable: Optional[bool] = None) -> T:
         """One API call, with the same retries and errors as `Rendobar._call`."""
         if self._closed:
             raise client_closed()
         if not public:
             require_key(self._api_key)
+        safe = replayable if replayable is not None else is_read(method)
         attempt = 0
         while True:
             try:
                 response = await fn()
             except _CORE_FAILURES as err:
-                delay = retry_delay(err, attempt, self._max_retries, deadline=deadline)
+                delay = retry_delay(err, attempt, self._max_retries, deadline=deadline, replayable=safe)
                 if delay is None:
                     raise to_public(err) from err
                 attempt += 1
@@ -127,6 +148,15 @@ class AsyncRendobar:
                 continue
             self._deprecations.note(response, method, path)
             return response.data
+
+    async def _read(self, method: str, path: str, call: Callable[[], Awaitable[Sent]], read: Reader[T], *,
+                    replayable: Optional[bool] = None) -> T:
+        """`_call` for a generated core call whose answer `read` parses into the public model."""
+        async def fetch() -> Fetched[T]:
+            sent = await call()
+            return Fetched(sent.headers, read(sent.response))
+
+        return await self._call(method, path, fetch, replayable=replayable)
 
 
 class AsyncJobs:
@@ -148,7 +178,7 @@ class AsyncJobs:
 
     async def _job(self, method: str, path: str, fn: Callable[[], Awaitable[Response[Envelope[T]]]], deadline: Optional[float] = None) -> Union[T, UnknownJob]:
         try:
-            return (await self._client._call(method, path, fn, deadline=deadline)).data
+            return (await self._client._call(method, path, fn, deadline=deadline, replayable=True)).data
         except ResponseValidationError as err:
             return one_job(err)
 
@@ -189,12 +219,12 @@ class AsyncJobs:
         key = idempotency_key if idempotency_key is not None else generate_idempotency_key()
         request = submit_body(job, idempotency_key=key, label=label, destinations=destinations,
                               callback=callback, force_async=force_async)
-        async def submit() -> _Fetched[Submitted]:
+        async def submit() -> Fetched[Submitted]:
             sent = await self._raw.submit_job(request=_EMPTY_REQUEST, request_options=submit_options(request))
-            return _Fetched(sent.headers, submitted(sent.response))
+            return Fetched(sent.headers, submitted(sent.response))
 
         try:
-            return await self._client._call("POST", "/jobs", submit)
+            return await self._client._call("POST", "/jobs", submit, replayable=True)  # keyed: a repeat replays the first job
         except RendobarError as err:
             mark_cut_off(err, key)
             raise
@@ -207,26 +237,50 @@ class AsyncJobs:
         safe = path_segment("job_id", job_id)
         return await self._job("GET", f"/jobs/{safe}", lambda: self._raw.get_job(safe), deadline)
 
-    async def list(self, *, status: Union[JobStatus, str, None] = None, type: Optional[str] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> Page:
-        """One page of jobs, newest first. A job with a status newer than this SDK is an `UnknownJob` in the page.
-
-        `limit` is the page size (1 or more, the API sets the maximum) and `offset` the jobs to skip.
-        """
+    async def list(
+        self,
+        *,
+        status: Union[JobStatus, str, None] = None,
+        type: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        sort: Optional[JobSort] = None,
+        order: Optional[SortOrder] = None,
+        client: Optional[str] = None,
+        from_: Optional[int] = None,
+        to: Optional[int] = None,
+    ) -> Page[SomeJob, PageMeta]:
+        """One page of jobs, newest first. Same filters as `Rendobar.jobs.list`."""
         page_window(limit, offset)
         list_filters(status, type)
+        job_filters(client, from_, to)
         try:
-            res = await self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(type=type, limit=limit, offset=offset, request_options=status_filter(status)))
+            res = await self._client._call("GET", "/jobs", lambda: self._raw.list_jobs(
+                type=type, limit=limit, offset=offset, sort=sort, order=order, client=client, from_=from_, to=to,
+                request_options=status_filter(status)))
         except ResponseValidationError as err:
             return job_page(err)
         jobs: List[SomeJob] = list(res.data)
         return Page(jobs, res.meta)
 
-    async def list_all(self, *, status: Union[JobStatus, str, None] = None, type: Optional[str] = None, page_size: int = 100) -> AsyncIterator[SomeJob]:
-        """Every matching job, fetching pages as you iterate."""
+    async def list_all(
+        self,
+        *,
+        status: Union[JobStatus, str, None] = None,
+        type: Optional[str] = None,
+        sort: Optional[JobSort] = None,
+        order: Optional[SortOrder] = None,
+        client: Optional[str] = None,
+        from_: Optional[int] = None,
+        to: Optional[int] = None,
+        page_size: int = 100,
+    ) -> AsyncIterator[SomeJob]:
+        """Every matching job, fetching pages of `page_size` as you iterate. Takes the filters of `list()`."""
         page_window(page_size, None)
         offset = 0
         while True:
-            page = await self.list(status=status, type=type, limit=page_size, offset=offset)
+            page = await self.list(status=status, type=type, sort=sort, order=order, client=client, from_=from_, to=to,
+                                   limit=page_size, offset=offset)
             for job in page.data:
                 yield job
             offset += len(page.data)
@@ -238,11 +292,31 @@ class AsyncJobs:
         safe = path_segment("job_id", job_id)
         return await self._job("POST", f"/jobs/{safe}/cancel", lambda: self._raw.cancel_job(safe))
 
+    async def retry_deliveries(self, job_id: str) -> DeliveriesRetried:
+        """Put a completed job's failed storage deliveries back on the queue. `retried` says how many."""
+        safe = path_segment("job_id", job_id)
+        return await self._client._read("POST", f"/jobs/{safe}/deliveries/retry", lambda: self._raw.retry_deliveries(safe),
+                                        one(DeliveriesRetried))
+
+    async def logs(self, job_id: str) -> List[JobLogEntry]:
+        """The job's log lines, oldest first."""
+        safe = path_segment("job_id", job_id)
+        return await self._client._read("GET", f"/jobs/{safe}/logs", lambda: self._raw.get_job_logs(safe), listed(JobLogEntry))
+
+    async def get_timings(self, job_id: str) -> JobTimings:
+        """Where the job's time went, in milliseconds."""
+        safe = path_segment("job_id", job_id)
+        return await self._client._read("GET", f"/jobs/{safe}/timings", lambda: self._raw.get_job_timings(safe), one(JobTimings))
+
+    async def stats(self, *, window: Optional[StatsWindow] = None) -> JobStats:
+        """Totals, success rate, average duration and spend over `window` (default `"24h"`)."""
+        return await self._client._read("GET", "/jobs/stats", lambda: self._raw.get_job_stats(window=window), one(JobStats))
+
     async def download(self, job_id: str, to: DownloadTarget) -> int:
         """Stream a completed job's output file to `to` and return the bytes written. Same rules as `Rendobar.jobs.download`."""
         safe = path_segment("job_id", job_id)
 
-        async def fetch() -> _Fetched[int]:
+        async def fetch() -> Fetched[int]:
             # File I/O runs in a worker thread so a slow disk never blocks the event loop.
             async with self._raw.download_job_output(safe) as response:
                 sink = await asyncio.to_thread(Sink, to)
@@ -252,7 +326,7 @@ class AsyncJobs:
                 except BaseException as err:
                     await asyncio.to_thread(sink.fail)
                     raise body_failed(err) from err
-                return _Fetched(response.headers, await asyncio.to_thread(sink.finish))
+                return Fetched(response.headers, await asyncio.to_thread(sink.finish))
 
         return await self._client._call("GET", f"/jobs/{safe}/download", fetch)
 

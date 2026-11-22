@@ -1,7 +1,8 @@
 """Deprecation notices are advisory: they never change the outcome of a call."""
 from __future__ import annotations
 
-from rendobar._client import _Deprecations, _Fetched, _parse_deprecation, _route_of
+from rendobar._client import _Deprecations, _parse_deprecation, _route_of
+from rendobar._plumbing import Fetched as _Fetched
 
 
 def response(value: str) -> _Fetched[bytes]:
