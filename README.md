@@ -332,9 +332,9 @@ The `crewai` extra installs CrewAI itself, which brings about 120 packages and t
 
 Frameworks that speak MCP (the OpenAI Agents SDK, the Claude Agent SDK) can connect to `https://api.rendobar.com/mcp` with no package.
 
-## Framework examples
+## Examples
 
-[`examples/`](examples) has a FastAPI app and Django views that submit a job and verify Rendobar's webhook. CI runs both against the conformance mock.
+[`examples/`](examples) has small projects that use the SDK end to end: a quickstart, an ffmpeg job streamed to disk, a batch worker with idempotency keys and error handling, a webhook receiver, and account reads. It also has a FastAPI app and Django views that submit a job and verify Rendobar's webhook. CI runs all of them against the conformance mock.
 
 ## Let your AI assistant do it
 

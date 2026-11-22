@@ -1,0 +1,30 @@
+name: examples-live
+# The example projects against the staging API: real jobs, billed, about six small
+# ones per run. On demand, every Monday, and from release.yml before a publish.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_call:
+    secrets:
+      RENDOBAR_STAGING_API_KEY:
+        required: true
+      RENDOBAR_STAGING_API_URL:
+        required: true
+concurrency:
+  group: examples-live
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - name: Examples (live)
+        env:
+          RENDOBAR_API_KEY: ${{ secrets.RENDOBAR_STAGING_API_KEY }}
+          RENDOBAR_API_URL: ${{ secrets.RENDOBAR_STAGING_API_URL }}
+        run: python3 examples/run.py --mode live

@@ -92,3 +92,29 @@ jobs:
         run: |
           .venv/bin/python -m mypy
           .venv/bin/python -m mypy tests/typing_check.py
+  examples:
+    # The example projects (examples/README.md), on the built wheel in a fresh venv:
+    # pyright strict, mypy --strict, then each one run against the conformance mock.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: rendobar/openapi
+          path: .openapi
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - name: Start the conformance mock
+        # The mock script and deny-list come from rendobar/openapi; the spec it serves is
+        # fern/openapi.json, the one this core was generated from, so a newer published
+        # spec cannot fail CI before its regeneration PR exists.
+        run: |
+          python3 -I .openapi/conformance/mock_server.py fern/openapi.json 4100 requests.jsonl > mock.log 2>&1 &
+          for i in $(seq 1 20); do
+            if curl -sf -X POST http://127.0.0.1:4100/__reset > /dev/null; then exit 0; fi
+            sleep 0.5
+          done
+          echo "The conformance mock did not come up:"; cat mock.log; exit 1
+      - name: Examples (mock)
+        run: python3 examples/run.py --mode mock

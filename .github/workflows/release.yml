@@ -18,8 +18,18 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-  publish:
+  examples-live:
+    # The example projects against staging (examples/README.md). A failure stops the publish.
     needs: release-please
+    if: needs.release-please.outputs.released == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/examples-live.yml
+    secrets:
+      RENDOBAR_STAGING_API_KEY: ${{ secrets.RENDOBAR_STAGING_API_KEY }}
+      RENDOBAR_STAGING_API_URL: ${{ secrets.RENDOBAR_STAGING_API_URL }}
+  publish:
+    needs: [release-please, examples-live]
     if: needs.release-please.outputs.released == 'true'
     runs-on: ubuntu-latest
     environment: pypi
