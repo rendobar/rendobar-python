@@ -1,5 +1,5 @@
 name: examples-live
-# The example projects against the staging API: real jobs, billed, about six small
+# The example projects against the staging API: real jobs, billed, about seven small
 # ones per run. On demand, every Monday, and from release.yml before a publish.
 on:
   workflow_dispatch:

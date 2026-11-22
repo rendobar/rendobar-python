@@ -28,7 +28,7 @@
 
 `rendobar` is the official Python client for [Rendobar](https://rendobar.com), a serverless media processing API. Submit a job, wait for it, and get back a hosted file. It has sync and asyncio clients with full types, retries rate limits, server errors and failed connections on its own, and never turns a retried submit into a second job.
 
-It covers the whole API that `@rendobar/sdk` covers: jobs, uploads and assets, webhook endpoints, connected storage, API keys, organizations, billing, compose, notifications and the account. See [What the client covers](#what-the-client-covers).
+It covers the whole API that `@rendobar/sdk` covers: jobs, uploads and assets, webhook endpoints, connected storage, API keys, organizations, billing, compose, notifications, the account and realtime events. See [What the client covers](#what-the-client-covers).
 
 ## Install
 
@@ -36,7 +36,7 @@ It covers the whole API that `@rendobar/sdk` covers: jobs, uploads and assets, w
 pip install rendobar
 ```
 
-Python 3.10 or newer.
+Python 3.10 or newer. For [realtime events](#realtime-events), install the `realtime` extra: `pip install "rendobar[realtime]"`.
 
 ## Quickstart
 
@@ -112,6 +112,7 @@ Each resource is an attribute of the client, with the same names as `@rendobar/s
 | `compose` | `effects`, `engine_effects`, `validate` |
 | `notifications` | `list`, `mark_read` |
 | `account` | `capabilities` |
+| `realtime` | `connect`, `subscribe_job` (the `realtime` extra, see [Realtime events](#realtime-events)) |
 
 The first argument of a method is the id it acts on, when it has one. Everything else is a keyword argument, so a new option never breaks a call you wrote. An argument left out, or passed as `None`, is not sent.
 
@@ -365,6 +366,41 @@ Rendobar signs each delivery with these headers:
 
 `verify()` recomputes the signature and compares it in constant time. It accepts either signature header, so a receiver holding the old or the new secret verifies during a rotation. It rejects a timestamp more than 300 seconds from now (`tolerance_seconds`) and a blank secret. A per-job callback sent with `"verify": True` carries the same headers, signed with your callback signing secret.
 
+## Realtime events
+
+`rb.realtime` streams a workspace's events over a WebSocket as they happen. It needs the `realtime` extra:
+
+```bash
+pip install "rendobar[realtime]"
+```
+
+`subscribe_job()` follows one job and stops after its final status:
+
+```python
+from rendobar import Rendobar, realtime
+
+
+def follow(rb: Rendobar, job_id: str) -> None:
+    for event in rb.realtime.subscribe_job(job_id, timeout=600):
+        if isinstance(event, realtime.JobProgress):
+            print(event.phase, event.progress)  # progress is 0 to 1, or None when it cannot be told
+        elif isinstance(event, realtime.JobLog):
+            print(event.level, event.message)
+        elif isinstance(event, realtime.JobStatusChanged):
+            print("status", event.status, event.final)
+        # anything else: another event, or realtime.UnknownRealtimeEvent for one newer than this SDK
+```
+
+It yields `realtime.Connected`, then the job's progress, steps, logs, resources, previews, status and result, replayed ones first. A job that already ended stops after its replayed status. A job the workspace does not have raises `NotFoundError`. With `timeout` (seconds), a job that has not ended by then raises `RendobarError` with code `WAIT_TIMEOUT`.
+
+`connect()` streams every event of the workspace, such as `realtime.BalanceUpdated` and `realtime.Notification`, until you stop iterating. It yields `realtime.Connected` on each connection, the events the workspace kept, `realtime.ReplayDone`, then live events.
+
+Both reconnect with backoff (1 second, growing to 30) and resume after the last event they yielded, so you never see one twice. To resume in a later process, store the `event_id` of the last event you handled and pass it as `connect(last_event_id=...)`. `realtime.Resync` says events were lost: read your state again. A message this SDK cannot read, a type newer than it or a known type whose fields changed shape, comes back as `realtime.UnknownRealtimeEvent` with the message in `raw`, never as an exception. A refusal no reconnect fixes, such as a revoked key (401) or one without the `jobs:read` scope (403), raises its error. The key travels in the `Authorization` header, never in the URL.
+
+On `AsyncRendobar` the same methods return async generators: `async for event in rb.realtime.subscribe_job(job_id)`. To close a stream before it ends, break out of the loop and drop it, or wrap it in `contextlib.closing` (`contextlib.aclosing` for async) to close it at a known point.
+
+Without the extra, both methods raise `ImportError` naming it. The rest of the SDK, and the event types in `rendobar.realtime`, work without it.
+
 ## AI agents
 
 Give an agent Rendobar's four tools (`list_job_types`, `run_job`, `get_job`, `probe_media`), the same ones as the Rendobar MCP server. Failures come back to the model as data (`{"error": {"code", "message", "request_id"}}`), so one bad call does not end the run. Once a job exists, a failure while waiting returns its `id` and tells the model to call `get_job`, so a dropped connection never leads to a second billed job.
@@ -411,7 +447,7 @@ Frameworks that speak MCP (the OpenAI Agents SDK, the Claude Agent SDK) can conn
 
 ## Examples
 
-[`examples/`](examples) has small projects that use the SDK end to end: a quickstart, an upload trimmed by ffmpeg and streamed back to disk, a batch worker with idempotency keys, logs and error handling, a webhook receiver that manages a real endpoint, and an account admin script (billing, usage, API keys, org settings, notifications). It also has a FastAPI app and Django views that submit a job and verify Rendobar's webhook. CI runs all of them against the conformance mock.
+[`examples/`](examples) has small projects that use the SDK end to end: a quickstart, an upload trimmed by ffmpeg and streamed back to disk, a batch worker with idempotency keys, logs and error handling, a webhook receiver that manages a real endpoint, an account admin script (billing, usage, API keys, org settings, notifications), and a job followed live over the event stream. It also has a FastAPI app and Django views that submit a job and verify Rendobar's webhook. CI runs all of them against the conformance mock.
 
 ## Let your AI assistant do it
 

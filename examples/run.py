@@ -32,6 +32,7 @@ PROJECTS: Dict[str, List[str]] = {
     "batch-worker": [],
     "webhook-receiver": ["--self-test"],
     "account-admin": [],
+    "realtime-progress": [],
 }
 
 
@@ -41,13 +42,13 @@ def sh(cmd: List[str], cwd: Path, env: Dict[str, str] | None = None) -> bool:
 
 
 def install(tmp: Path) -> Path:
-    """Build the wheel, install it into a new venv with the type checkers, and return that venv's python."""
+    """Build the wheel, install it with its realtime extra into a new venv with the type checkers, and return that venv's python."""
     if not sh(["uv", "build", "--wheel", "--out-dir", str(tmp / "dist")], ROOT):
         sys.exit("FAIL: the wheel did not build")
     wheel = next((tmp / "dist").glob("rendobar-*.whl"))
     python = tmp / "venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     if not (sh(["uv", "venv", str(tmp / "venv")], tmp)
-            and sh(["uv", "pip", "install", "--python", str(python), str(wheel), "pyright", "mypy"], tmp)):
+            and sh(["uv", "pip", "install", "--python", str(python), f"rendobar[realtime] @ {wheel.as_uri()}", "pyright", "mypy"], tmp)):
         sys.exit("FAIL: could not install the wheel")
     where = subprocess.run([str(python), "-I", "-c", "import rendobar; print(rendobar.__file__)"],
                            cwd=tmp, capture_output=True, text=True, check=True).stdout.strip()

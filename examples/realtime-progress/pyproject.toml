@@ -1,0 +1,11 @@
+[project]
+name = "rendobar-example-realtime-progress"
+version = "0.0.0"
+requires-python = ">=3.10"
+dependencies = ["rendobar[realtime]"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+[tool.mypy]
+strict = true

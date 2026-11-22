@@ -42,9 +42,22 @@ For coding agents changing this SDK. Users of the SDK want the README.
 - Webhook verification must agree with `tests/fixtures/webhook-vectors.json`.
 - Discover job types with `rb.jobs.types()` (live registry). Never hardcode the list.
 
+- Realtime is the optional `realtime` extra (`websockets`). `realtime.py` holds the event
+  models and `decode()` and imports without the extra; `_realtime.py` holds `rb.realtime`
+  (`connect`, `subscribe_job`, the names of `@rendobar/sdk`'s `realtime`), sync and async.
+  `websockets` is imported only when a stream starts, and a missing one is an `ImportError`
+  naming the extra. A message that does not read as a known event is an
+  `UnknownRealtimeEvent`, never an error. The protocol (paths, Authorization header, init
+  with `lastEventId`, `eventId` cursor, backoff, which refusals are permanent) matches the Go
+  SDK's `realtime` package. `tests/test_realtime.py` runs both clients against a local
+  WebSocket server; the conformance mock has none.
+- Fern types an operation's answer from its first 2xx response, so `derive_overrides.py` gives an
+  operation whose 2xx responses are different components a union of them (`CreateAssetAnswer`),
+  and reads every list's `meta.pages` as optional (a server or mock that predates it still reads).
+
 - `src/rendobar/agents/`: `_core.py` holds the four agent tools; `langchain.py`
   and `crewai.py` only wrap them. Tools return errors as data, never raise.
-  The adapters need the extras (`.[langchain,crewai]`), which the CI `agents` job installs.
+  The adapters need the extras (`.[langchain,crewai]`), which the CI `agents` job installs with `realtime`.
 - The public API is `rendobar.__all__`. CI runs `griffe check` against the last
   release tag, so removing or changing anything exported fails the build.
 - The deny-list scan is `.openapi/scripts/deny_list.py`, shared by every public repo.
