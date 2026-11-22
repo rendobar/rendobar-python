@@ -28,6 +28,8 @@
 
 `rendobar` is the official Python client for [Rendobar](https://rendobar.com), a serverless media processing API. Submit a job, wait for it, and get back a hosted file. It has sync and asyncio clients with full types, retries rate limits, server errors and failed connections on its own, and never turns a retried submit into a second job.
 
+It covers the whole API that `@rendobar/sdk` covers: jobs, uploads and assets, webhook endpoints, connected storage, API keys, organizations, billing, compose, notifications and the account. See [What the client covers](#what-the-client-covers).
+
 ## Install
 
 ```bash
@@ -93,6 +95,77 @@ rb = Rendobar(
 
 With no key passed and no `RENDOBAR_API_KEY` set (or an empty one), the client still works for `jobs.types()` and `jobs.schema()`, which need no key. Every other call raises `AuthenticationError` with code `MISSING_API_KEY` before it sends anything. A key that does not start with `rb_` gets code `INVALID_API_KEY` the same way, and the client never sends it.
 
+## What the client covers
+
+Each resource is an attribute of the client, with the same names as `@rendobar/sdk` in snake case. `AsyncRendobar` has the same resources and methods, awaited.
+
+| Resource | Methods |
+|---|---|
+| `jobs` | `create`, `run`, `wait`, `get`, `list`, `list_all`, `cancel`, `download`, `logs`, `get_timings`, `stats`, `retry_deliveries`, `types`, `schema` |
+| `uploads` | `create` |
+| `assets` | `list`, `get`, `delete`, `download`, `templates` |
+| `webhooks` | `create`, `list`, `get`, `update`, `delete`, `rotate_secret`, `test`, `list_deliveries`, `retry_delivery` |
+| `storage` | `create`, `list`, `get`, `update`, `delete`, `test`, `stats`, `list_objects`, `prepare_aws`, `list_account_buckets`, `look_up_s3_bucket`, `start_supabase`, `list_supabase_projects`, `list_supabase_buckets`, `finish_supabase` |
+| `api_keys` | `create`, `list`, `revoke`, `update` |
+| `orgs` | `list`, `current`, `create`, `update`, `delete`, `get_settings`, `update_settings`, `members.invite`, `members.change_role`, `members.remove`, `invitations.revoke` |
+| `billing` | `state`, `usage`, `usage_by_client`, `transactions`, `history`, `checkout_credits`, `checkout_plan`, `cancel_subscription`, `reactivate_subscription`, `cancel_credit_schedule`, `payment_methods`, `delete_payment_method`, `set_default_payment_method`, `portal_url` |
+| `compose` | `effects`, `engine_effects`, `validate` |
+| `notifications` | `list`, `mark_read` |
+| `account` | `capabilities` |
+
+The first argument of a method is the id it acts on, when it has one. Everything else is a keyword argument, so a new option never breaks a call you wrote. An argument left out, or passed as `None`, is not sent.
+
+A list comes back as a `Page`: iterate it, or read `data` (the items) and `meta` (the totals the API reports, such as `total`). A list the API does not page, such as `api_keys.list()`, is a plain list.
+
+```python
+from rendobar import Rendobar
+
+rb = Rendobar()
+page = rb.webhooks.list_deliveries(status="failed", limit=20)
+print(page.meta.total, [delivery.event for delivery in page])
+for key in rb.api_keys.list():
+    print(key.prefix, key.scopes)
+```
+
+Billing amounts (`billing.state().balance.amount`, transactions, invoices) are US dollars, as the API sends them. Job costs are integer nanodollars (see [Results](#results)).
+
+### Uploads and assets
+
+`uploads.create()` sends a local file (a path, or bytes with a `filename`) straight to storage on presigned URLs and returns the ready `Asset`. A large file goes up in parts, in parallel, and a file on disk is streamed, never read into memory whole. A job reads the asset as `asset://<id>`:
+
+```python
+from rendobar import Rendobar
+
+
+def trim(rb: Rendobar, path: str) -> str:
+    asset = rb.uploads.create(path, content_type="video/mp4", on_progress=lambda p: print(p.loaded, "of", p.total))
+    job = rb.jobs.run({
+        "type": "ffmpeg",
+        "inputs": {"clip.mp4": f"asset://{asset.id}"},
+        "params": {"command": "ffmpeg -i clip.mp4 -t 5 out.mp4"},
+    })
+    rb.assets.delete(asset.id)
+    return job.output.files[0].url
+```
+
+An upload is ephemeral unless you pass `persist=True`: it expires on its own after 24 hours. A PUT to storage that fails is tried three times, then raises `RendobarError` with code `UPLOAD_FAILED`.
+
+### Webhook endpoints
+
+`webhooks.create()` returns a `WebhookEndpointWithSecret`. Its `signing_secret` is in plaintext only there and in `rotate_secret()`, so store it then. `webhooks.test()` sends a `test` event and reports whether your URL answered with a 2xx. To read a delivery your server receives, use `rendobar.webhooks.parse()` ([Webhooks](#webhooks)).
+
+```python
+from rendobar import Rendobar
+
+rb = Rendobar()
+endpoint = rb.webhooks.create(name="prod", url="https://example.com/rendobar-webhook", subscribed_events=["job.completed", "job.failed"])
+print(endpoint.signing_secret)  # put it in your server's RENDOBAR_WEBHOOK_SECRET
+print(rb.webhooks.test(endpoint.id).delivered)
+rb.webhooks.delete(endpoint.id)
+```
+
+Creating an API key needs the `keys:write` scope, which no API key holds. With an API key, `api_keys.create()` raises `PermissionDeniedError` with code `INSUFFICIENT_SCOPE`. An OAuth access token or a dashboard session can create one.
+
 ## Submitting a job
 
 The first argument of `jobs.create()` and `jobs.run()` says what to run: `type`, `params` and, for job types that read files, `inputs`. Everything about how to run it is a keyword argument, listed under [Job options](#job-options). A submit option inside the job dict is a type error. Enum params are closed sets, so a value the job type does not take (`"compute": "tpu"`) fails the check too.
@@ -148,7 +221,11 @@ Every method returns a typed result, so your editor completes fields and your ty
 | `jobs.get()`, `jobs.list()`, `jobs.list_all()` | `Job`: one of `JobWaiting`, `JobDispatched`, `JobRunning`, `JobComplete`, `JobFailed`, `JobCancelled`, or an `UnknownJob` for a status newer than the SDK |
 | `jobs.cancel()` | `JobCancellation` (`id` and `status`) |
 | `jobs.types()`, `jobs.schema()` | a list of `JobType`, a `JobTypeSchema` |
+| `jobs.logs()`, `jobs.get_timings()`, `jobs.stats()` | a list of `JobLogEntry`, `JobTimings`, `JobStats` |
 | `account.capabilities()` | `AccountCapabilities` (`plan`, `limits`, `features`) |
+| any other resource | the model its method names, such as `Asset`, `WebhookEndpoint`, `StorageConnection`, `OrgSettings` or `BillingState`. One resource is one class, whichever method returned it |
+
+A response field the SDK does not know is kept in `model_extra`, and an enum value newer than your SDK (a new delivery status, a new storage check) arrives as a plain string, so a newer API never breaks a parse. Enums you pass are closed sets: a value the API does not take fails the type check.
 
 Only a `JobComplete` has `output`, and only a `JobFailed` has `error`. Check which one you have with `isinstance`:
 
@@ -183,7 +260,7 @@ if result.summary is not None:
 
 Free-form values the API does not describe, such as `job.params` and `job.output.data`, are typed `object`, so your type checker asks you to narrow them before use.
 
-`jobs.list()` takes `status` as one of the six job statuses (`JobStatus`), `limit` (1 or more) and `offset` (0 or more).
+`jobs.list()` takes `status` as one of the six job statuses (`JobStatus`), `type`, `limit` (1 or more), `offset` (0 or more), `sort` (`"created"`, `"duration"`, `"cost"`), `order`, `client` (such as `"python"`) and `from_`/`to` (Unix milliseconds). `jobs.list_all()` takes the same filters.
 
 `job.cost` is `None` until billing settles, which can be a moment after the job completes. Its `amount` is in nanodollars (1 USD = 1,000,000,000), and `formatted` has the same amount as dollars, such as `"$0.0021"`:
 
@@ -246,7 +323,7 @@ except BadRequestError as err:
 
 ## Retries and idempotency
 
-Only 429, 500, 502, 503, 504 and a connection that could not be made are retried, twice by default (`max_retries`). The client honours `Retry-After` (seconds or an HTTP date) up to 60 seconds, and a longer one raises the error with `retry_after` set. Without one, it backs off exponentially from half a second, with jitter. A retry that would sleep past the end of a `jobs.wait()` raises instead. Everything else raises at once: a 409 conflict, a 501, any other 4xx, and a request that timed out after reaching the API.
+Only 429, 500, 502, 503, 504 and a connection that could not be made are retried, twice by default (`max_retries`). A 5xx is retried only for a request that is safe to repeat: a read, a keyed job submit, a cancel. A write such as `webhooks.create()` or `billing.checkout_credits()` may have taken effect before the 5xx, so it raises at once rather than run twice. The client honours `Retry-After` (seconds or an HTTP date) up to 60 seconds, and a longer one raises the error with `retry_after` set. Without one, it backs off exponentially from half a second, with jitter. A retry that would sleep past the end of a `jobs.wait()` raises instead. Everything else raises at once: a 409 conflict, a 501, any other 4xx, and a request that timed out after reaching the API.
 
 Retrying a submit never creates a second job. With no `idempotency_key`, `jobs.create()` generates one for that call and sends it on every retry, so the API returns the job the first attempt created. Pass your own key, such as an order id, to make separate calls safe to repeat. A repeat with the same key and the same params returns the first job as a `JobReplayed`. A repeat with the same key and different params raises `ConflictError` (409, code `CONFLICT`). Keys never expire.
 
@@ -334,7 +411,7 @@ Frameworks that speak MCP (the OpenAI Agents SDK, the Claude Agent SDK) can conn
 
 ## Examples
 
-[`examples/`](examples) has small projects that use the SDK end to end: a quickstart, an ffmpeg job streamed to disk, a batch worker with idempotency keys and error handling, a webhook receiver, and account reads. It also has a FastAPI app and Django views that submit a job and verify Rendobar's webhook. CI runs all of them against the conformance mock.
+[`examples/`](examples) has small projects that use the SDK end to end: a quickstart, an upload trimmed by ffmpeg and streamed back to disk, a batch worker with idempotency keys, logs and error handling, a webhook receiver that manages a real endpoint, and an account admin script (billing, usage, API keys, org settings, notifications). It also has a FastAPI app and Django views that submit a job and verify Rendobar's webhook. CI runs all of them against the conformance mock.
 
 ## Let your AI assistant do it
 

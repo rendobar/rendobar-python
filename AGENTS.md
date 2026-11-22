@@ -11,9 +11,14 @@ For coding agents changing this SDK. Users of the SDK want the README.
   closes request enums, opens response enums to `Literal | str` and turns `Any` in
   models into `object`. CI checks both steps are current.
 - Hand-written code is everything else in `src/rendobar/`: `_client.py`,
-  `_async_client.py`, `_errors.py`, `_models.py`, `webhooks.py`. `_models.py` gives
-  the generated models users meet their public names (`JobComplete`, not
-  `Job_Complete`) without editing `_generated`. Every public method has a precise
+  `_async_client.py` (the clients and jobs), `_resources.py`, `_async_resources.py`
+  (every other resource), `_plumbing.py` (argument checks, `Page`, response readers),
+  `_errors.py`, `_models.py`, `_resource_models.py`, `webhooks.py`. `_models.py` and
+  `_resource_models.py` give the generated models users meet their public names
+  (`JobComplete`, not `Job_Complete`; `StorageConnection`, not `GetStorageResponseData`)
+  without editing `_generated`. A resource method reads its response body with a
+  `_plumbing` reader (`one`, `listed`, `paged`, `union`, `empty`) into ONE public model
+  per resource, because the core inlines a different class per operation. Every public method has a precise
   return type: `tests/typing_check.py` pins them, and the submit mistakes that must
   stay errors, under pyright strict and mypy --strict. Update it with any signature
   change. Every hand-written module starts with `# pyright: strict`.
@@ -24,8 +29,13 @@ For coding agents changing this SDK. Users of the SDK want the README.
   async client only awaits and sleeps.
 - The core is built with `max_retries=0`. Retries belong to `_call` (429, 5xx,
   connection failures only); never re-enable the core's, it retries 409 too.
-- Method names match `@rendobar/sdk` (`jobs.create/get/list/list_all/wait/run/cancel/download/types/schema`).
-  Do not rename one without renaming it there.
+- Method names match `@rendobar/sdk` in snake case (`jobs.get_timings`, `webhooks.list_deliveries`,
+  `orgs.members.change_role`). Do not rename one without renaming it there. `tests/test_resources.py`
+  has one case per method (request sent, model read, sync and async); a public method without
+  a case fails `test_every_resource_method_has_a_case`.
+- Request bodies go out through `_resources.body()`, which drops unset fields: the core
+  would send an explicit `None` as `null`. A write that is not keyed passes no `replayable`,
+  so `_call` does not retry it after a 5xx.
 - Behaviour is defined by the shared conformance scenarios
   (`tests/test_conformance.py`, from rendobar/openapi `conformance/SCENARIOS.md`).
   Every id must pass before a release.
